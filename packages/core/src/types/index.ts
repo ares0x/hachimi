@@ -132,3 +132,12 @@ export interface LLMResponse {
 export interface LLMProvider {
   chat(messages: Message[], tools?: ToolDefinition[]): Promise<LLMResponse>;
 }
+
+export interface Session {
+  id: string;
+  title?: string;
+  messages: Message[];
+  createdAt: number;
+  updatedAt: number;
+  metadata?: Record<string, unknown>;
+}
