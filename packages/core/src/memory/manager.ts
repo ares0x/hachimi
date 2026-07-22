@@ -1,11 +1,61 @@
 import { generateId } from "@hachimi/shared";
-import type { MemoryEntry, MemoryLayer, MemorySearchOptions } from "./types.js";
+import type {  MemorySearchOptions } from "./types.js";
+import type { MemoryEntry, MemoryLayer } from "../types/index.js";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 
 export class MemoryManager {
   private working: MemoryEntry[] = [];
   private session: MemoryEntry[] = [];
   private longTerm: MemoryEntry[] = [];
   private archival: MemoryEntry[] = [];
+
+  private filePath: string;
+
+  constructor(filePath = "data/memory.json") {
+    this.filePath = filePath;
+    this.load(); // 实例化时自动加载
+  }
+
+  /** 从文件加载记忆 */
+  load() {
+    try {
+      if (!existsSync(this.filePath)) return;
+
+      const raw = readFileSync(this.filePath, "utf-8");
+      const data = JSON.parse(raw);
+
+      this.working = data.working ?? [];
+      this.session = data.session ?? [];
+      this.longTerm = data.longTerm ?? [];
+      this.archival = data.archival ?? [];
+
+      console.log(`[Memory] 已从 ${this.filePath} 加载记忆`);
+    } catch (err) {
+      console.warn("[Memory] 加载失败，使用空记忆", err);
+    }
+  }
+
+  /** 保存记忆到文件 */
+  save() {
+    try {
+      const dir = dirname(this.filePath);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+
+      const data = {
+        working: this.working,
+        session: this.session,
+        longTerm: this.longTerm,
+        archival: this.archival,
+      };
+
+      writeFileSync(this.filePath, JSON.stringify(data, null, 2), "utf-8");
+    } catch (err) {
+      console.error("[Memory] 保存失败", err);
+    }
+  }
 
   // 添加记忆
   add(params: {
@@ -25,6 +75,7 @@ export class MemoryManager {
     };
 
     this.getLayerArray(params.layer).push(entry);
+    this.save();          // 新增：自动保存
     return entry;
   }
 
@@ -154,6 +205,7 @@ export class MemoryManager {
       const index = arr.findIndex((e) => e.id === id);
       if (index !== -1) {
         arr.splice(index, 1);
+        this.save();
         return true;
       }
     }

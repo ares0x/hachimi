@@ -7,6 +7,6 @@
     "dev": "echo \"CLI channel not implemented yet\""
   },
   "dependencies": {
-    "@hachimi/core": "*"
+    "@hachimi/core": "workspace:*"
   }
 }

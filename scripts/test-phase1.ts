@@ -2,6 +2,7 @@ import {
     Agent,
     ToolRegistry,
     MockLLMProvider,
+    MemoryManager,
 } from "../packages/core/src/index.js";
 
 async function main() {
@@ -44,6 +45,7 @@ async function main() {
     const agent = new Agent({
         llm: new MockLLMProvider(),
         tools,
+        memory: new MemoryManager(),
     });
 
     console.log("=== Test 1: 普通对话 ===");

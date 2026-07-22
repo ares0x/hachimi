@@ -8,7 +8,7 @@
     "build": "echo \"build later\""
   },
   "dependencies": {
-    "@hachimi/core": "*",
-    "@hachimi/channel-api": "*"
+    "@hachimi/core": "workspace:*",
+    "@hachimi/channel-api": "workspace:*"
   }
 }

@@ -2,10 +2,6 @@
 import type { Message, ToolDefinition, LLMResponse, LLMProvider } from "../types/index.js";
 import { generateId } from "@hachimi/shared";
 
-function generateId(prefix = ""): string {
-  return `${prefix}${crypto.randomUUID()}`;
-}
-
 export class MockLLMProvider implements LLMProvider {
   async chat(messages: Message[], tools: ToolDefinition[] = []): Promise<LLMResponse> {
     const lastMessage = messages[messages.length - 1];
@@ -17,12 +13,12 @@ export class MockLLMProvider implements LLMProvider {
 
     // 提取 system 记忆
     const systemMsg = messages.find((m) => m.role === "system");
-    const memoryText = systemMsg?.content || "";
+    const memoryText = typeof systemMsg?.content === "string" ? systemMsg.content : "";
     const hasMemory = memoryText.length > 10;
 
     // 用户输入
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
-    const userContent = lastUser?.content ?? "";
+    const userContent = typeof lastUser?.content === "string" ? lastUser.content : "";
 
     // 计算器
     const hasCalculator = tools.some((t) => t.name === "calculator");

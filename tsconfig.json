@@ -14,13 +14,12 @@
         "sourceMap": true,
         "outDir": "dist",
         "rootDir": ".",
-        "baseUrl": ".",
         "paths": {
-            "@hachimi/core": ["packages/core/src"],
-            "@hachimi/core/*": ["packages/core/src/*"],
-            "@hachimi/shared": ["packages/shared/src"],
-            "@hachimi/shared/*": ["packages/shared/src/*"],
-        },
+            "@hachimi/core": ["./packages/core/src"],
+            "@hachimi/core/*": ["./packages/core/src/*"],
+            "@hachimi/shared": ["./packages/shared/src"],
+            "@hachimi/shared/*": ["./packages/shared/src/*"]
+        }
     },
     "include": ["packages/**/*", "apps/**/*"],
     "exclude": ["node_modules", "dist", "**/dist"],

@@ -9,13 +9,15 @@ import { MemoryManager } from "../packages/core/src/memory/manager.js";
 
 async function main() {
     const tools = new ToolRegistry();
-    const memory = new MemoryManager();
+    const memory = new MemoryManager("data/memory.json");
     const llm = new MockLLMProvider();
 
     // 预先写入一些测试记忆
-    memory.remember("用户的名字是小明，喜欢简洁的回答", 0.9);
-    memory.remember("用户正在开发一个叫 hachimi 的个人助理项目", 0.85);
-    memory.remember("用户是一名前端开发者，熟悉 TypeScript 和 Go", 0.8);
+    if (memory.list("long_term").length === 0) {
+        memory.remember("用户的名字是小明，喜欢简洁的回答", 0.9);
+        memory.remember("用户正在开发一个叫 hachimi 的个人助理项目", 0.85);
+        memory.remember("用户是一名前端开发者，熟悉 TypeScript 和 Go", 0.8);
+    }
 
     // 注册一个简单计算器工具（保留 Phase 1 的能力）
     tools.register({
@@ -121,6 +123,13 @@ async function main() {
             memory.clear("session");
             console.log("会话记忆已清空\n");
             continue;
+        }
+        try {
+            const reply = await agent.run(userInput);
+            console.log("hachimi:", reply);
+            console.log();
+        } catch (err) {
+            console.error("出错了：", err);
         }
     }
 

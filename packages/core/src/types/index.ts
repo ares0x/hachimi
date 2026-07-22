@@ -26,6 +26,8 @@ export interface Message {
   timestamp: number;
   channel?: ChannelType;
   metadata?: Record<string, unknown>;
+  tool_call_id?: string;
+  name?: string;
 }
 
 export type ContentPart =
@@ -59,6 +61,7 @@ export interface MemoryEntry {
   lastAccessedAt: number;
   metadata?: Record<string, unknown>;
 }
+
 
 /** Skill definition (Lazy by design) */
 export interface SkillDefinition {

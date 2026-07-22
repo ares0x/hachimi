@@ -15,6 +15,52 @@ importers:
         specifier: ^5.8.2
         version: 5.9.3
 
+  apps/cli:
+    dependencies:
+      '@hachimi/channel-cli':
+        specifier: workspace:*
+        version: link:../../packages/channels/cli
+      '@hachimi/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+
+  apps/server:
+    dependencies:
+      '@hachimi/channel-api':
+        specifier: workspace:*
+        version: link:../../packages/channels/api
+      '@hachimi/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+
+  packages/channels/api:
+    dependencies:
+      '@hachimi/core':
+        specifier: workspace:*
+        version: link:../../core
+
+  packages/channels/cli:
+    dependencies:
+      '@hachimi/core':
+        specifier: workspace:*
+        version: link:../../core
+
+  packages/core:
+    dependencies:
+      '@hachimi/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      typescript:
+        specifier: ^5.8.2
+        version: 5.9.3
+
+  packages/shared:
+    devDependencies:
+      typescript:
+        specifier: ^5.8.2
+        version: 5.9.3
+
 packages:
 
   '@types/node@22.20.1':

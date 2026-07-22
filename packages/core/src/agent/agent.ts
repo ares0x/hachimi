@@ -5,11 +5,6 @@ import { ToolRegistry } from "../tools/registry.js";
 import { MemoryManager } from "../memory/manager.js";
 import { generateId } from "@hachimi/shared";
 
-// 临时本地实现（如果 @hachimi/shared 已经正确导出，可删掉这个函数）
-function generateId(prefix = ""): string {
-  return `${prefix}${crypto.randomUUID()}`;
-}
-
 export interface AgentOptions {
   llm: LLMProvider;
   tools: ToolRegistry;
@@ -41,13 +36,32 @@ export class Agent {
    * @param history 可选的历史消息（通常由外部 Session 管理）
    */
   async run(userInput: string, history: Message[] = []): Promise<string> {
-    // 1. 从 Memory 中检索相关内容（Session + Long-term）
-    const relevantMemories = this.memory.search(userInput, {
-      layers: ["session", "long_term"],
-      limit: 6,
-      minImportance: 0.3,
-    });
+      console.log("[DEBUG] Agent.run 收到输入:", JSON.stringify(userInput));
+      const input = userInput.trim();
 
+        // ========== 自然语言记住（更宽松的检测） ==========
+        const rememberPrefixes = ["请记住", "记住", "帮我记一下", "记一下"];
+
+        for (const prefix of rememberPrefixes) {
+          if (input.startsWith(prefix)) {
+            const content = input.slice(prefix.length).replace(/^[：:\s]+/, "").trim();
+
+            if (content) {
+              this.memory.remember(content, 0.75);
+              return `好的，我已经记住了：${content}`;
+            } else {
+              return "请告诉我需要记住的具体内容，例如：请记住我喜欢喝手冲咖啡";
+            }
+          }
+        }
+        // ========== 检测结束 ==========
+
+        // 后面原来的 memory.search 逻辑保持不变...
+        const relevantMemories = this.memory.search(input, {
+          layers: ["session", "long_term"],
+          limit: 6,
+          minImportance: 0.3,
+        });
     const messages: Message[] = [];
 
     // 2. 如果有相关记忆，注入为 system 消息

@@ -11,7 +11,7 @@
     "build": "echo \"build later\""
   },
   "dependencies": {
-    "@hachimi/core": "*",
-    "@hachimi/channel-cli": "*"
+      "@hachimi/core": "workspace:*",
+      "@hachimi/channel-cli": "workspace:*"
   }
 }

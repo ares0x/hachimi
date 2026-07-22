@@ -24,7 +24,7 @@ export class ToolRegistry {
       throw new Error(`Tool not found: ${name}`);
     }
     try {
-      return await tool.execute(args);
+      return await tool.execute(args, {} as any);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return `Error executing tool ${name}: ${message}`;

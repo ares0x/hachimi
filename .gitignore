@@ -12,3 +12,4 @@ coverage/
 data/
 *.db
 *.sqlite
+data/
