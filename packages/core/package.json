@@ -17,7 +17,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@hachimi/shared": "workspace:*"
+    "@hachimi/shared": "workspace:*",
+    "@hachimi/storage": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.8.2"

@@ -18,13 +18,26 @@ export class ToolRegistry {
     return Array.from(this.tools.values());
   }
 
-  async execute(name: string, args: Record<string, unknown>): Promise<string> {
+  async execute(
+    name: string,
+    args: Record<string, unknown>,
+    options?: { confirm?: boolean }
+  ): Promise<string> {
     const tool = this.tools.get(name);
-    if (!tool) {
-      throw new Error(`Tool not found: ${name}`);
+    if (!tool) throw new Error(`Tool not found: ${name}`);
+
+    const level = tool.permission ?? "safe";
+
+    if (level === "dangerous" && !options?.confirm) {
+      return `需要确认才能执行危险工具: ${name}`;
     }
+
+    if (level === "needs_confirm" && !options?.confirm) {
+      return `需要确认才能执行工具: ${name}。请在后续版本中批准。`;
+    }
+
     try {
-      return await tool.execute(args, {} as any);
+      return await tool.execute(args);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return `Error executing tool ${name}: ${message}`;

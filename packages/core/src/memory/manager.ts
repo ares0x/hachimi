@@ -3,59 +3,53 @@ import type {  MemorySearchOptions } from "./types.js";
 import type { MemoryEntry, MemoryLayer } from "../types/index.js";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import type { JsonFileStore } from "@hachimi/storage";
+import { FileJsonStore } from "@hachimi/storage";
+
+interface MemoryData {
+  working: MemoryEntry[];
+  session: MemoryEntry[];
+  longTerm: MemoryEntry[];
+  archival: MemoryEntry[];
+}
 
 export class MemoryManager {
-  private working: MemoryEntry[] = [];
-  private session: MemoryEntry[] = [];
-  private longTerm: MemoryEntry[] = [];
-  private archival: MemoryEntry[] = [];
+    private filePath: string;
+    private store: JsonFileStore;
+    private working: MemoryEntry[] = [];
+    private session: MemoryEntry[] = [];
+    private longTerm: MemoryEntry[] = [];
+    private archival: MemoryEntry[] = [];
 
-  private filePath: string;
-
-  constructor(filePath = "data/memory.json") {
-    this.filePath = filePath;
-    this.load(); // 实例化时自动加载
+  constructor(filePath = "data/memory.json", store: JsonFileStore = new FileJsonStore()) {
+      this.filePath = filePath;
+      this.store = store;
+      this.load();
   }
 
   /** 从文件加载记忆 */
   load() {
-    try {
-      if (!existsSync(this.filePath)) return;
-
-      const raw = readFileSync(this.filePath, "utf-8");
-      const data = JSON.parse(raw);
-
+      const data = this.store.read<MemoryData>(this.filePath, {
+        working: [],
+        session: [],
+        longTerm: [],
+        archival: [],
+      });
       this.working = data.working ?? [];
       this.session = data.session ?? [];
       this.longTerm = data.longTerm ?? [];
       this.archival = data.archival ?? [];
-
-      console.log(`[Memory] 已从 ${this.filePath} 加载记忆`);
-    } catch (err) {
-      console.warn("[Memory] 加载失败，使用空记忆", err);
     }
-  }
 
   /** 保存记忆到文件 */
   save() {
-    try {
-      const dir = dirname(this.filePath);
-      if (!existsSync(dir)) {
-        mkdirSync(dir, { recursive: true });
-      }
-
-      const data = {
+      this.store.write(this.filePath, {
         working: this.working,
         session: this.session,
         longTerm: this.longTerm,
         archival: this.archival,
-      };
-
-      writeFileSync(this.filePath, JSON.stringify(data, null, 2), "utf-8");
-    } catch (err) {
-      console.error("[Memory] 保存失败", err);
+      });
     }
-  }
 
   // 添加记忆
   add(params: {

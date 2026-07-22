@@ -1,0 +1,9 @@
+{
+    "llm": {
+        "provider": "deepseek",
+        "deepseekModel": "deepseek-chat"
+    },
+    "paths": {
+        "dataDir": "data"
+    }
+}
