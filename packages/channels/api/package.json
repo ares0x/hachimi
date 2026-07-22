@@ -1,0 +1,12 @@
+{
+  "name": "@hachimi/channel-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo \"API channel not implemented yet\""
+  },
+  "dependencies": {
+    "@hachimi/core": "*"
+  }
+}

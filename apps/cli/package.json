@@ -1,0 +1,17 @@
+{
+  "name": "@hachimi/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "hachimi": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "echo \"CLI app not implemented yet. Run after core is ready.\"",
+    "build": "echo \"build later\""
+  },
+  "dependencies": {
+    "@hachimi/core": "*",
+    "@hachimi/channel-cli": "*"
+  }
+}

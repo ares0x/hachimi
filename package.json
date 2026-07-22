@@ -1,0 +1,39 @@
+{
+    "name": "hachimi",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Hachimi - A general-purpose personal AI assistant harness. Multi-channel (CLI / Desktop / REST / Telegram / WeChat / Slack), strong hierarchical memory, lazy skills, extensible tools.",
+    "type": "module",
+    "workspaces": [
+        "packages/*",
+        "packages/channels/*",
+        "packages/tools-builtin/*",
+        "packages/storage/*",
+        "apps/*"
+    ],
+    "scripts": {
+        "build": "npm run build --workspaces --if-present",
+        "dev:cli": "npm run dev -w @hachimi/cli",
+        "dev:server": "npm run dev -w @hachimi/server",
+        "typecheck": "tsc --noEmit",
+        "lint": "echo \"lint not configured yet\"",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [
+        "ai-agent",
+        "harness",
+        "personal-assistant",
+        "llm",
+        "multi-channel",
+        "typescript"
+    ],
+    "author": "",
+    "license": "MIT",
+    "engines": {
+        "node": ">=20"
+    },
+    "devDependencies": {
+        "typescript": "^5.8.2",
+        "@types/node": "^22.13.10"
+    }
+}

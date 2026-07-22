@@ -1,0 +1,24 @@
+{
+    "model": {
+        "provider": "openai",
+        "model": "gpt-4.1",
+        "baseUrl": null,
+        "apiKeyEnv": "OPENAI_API_KEY"
+    },
+    "memory": {
+        "workingMaxMessages": 20,
+        "sessionSummaryThreshold": 30,
+        "longTermImportanceThreshold": 0.6
+    },
+    "permissions": {
+        "defaultLevel": "read",
+        "requireApprovalFor": ["write", "network", "system", "dangerous"]
+    },
+    "channels": {
+        "cli": { "enabled": true },
+        "api": { "enabled": true, "port": 7432 },
+        "telegram": { "enabled": false },
+        "wechat": { "enabled": false },
+        "slack": { "enabled": false }
+    }
+}
