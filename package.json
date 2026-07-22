@@ -13,11 +13,12 @@
     ],
     "scripts": {
         "build": "npm run build --workspaces --if-present",
-        "dev:cli": "npm run dev -w @hachimi/cli",
+        "dev:tui": "tsx apps/tui/src/main.ts",
         "dev:server": "npm run dev -w @hachimi/server",
         "typecheck": "tsc --noEmit",
         "lint": "echo \"lint not configured yet\"",
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "test": "vitest run",
+        "test:watch": "vitest"
     },
     "keywords": [
         "ai-agent",
@@ -33,7 +34,9 @@
         "node": ">=20"
     },
     "devDependencies": {
+        "@types/node": "^22.13.10",
+        "tsx": "^4.23.1",
         "typescript": "^5.8.2",
-        "@types/node": "^22.13.10"
+        "vitest": "^4.1.10"
     }
 }

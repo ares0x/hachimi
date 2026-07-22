@@ -1,0 +1,20 @@
+{
+  "name": "@hachimi/tui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+      "dev:tui": "tsx apps/tui/src/main.ts",
+      "dev:tui:node": "tsx apps/tui/src/main.ts"
+  },
+  "dependencies": {
+    "@hachimi/config": "workspace:*",
+    "@hachimi/core": "workspace:*",
+    "@hachimi/shared": "workspace:*",
+    "@hachimi/storage": "workspace:*",
+    "@opentui/core": "^0.4.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0"
+  }
+}

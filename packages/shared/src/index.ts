@@ -19,3 +19,6 @@ export const CHANNELS = [
   "slack",
   "system",
 ] as const;
+
+export { log, setLogSilent} from "./logger.js";
+export type { LogLevel } from "./logger.js";

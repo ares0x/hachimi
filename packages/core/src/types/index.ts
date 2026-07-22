@@ -87,7 +87,8 @@ export interface ToolDefinition {
   /** Permission level required */
   requiredPermission?: PermissionLevel;
   /** Whether this tool needs human approval before execution */
-  requiresApproval?: boolean;
+    requiresApproval?: boolean;
+      permission?: ToolPermission;
 }
 
 export type PermissionLevel = "none" | "read" | "write" | "network" | "system" | "dangerous";
@@ -132,3 +133,16 @@ export interface LLMResponse {
 export interface LLMProvider {
   chat(messages: Message[], tools?: ToolDefinition[]): Promise<LLMResponse>;
 }
+
+export interface Session {
+  id: string;
+  title?: string;
+  messages: Message[];
+  createdAt: number;
+  updatedAt: number;
+  metadata?: Record<string, unknown>;
+}
+
+
+/** 工具风险等级 */
+export type ToolPermission = "safe" | "needs_confirm" | "dangerous";
