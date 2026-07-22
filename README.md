@@ -1,130 +1,63 @@
-# Hachimi
+# hachimi
 
-**Hachimi** is a general-purpose personal AI assistant harness.
+个人 AI 助理的早期实验项目（Demo）。
 
-It is designed to become a long-term companion that understands you better over time.
-Not limited to coding — it supports writing, image generation, knowledge management, and any custom capability through Skills.
+本仓库当前 `tutorial` 分支对应教程：
+> [build-personal-ai-assistant](https://github.com/ares0x/build-personal-ai-assistant)
 
-### Key Features (Planned)
+**定位说明**：这是配合教程的可运行 Demo，用于讲解 Agent Harness 的核心设计思想，**不是生产级产品**。
 
-- **Multi-channel**: CLI · Desktop · REST API · Telegram · WeChat · Slack
-- **Hierarchical Memory**: Working → Session → Long-term → Archival (inspired by Claude Code analysis)
-- **Lazy Skills**: Extremely small system prompt, load full skill only when needed (inspired by Pi)
-- **Clean modular architecture**: Core is completely channel-agnostic (inspired by Grok Build)
-- **Strong permissions & tool safety**
-- **Extensible**: Skills · Plugins/Hooks · MCP · Custom tools
-- **Local-first**, with optional cloud sync later
+## 当前已实现
 
-### Design Philosophy
+- Agent 循环 + 工具调用
+- 分层 Memory（含文件持久化）
+- 自然语言记住
+- Skills 系统（最小 Lazy 版）
+- Session 管理（多轮对话持久化）
+- OpenAI / DeepSeek 兼容的真实 LLM 接入
+- 交互式 CLI
 
-> LLM is stateless.
-> The Harness is what makes it reliable, constrained, extensible, and increasingly personal.
-
-We take the best ideas from:
-
-| Project          | What we take                                      |
-|------------------|---------------------------------------------------|
-| **Pi**           | Minimal core + Lazy Skills design                 |
-| **Claude Code**  | Hierarchical memory, permission gates, session management, context compaction |
-| **Grok Build**   | Clear module separation (Runtime / Tools / State / Channels), Hooks, Headless-first |
-
-### Project Structure
-
-```text
-Hachimi/
-├── packages/
-│   ├── core/                 ★ The pure harness (no UI knowledge)
-│   │   ├── agent/            Agent loop, planning, sub-agents
-│   │   ├── memory/           Hierarchical memory system
-│   │   ├── context/          Context assembly & compaction
-│   │   ├── skills/           Lazy Skills registry
-│   │   ├── tools/            Tool registry + execution
-│   │   ├── permissions/      Permission policy engine
-│   │   ├── session/          Session lifecycle & persistence
-│   │   ├── hooks/            Lifecycle hooks
-│   │   └── types/            Shared core types
-│   │
-│   ├── channels/             All external interfaces
-│   │   ├── cli/
-│   │   ├── desktop/
-│   │   ├── api/              REST + WebSocket
-│   │   ├── telegram/
-│   │   ├── wechat/
-│   │   └── slack/
-│   │
-│   ├── tools-builtin/        Built-in capability tools
-│   │   ├── writing/
-│   │   ├── image/
-│   │   ├── search/
-│   │   ├── knowledge/
-│   │   └── system/
-│   │
-│   ├── storage/              Storage backends
-│   │   ├── sqlite/
-│   │   ├── vector/
-│   │   └── file/
-│   │
-│   └── shared/               Common utilities
-│
-├── apps/                     Runnable entry points
-│   ├── cli/
-│   ├── desktop/
-│   └── server/               Starts API + bots together
-│
-├── skills/                   User & community skills (markdown + code)
-├── config/                   Configuration files
-└── docs/
-```
-
-### Development Roadmap (Priority Order)
-
-1. **Foundation** (current)
-   - Project structure & types
-   - Core interfaces
-
-2. **Core Agent Loop + Tools**
-   - Basic agent loop
-   - Tool registry & simple execution
-
-3. **Hierarchical Memory**
-   - Working / Session / Long-term layers
-   - Basic persistence (SQLite)
-
-4. **Lazy Skills System**
-
-5. **Session Management + Context Compaction**
-
-6. **Permissions & Safety**
-
-7. **First Channel: CLI**
-
-8. **REST API**
-
-9. **Builtin tools** (writing, image generation…)
-
-10. **Messaging channels** (Telegram first)
-
-11. **Desktop app**
-
-### Getting Started (after foundation is solid)
+## 快速开始
 
 ```bash
-# Install dependencies
-npm install
+pnpm install
 
-# Type check
-npm run typecheck
+# 配置环境变量（可选，不配置则使用 MockLLM）
+export LLM_PROVIDER=deepseek
+export DEEPSEEK_API_KEY=sk-xxx
 
-# Later...
-npm run dev:cli
-npm run dev:server
+# 启动 CLI
+npx tsx scripts/chat.ts
 ```
 
-### License
+## 特殊命令
 
-MIT
+在交互式 CLI 中，你可以使用以下特殊命令：
 
----
+| 命令 | 说明 |
+| --- | --- |
+| `/memories` | 查看长期记忆 |
+| `/remember <内容>` | 手动添加记忆 |
+| `/sessions` | 列出历史会话 |
+| `/clear session` | 清空当前会话 |
+| `/exit` | 退出 |
 
-This project is built for learning and personal use.
-Architecture inspired by public analysis of Claude Code, the open-source Pi harness, and xAI's Grok Build.
+## 项目结构
+
+```text
+.
+├── apps/              # 应用层（如 server）
+├── packages/          # 核心与共享包
+│   ├── core/          # Agent、Memory、Session、Skills、Tools
+│   ├── channels/      # 通道抽象（如 api、cli 等）
+│   ├── shared/        # 公共工具
+│   ├── storage/       # 存储实现
+│   └── tools-builtin/ # 内置工具
+├── scripts/           # 脚本（如交互式 CLI chat.ts 等）
+└── data/              # 本地持久化数据（已 gitignore）
+```
+
+## 相关链接
+
+- 教程仓库：[build-personal-ai-assistant](https://github.com/ares0x/build-personal-ai-assistant)
+- 在线阅读：[https://ares0x.github.io/build-personal-ai-assistant/](https://ares0x.github.io/build-personal-ai-assistant/)

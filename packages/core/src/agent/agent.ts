@@ -42,6 +42,8 @@ export class Agent {
   async run(userInput: string, history: Message[] = []): Promise<string> {
       const input = userInput.trim();
       const systemParts: string[] = [];
+      const history = sessions.getHistory();
+      const reply = await agent.run(userInput, history);
 
       // 1. 基础身份 + 强制规则
       systemParts.push(
