@@ -5,12 +5,41 @@ import { stdin as input, stdout as output } from "node:process";
 import { Agent } from "../packages/core/src/agent/agent.js";
 import { ToolRegistry } from "../packages/core/src/tools/registry.js";
 import { MockLLMProvider } from "../packages/core/src/agent/llm.js";
+import { OpenAICompatibleProvider } from "../packages/core/src/agent/providers/openai-compatible.js";
 import { MemoryManager } from "../packages/core/src/memory/manager.js";
+import { SkillRegistry } from "../packages/core/src/skills/registry.js";
+import { writingSkill } from "../packages/core/src/skills/examples/writing.js";
 
 async function main() {
     const tools = new ToolRegistry();
     const memory = new MemoryManager("data/memory.json");
-    const llm = new MockLLMProvider();
+    const skills = new SkillRegistry();
+    skills.register(writingSkill);
+
+    function createLLM() {
+        const provider = process.env.LLM_PROVIDER || "mock";
+
+        if (provider === "openai") {
+            return new OpenAICompatibleProvider({
+                apiKey: process.env.OPENAI_API_KEY!,
+                model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+            });
+        }
+
+        if (provider === "deepseek") {
+            return new OpenAICompatibleProvider({
+                apiKey: process.env.DEEPSEEK_API_KEY!,
+                baseURL: "https://api.deepseek.com",
+                model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
+            });
+        }
+
+        // 默认使用 Mock
+        console.log("[LLM] 使用 MockLLMProvider");
+        return new MockLLMProvider();
+    }
+
+    const llm = createLLM();
 
     // 预先写入一些测试记忆
     if (memory.list("long_term").length === 0) {
@@ -57,6 +86,7 @@ async function main() {
         llm,
         tools,
         memory,
+        skills,
     });
 
     const rl = readline.createInterface({ input, output });

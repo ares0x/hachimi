@@ -2,6 +2,7 @@
 
 import type { Message, LLMProvider } from "../types/index.js";
 import { ToolRegistry } from "../tools/registry.js";
+import { SkillRegistry } from "../skills/registry.js";
 import { MemoryManager } from "../memory/manager.js";
 import { generateId } from "@hachimi/shared";
 
@@ -10,6 +11,7 @@ export interface AgentOptions {
   tools: ToolRegistry;
   memory: MemoryManager;
   maxToolRounds?: number;
+  skills?: SkillRegistry;
 }
 
 /**
@@ -22,12 +24,14 @@ export class Agent {
   private tools: ToolRegistry;
   private memory: MemoryManager;
   private maxToolRounds: number;
+  private skills?: SkillRegistry;
 
   constructor(options: AgentOptions) {
     this.llm = options.llm;
     this.tools = options.tools;
     this.memory = options.memory;
     this.maxToolRounds = options.maxToolRounds ?? 5;
+    this.skills = options.skills;
   }
 
   /**
@@ -36,10 +40,20 @@ export class Agent {
    * @param history 可选的历史消息（通常由外部 Session 管理）
    */
   async run(userInput: string, history: Message[] = []): Promise<string> {
-      console.log("[DEBUG] Agent.run 收到输入:", JSON.stringify(userInput));
       const input = userInput.trim();
+      const systemParts: string[] = [];
 
-        // ========== 自然语言记住（更宽松的检测） ==========
+      // 1. 基础身份 + 强制规则
+      systemParts.push(
+        `你是 hachimi，一个个人 AI 助理。
+
+      【重要规则】
+      1. 你只能使用我明确提供给你的技能和工具。
+      2. 当用户问「你有哪些技能」「你会什么」时，你必须且只能根据「当前可用技能列表」来回答，禁止添加任何列表中没有的能力。
+      3. 如果技能列表为空，就如实说「目前还没有配置技能」。
+      4. 回答请简洁。`
+      );
+    // ========== 自然语言记住（更宽松的检测） ==========
         const rememberPrefixes = ["请记住", "记住", "帮我记一下", "记一下"];
 
         for (const prefix of rememberPrefixes) {
@@ -62,22 +76,36 @@ export class Agent {
           limit: 6,
           minImportance: 0.3,
         });
-    const messages: Message[] = [];
 
     // 2. 如果有相关记忆，注入为 system 消息
     if (relevantMemories.length > 0) {
       const memoryText = relevantMemories
         .map((m) => `- (${m.layer}) ${m.content}`)
         .join("\n");
-
-      messages.push({
-        id: generateId("msg_"),
-        role: "system",
-        content: `以下是与当前对话相关的记忆，请在回答时参考：\n${memoryText}`,
-        timestamp: Date.now(),
-      });
+      systemParts.push(`以下是与当前对话相关的记忆，请在回答时参考：\n${memoryText}`);
     }
 
+
+    if (this.skills) {
+      const skillDesc = this.skills.getPromptDescriptions();
+      if (skillDesc) {
+        systemParts.push(
+          `【当前可用技能列表】\n${skillDesc}\n\n请严格基于以上列表回答关于技能的问题。`
+        );
+      } else {
+        systemParts.push(`【当前可用技能列表】\n（空）`);
+      }
+    }
+
+      const messages: Message[] = [];
+      if (systemParts.length > 0) {
+        messages.push({
+          id: generateId("msg_"),
+          role: "system",
+          content: systemParts.join("\n\n"),
+          timestamp: Date.now(),
+        });
+      }
     // 3. 加入历史消息 + 当前用户输入
     messages.push(...history);
     messages.push({
