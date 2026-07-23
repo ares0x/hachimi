@@ -74,36 +74,45 @@ export class MemoryManager {
   }
 
   search(query: string, options: MemorySearchOptions = {}): MemoryEntry[] {
-      const {
-        layers = ["working", "session", "long_term"],
-        limit = 8,
-        minImportance = 0,
-      } = options;
-      let results: MemoryEntry[] = [];
+    const {
+      layers = ["working", "session", "long_term"],
+      limit = 8,
+      minImportance = 0,
+    } = options;
+    let results: MemoryEntry[] = [];
 
-          for (const layer of layers) {
-            const arr = this.getLayerArray(layer);
-            results.push(...arr);
-          }
+    for (const layer of layers) {
+      const arr = this.getLayerArray(layer);
+      results.push(...arr);
+    }
 
-          // 过滤重要性
-          results = results.filter((e) => e.importance >= minImportance);
+    // 过滤重要性
+    results = results.filter((e) => e.importance >= minImportance);
 
-          // 简单关键词匹配 + 重要性排序
-          const lowerQuery = query.toLowerCase();
-          results = results
-            .filter((e) =>
-              e.content.toLowerCase().includes(lowerQuery) || lowerQuery.length < 4
-            )
-            .sort((a, b) => b.importance - a.importance)
-            .slice(0, limit);
+    const personalKeywords = ["我", "谁", "名字", "项目", "技术", "做什么", "开发", "喜欢", "喝", "爱"];
+    const isPersonalQuery = personalKeywords.some((kw) => query.includes(kw));
 
-          // 更新访问时间
-          return results.map((e) => {
-            e.lastAccessedAt = Date.now();
-            return e;
-          });
-        }
+    if (isPersonalQuery) {
+      // 个人相关问题 → 优先返回 long_term 高重要性记忆
+      results = results
+        .filter((e) => e.layer === "long_term" || e.layer === "session")
+        .sort((a, b) => b.importance - a.importance)
+        .slice(0, limit);
+    } else {
+      // 普通问题 → 简单包含匹配
+      const lowerQuery = query.toLowerCase();
+      results = results
+        .filter((e) => e.content.toLowerCase().includes(lowerQuery) || lowerQuery.length < 4)
+        .sort((a, b) => b.importance - a.importance)
+        .slice(0, limit);
+    }
+
+    // 更新访问时间
+    return results.map((e) => {
+      e.lastAccessedAt = Date.now();
+      return e;
+    });
+  }
 
   // 获取某层所有记忆
   getLayer(layer: MemoryLayer): MemoryEntry[] {
