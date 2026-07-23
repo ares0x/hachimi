@@ -1,7 +1,15 @@
+// packages/config/src/index.ts
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 
 export type LLMProviderName = "mock" | "openai" | "deepseek";
+
+export interface ContextConfig {
+  maxTokens: number;
+  summaryThreshold: number;
+  defaultMode: 'fast' | 'normal' | 'thoughtful';
+  enableTokenTruncation: boolean;
+}
 
 export interface HachimiConfig {
   llm: {
@@ -20,6 +28,7 @@ export interface HachimiConfig {
   agent: {
     maxToolRounds: number;
   };
+  context: ContextConfig;          // 新增：Context 配置
   tui: {
     title: string;
   };
@@ -42,6 +51,13 @@ const defaultConfig: HachimiConfig = {
   agent: {
     maxToolRounds: Number(process.env.HACHIMI_MAX_TOOL_ROUNDS || 5),
   },
+  // 新增 Context 默认配置
+  context: {
+    maxTokens: Number(process.env.HACHIMI_CONTEXT_MAX_TOKENS || 12000),
+    summaryThreshold: Number(process.env.HACHIMI_SUMMARY_THRESHOLD || 25),
+    defaultMode: (process.env.HACHIMI_CONTEXT_MODE as 'fast' | 'normal' | 'thoughtful') || 'normal',
+    enableTokenTruncation: process.env.HACHIMI_ENABLE_TOKEN_TRUNCATION !== 'false',
+  },
   tui: {
     title: "hachimi",
   },
@@ -60,6 +76,7 @@ export function loadConfig(configPath = "config.json"): HachimiConfig {
       Object.assign(cfg.llm, raw.llm ?? {});
       Object.assign(cfg.paths, raw.paths ?? {});
       Object.assign(cfg.agent, raw.agent ?? {});
+      Object.assign(cfg.context, raw.context ?? {});   // 新增：支持 config.json 中的 context
       Object.assign(cfg.tui, raw.tui ?? {});
     } catch (err) {
       console.warn("[config] 读取 config.json 失败，使用默认配置", err);

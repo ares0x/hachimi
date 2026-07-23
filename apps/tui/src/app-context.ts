@@ -2,7 +2,6 @@
 import { loadConfig, type HachimiConfig } from "@hachimi/config";
 import { log } from "@hachimi/shared";
 import { FileJsonStore, FileDirStore } from "@hachimi/storage";
-
 import { Agent } from "../../../packages/core/src/agent/agent.js";
 import { ToolRegistry } from "../../../packages/core/src/tools/registry.js";
 import { MemoryManager } from "../../../packages/core/src/memory/manager.js";
@@ -14,6 +13,7 @@ import { OpenAICompatibleProvider } from "../../../packages/core/src/agent/provi
 
 // 若没有 summarySkill，删除下面两行及相关 register
 import { summarySkill } from "../../../packages/core/src/skills/examples/summary.js";
+import { ContextBuilder } from "../../../packages/core/src/context/builder.js";
 
 export interface AppContext {
   config: HachimiConfig;
@@ -26,7 +26,6 @@ export interface AppContext {
 
 function createLLM(config: HachimiConfig) {
   const provider = config.llm.provider;
-
   if (provider === "openai") {
     if (!config.llm.openaiApiKey) {
       throw new Error("OPENAI_API_KEY 未配置");
@@ -36,7 +35,6 @@ function createLLM(config: HachimiConfig) {
       model: config.llm.openaiModel,
     });
   }
-
   if (provider === "deepseek") {
     if (!config.llm.deepseekApiKey) {
       throw new Error("DEEPSEEK_API_KEY 未配置");
@@ -47,7 +45,6 @@ function createLLM(config: HachimiConfig) {
       model: config.llm.deepseekModel,
     });
   }
-
   log("info", "使用 MockLLMProvider");
   return new MockLLMProvider();
 }
@@ -101,11 +98,12 @@ export function createAppContext(): AppContext {
 
   const memory = new MemoryManager(config.paths.memoryFile, fileStore);
   const sessions = new SessionManager(config.paths.sessionsDir, dirStore);
+
   const tools = new ToolRegistry();
   const skills = new SkillRegistry();
 
-    skills.register(writingSkill);
-    skills.register(summarySkill);
+  skills.register(writingSkill);
+  skills.register(summarySkill);
 
   registerBuiltinTools(tools);
 
@@ -115,18 +113,23 @@ export function createAppContext(): AppContext {
   }
 
   const llm = createLLM(config);
+
+  // 新增：ContextBuilder 并传入 config.context
+  const contextBuilder = new ContextBuilder();
+
   const agent = new Agent({
     llm,
     tools,
     memory,
     skills,
+    contextBuilder,                    // 显式传入
     maxToolRounds: config.agent.maxToolRounds,
   });
 
   // 确保有当前会话
   sessions.getOrCreate();
-
   const session = sessions.getCurrent();
+
   log("info", "session ready", {
     id: session?.id,
     messages: session?.messages.length ?? 0,

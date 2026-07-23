@@ -22,3 +22,4 @@ export const CHANNELS = [
 
 export { log, setLogSilent} from "./logger.js";
 export type { LogLevel } from "./logger.js";
+export { createTokenEstimator, defaultTokenEstimator } from "./token.js";

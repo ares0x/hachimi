@@ -52,25 +52,28 @@ export class MemoryManager {
     }
 
   // 添加记忆
+  /**
+   * 添加一条记忆
+   */
   add(params: {
     layer: MemoryLayer;
     content: string;
     importance?: number;
-    metadata?: Record<string, unknown>;
   }): MemoryEntry {
     const entry: MemoryEntry = {
       id: generateId("mem_"),
       layer: params.layer,
-      content: params.content,
+      content: params.content.trim(),
       importance: params.importance ?? 0.5,
       createdAt: Date.now(),
       lastAccessedAt: Date.now(),
-      metadata: params.metadata,
     };
 
     this.getLayerArray(params.layer).push(entry);
-      this.save();          // 新增：自动保存
-      this.cleanup();
+
+    // 自动清理
+    this.cleanup();
+
     return entry;
   }
 
@@ -125,13 +128,13 @@ export class MemoryManager {
     this.working = [];
   }
 
-  // 简单会话摘要（Phase 2 先做规则版，后续可让 LLM 生成）
-  summarizeSession(): string {
-    const important = this.session
-      .filter((e) => e.importance >= 0.6)
-      .map((e) => e.content)
-      .join("；");
-    return important || "本会话暂无高重要性记忆";
+  summarizeSession() {
+      const sessionEntries = this.session;
+        if (sessionEntries.length < 5) return;
+
+        // 简单截断 + 摘要（后续可用 LLM 总结）
+        this.session = sessionEntries.slice(-10);
+        this.save();
   }
 
   // 导出（方便后续持久化）
@@ -213,6 +216,12 @@ export class MemoryManager {
     return false;
   }
 
+  forgetOld(minAgeDays = 30) {
+    const cutoff = Date.now() - minAgeDays * 24 * 60 * 60 * 1000;
+    this.longTerm = this.longTerm.filter(e => e.lastAccessedAt > cutoff);
+    this.save();
+  }
+
   /**
    * 去重：相同内容只保留 importance 最高的那条
    */
@@ -244,11 +253,12 @@ export class MemoryManager {
   }
 
   /**
-   * 自动去重 + 清理（推荐在 add 后调用）
+   * 自动去重 + 清理
    */
   cleanup() {
     this.deduplicate();
     this.prune(0.3, 100);
+    this.summarizeSession();
     this.save();
   }
   /**

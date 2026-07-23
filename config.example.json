@@ -5,5 +5,17 @@
     },
     "paths": {
         "dataDir": "data"
+    },
+    "agent": {
+        "maxToolRounds": 5
+    },
+    "context": {
+        "maxTokens": 12000,
+        "summaryThreshold": 25,
+        "defaultMode": "normal",
+        "enableTokenTruncation": true
+    },
+    "tui": {
+        "title": "hachimi"
     }
 }
