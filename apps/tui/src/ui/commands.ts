@@ -17,7 +17,7 @@ export interface SlashCommandDef {
 export const SLASH_COMMANDS: SlashCommandDef[] = [
   { name: "/status", description: "查看 LLM、Context Token 测量长条、Memory、Session 概况" },
   { name: "/config", description: "查看当前系统运行配置（脱敏显示）" },
-  { name: "/theme", description: "切换 TUI 色彩主题 (hachimi-dark / cyberpunk / monokai)", example: "/theme cyberpunk" },
+  { name: "/theme", description: "切换 TUI 色彩主题 (default / amber / neon)", example: "/theme default" },
   { name: "/memories", description: "查看当前存储的所有长期与会话记忆" },
   { name: "/remember", description: "手动记录一条长期记忆", example: "/remember 用户喜欢手冲咖啡" },
   { name: "/sessions", description: "列出或切换历史会话", example: "/sessions 或 /session load <sess_id>" },
@@ -234,6 +234,15 @@ export async function handleSlashCommand(
         action: "modal",
         title: " 帮助与快捷键指南 (/help) ",
         content: helpText,
+      };
+    }
+
+    case "/": {
+      const content = SLASH_COMMANDS.map((c) => `• ${c.name.padEnd(12)} - ${c.description}`).join("\n");
+      return {
+        action: "modal",
+        title: " 💡 Slash 命令指南 ",
+        content: `${content}\n\n💡 提示: 可直接输入具体命令（如 /status, /config, /help 等）执行`,
       };
     }
 

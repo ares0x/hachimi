@@ -1,125 +1,106 @@
 // apps/tui/src/ui/theme.ts
 /**
- * Grok-build 与 Pi 风格的高级终端主题与 ANSI 渲染引擎
+ * Hachimi TUI 界面主题与 ANSI 动态渲染引擎
+ * 默认主题与配色精确对齐 Grok Build 官方开源调色盘 (GrokNight: Neutral Gray + TokyoNight Accents)
+ * 采用原生自适应 Terminal 透明背景，适配亮色与暗色终端
  */
 
 export interface UITheme {
   name: string;
   label: string;
   colors: {
-    primary: string;       // 主色调（如亮青/蓝）
-    secondary: string;     // 次要 Accent 调
-    background: string;    // 背景色
+    primary: string;       // 主色调（TokyoNight Blue #7AA2F7）
+    secondary: string;     // 次要 Accent 调（TokyoNight Magenta #BB9AF7）
+    background: string;    // 背景色（留空继承终端原生背景，防止打块色斑）
     panelBg: string;       // 弹出框/面板背景
-    border: string;        // 边框颜色
-    text: string;          // 主文本
-    subtext: string;       // 次要/灰度文本
-    userRole: string;      // 用户消息颜色
-    assistantRole: string; // 助手消息颜色
-    systemRole: string;    // 系统/提示颜色
-    toolRole: string;      // 工具调用/返回颜色
-    success: string;       // 成功状态
-    warning: string;       // 警告状态
-    error: string;         // 错误状态
+    border: string;        // 边框颜色（#505058）
+    text: string;          // 主文本 (留空指代终端默认前景色)
+    subtext: string;       // 次要/灰度文本 (#787878)
+    userRole: string;      // 用户消息颜色 (#C8C8C8)
+    assistantRole: string; // 助手消息颜色 (#BB9AF7)
+    systemRole: string;    // 系统/提示颜色 (#7AA2F7)
+    toolRole: string;      // 工具调用/返回颜色 (#73DACA)
+    success: string;       // 成功状态 (#9ECE6A)
+    warning: string;       // 警告状态 (#E0AF68)
+    error: string;         // 错误状态 (#F7768E)
   };
 }
 
-/** Grok Slate Dark（默认：深灰石板底 + 冰蓝高亮） */
-export const grokSlateTheme: UITheme = {
-  name: "grok-slate",
-  label: "Grok Slate (深沉蓝石板)",
+/** Default Theme (精确对齐 Grok Build 官方 GrokNight 配色方案) */
+export const defaultTheme: UITheme = {
+  name: "default",
+  label: "Hachimi Default (Grok 经典)",
   colors: {
-    primary: "#38BDF8",      // 冰晶蓝 Sky Blue
-    secondary: "#818CF8",    // 靛青 Indigo
-    background: "#0F172A",
-    panelBg: "#1E293B",
-    border: "#475569",       // 柔和石板灰边框
-    text: "#F8FAFC",         // 高纯白文本
-    subtext: "#94A3B8",      // 次要灰
-    userRole: "#38BDF8",     // 用户蓝
-    assistantRole: "#34D399", // 柔和薄荷绿
-    systemRole: "#FBBF24",   // 暖金黄
-    toolRole: "#A7F3D0",     // 浅青绿
-    success: "#34D399",
-    warning: "#F59E0B",
-    error: "#F87171",
+    primary: "#0284C7",       // 高对比 TokyoNight Blue (亮/暗终端均清晰)
+    secondary: "#BB9AF7",     // TokyoNight Magenta
+    background: "",           // 留空自适应终端原生背景
+    panelBg: "",
+    border: "#0284C7",        // 高对比 Accent 边框
+    text: "",                 // 留空继承终端原生黑/白文字
+    subtext: "#64748B",       // 石板灰
+    userRole: "#0284C7",      // User Accent Blue
+    assistantRole: "#BB9AF7", // Assistant Purple
+    systemRole: "#0284C7",    // System Blue
+    toolRole: "#73DACA",      // Teal Tool
+    success: "#059669",       // TokyoNight Green
+    warning: "#D97706",       // TokyoNight Amber
+    error: "#DC2626",         // TokyoNight Red
   },
 };
 
-/** Grok Warm Amber (琥珀金黑) */
-export const grokAmberTheme: UITheme = {
-  name: "grok-amber",
-  label: "Grok Amber (暖金琥珀黑)",
+export const slateTheme = defaultTheme;
+
+/** Amber (暖金琥珀) */
+export const amberTheme: UITheme = {
+  name: "amber",
+  label: "Hachimi Amber (暖金琥珀)",
   colors: {
-    primary: "#F59E0B",      // 亮琥珀
-    secondary: "#EA580C",    // 暖红橙
-    background: "#0A0A0A",
-    panelBg: "#1C1917",
-    border: "#78350F",       // 古铜边框
-    text: "#FAFAF9",
-    subtext: "#A8A29E",
-    userRole: "#F59E0B",
-    assistantRole: "#10B981",
-    systemRole: "#F59E0B",
-    toolRole: "#F97316",
-    success: "#10B981",
-    warning: "#F59E0B",
-    error: "#EF4444",
+    primary: "#D97706",      // 亮琥珀
+    secondary: "#FF9E64",    // 暖红橙
+    background: "",
+    panelBg: "",
+    border: "#D97706",
+    text: "",
+    subtext: "#787878",
+    userRole: "#D97706",
+    assistantRole: "#059669",
+    systemRole: "#D97706",
+    toolRole: "#FF9E64",
+    success: "#059669",
+    warning: "#D97706",
+    error: "#DC2626",
   },
 };
 
-/** Grok Midnight Neon (午夜霓虹紫) */
-export const grokNeonTheme: UITheme = {
-  name: "grok-neon",
-  label: "Grok Neon (午夜霓虹紫)",
+/** Neon (午夜霓虹) */
+export const neonTheme: UITheme = {
+  name: "neon",
+  label: "Hachimi Neon (午夜霓虹)",
   colors: {
-    primary: "#A855F7",      // 电光紫
-    secondary: "#06B6D4",    // 霓虹青
-    background: "#090D16",
-    panelBg: "#131B2E",
-    border: "#6B21A8",
-    text: "#F8FAFC",
-    subtext: "#64748B",
-    userRole: "#38BDF8",
-    assistantRole: "#C084FC",
-    systemRole: "#FDE047",
-    toolRole: "#22D3EE",
-    success: "#4ADE80",
-    warning: "#FACC15",
-    error: "#FB7185",
-  },
-};
-
-/** Grok Jade Matrix (黑客矩阵绿) */
-export const grokJadeTheme: UITheme = {
-  name: "grok-jade",
-  label: "Grok Matrix (矩阵翡翠绿)",
-  colors: {
-    primary: "#10B981",      // 翡翠绿
-    secondary: "#06B6D4",
-    background: "#061412",
-    panelBg: "#0F2925",
-    border: "#047857",
-    text: "#ECFDF5",
-    subtext: "#6EE7B7",
-    userRole: "#38BDF8",
-    assistantRole: "#34D399",
-    systemRole: "#FCD34D",
-    toolRole: "#A7F3D0",
-    success: "#34D399",
-    warning: "#F59E0B",
-    error: "#F87171",
+    primary: "#BB9AF7",      // 电光紫
+    secondary: "#7DCFFF",    // 霓虹青
+    background: "",
+    panelBg: "",
+    border: "#BB9AF7",
+    text: "",
+    subtext: "#787878",
+    userRole: "#0284C7",
+    assistantRole: "#BB9AF7",
+    systemRole: "#D97706",
+    toolRole: "#7DCFFF",
+    success: "#059669",
+    warning: "#D97706",
+    error: "#DC2626",
   },
 };
 
 export const THEMES: Record<string, UITheme> = {
-  "grok-slate": grokSlateTheme,
-  "grok-amber": grokAmberTheme,
-  "grok-neon": grokNeonTheme,
-  "grok-jade": grokJadeTheme,
+  "default": defaultTheme,
+  "amber": amberTheme,
+  "neon": neonTheme,
 };
 
-let currentTheme = grokSlateTheme;
+let currentTheme = defaultTheme;
 
 export function getActiveTheme(): UITheme {
   return currentTheme;
@@ -132,8 +113,6 @@ export function setActiveTheme(name: string): boolean {
   }
   return false;
 }
-
-export const defaultTheme = grokSlateTheme;
 
 // ==================== ANSI 格式化与样式库 ====================
 
@@ -186,8 +165,8 @@ export function italic(text: string): string {
   return `\x1b[3m${text}\x1b[23m`;
 }
 
-/** Grok-build 风格的 Pill Badge 徽章 */
-export function renderBadge(label: string, bgHex: string, fgHex: string = "#000000"): string {
+/** Pill Badge 胶囊徽章 */
+export function renderBadge(label: string, bgHex: string, fgHex: string = "#FFFFFF"): string {
   return bold(colorizeBg(` ${label} `, bgHex, fgHex));
 }
 

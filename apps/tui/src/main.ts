@@ -1,30 +1,33 @@
 // apps/tui/src/main.ts
 /**
- * Hachimi TUI 增强与沉浸式交互入口 (Grok-build 主题审美升级)
+ * Hachimi TUI 增强与沉浸式交互入口
  */
 
-import * as readline from "node:readline/promises";
-import { stdin as input, stdout as output } from "node:process";
 import { generateId } from "@hachimi/shared";
 import type { Message } from "../../../packages/core/src/types/index.js";
 import { createAppContext } from "./app-context.js";
-import { handleSlashCommand, SLASH_COMMANDS } from "./ui/commands.js";
+import { handleSlashCommand } from "./ui/commands.js";
 import { renderModalBox } from "./ui/modal.js";
 import { HachimiTUIApp } from "./ui/app.js";
 import { getActiveTheme, colorize, renderBadge, bold, dim } from "./ui/theme.js";
+import {
+  clearTerminalCanvas,
+  enterFullscreenCanvas,
+  exitFullscreenCanvas,
+  renderWelcomeCard,
+  askInteractivePrompt,
+} from "./ui/view.js";
 
 async function main() {
-  let rl!: readline.Interface;
-
   const ctx = createAppContext({
     async onToolApproval(toolName, args, permission) {
       const theme = getActiveTheme();
-      const badge = renderBadge("⚠️ APPROVAL REQUIRED", theme.colors.warning, "#000000");
+      const badge = renderBadge("⚠️ APPROVAL REQUIRED", theme.colors.warning, "#FFFFFF");
       console.log(`\n${badge} ${bold(`工具 [${toolName}] (${permission}) 试图执行`)}`);
       console.log(dim(`   参数: ${JSON.stringify(args)}`));
 
       const promptStr = colorize("👉 是否允许执行该工具？(y/N): ", theme.colors.primary);
-      const ans = (await rl.question(`   ${promptStr}`)).trim().toLowerCase();
+      const ans = (await askInteractivePrompt(`   ${promptStr}`)).trim().toLowerCase();
 
       const approved = ans === "y" || ans === "yes";
       if (approved) {
@@ -43,40 +46,30 @@ async function main() {
   if (!forceCli) {
     const tuiApp = new HachimiTUIApp({ ctx });
     await tuiApp.start();
-  } else {
-    const status = ctx.getStatus();
-    printBanner({
-      title: status.title,
-      provider: status.llm.provider,
-      sessionId: status.session.id,
-      memCount: status.memory.longTermCount,
-      skillNames: status.skills.join(", ") || "无",
-      dataDir: status.paths.dataDir,
-    });
   }
 
-  // 命令行补全提示函数
-  function completer(line: string) {
-    if (line.startsWith("/")) {
-      const hits = SLASH_COMMANDS.filter((c) => c.name.startsWith(line.toLowerCase())).map((c) => c.name);
-      return [hits.length ? hits : SLASH_COMMANDS.map((c) => c.name), line];
-    }
-    return [[], line];
-  }
+  // 开启终端 Alt Buffer 备用缓冲区，进入 1:1 全屏沉浸 TUI Canvas 模式
+  enterFullscreenCanvas();
+  clearTerminalCanvas();
+  const status = ctx.getStatus();
+  console.log(renderWelcomeCard(status));
 
-  rl = readline.createInterface({
-    input,
-    output,
-    completer,
+  // 确保退出时清理并还原用户的终端全屏
+  process.on("exit", () => {
+    exitFullscreenCanvas();
+  });
+  process.on("SIGINT", () => {
+    exitFullscreenCanvas();
+    process.exit(0);
   });
 
   while (true) {
     let userInput = "";
     const theme = getActiveTheme();
-    const userBadge = renderBadge("👤 YOU", theme.colors.userRole, "#000000");
 
     try {
-      userInput = (await rl.question(`\n${userBadge} `)).trim();
+      const promptLabel = colorize("❯ ", theme.colors.primary);
+      userInput = (await askInteractivePrompt(promptLabel)).trim();
     } catch {
       break;
     }
@@ -84,7 +77,7 @@ async function main() {
     if (!userInput) continue;
 
     try {
-      // 统一 Slash 命令分发
+      // 统一 Slash 命令分发（包括单输入 '/' 的全量命令提示菜单）
       const res = await handleSlashCommand(userInput, ctx);
 
       if (res.action === "exit") {
@@ -93,7 +86,9 @@ async function main() {
       }
 
       if (res.action === "clear") {
-        console.log(colorize(res.content || "", theme.colors.success));
+        clearTerminalCanvas();
+        console.log(renderWelcomeCard(ctx.getStatus()));
+        console.log(colorize(res.content || "当前会话已重置", theme.colors.success));
         continue;
       }
 
@@ -121,10 +116,10 @@ async function main() {
       const reply = await agent.run(userInput, history);
 
       // 清除 spinner
-      process.stdout.write(" ".repeat(30) + "\r");
+      process.stdout.write(" ".repeat(35) + "\r");
 
-      const botBadge = renderBadge("🤖 HACHIMI", theme.colors.assistantRole, "#000000");
-      console.log(`${botBadge} ${colorize(reply, theme.colors.text)}`);
+      const botBadge = renderBadge("🤖 HACHIMI", theme.colors.assistantRole, "#FFFFFF");
+      console.log(`${botBadge} ${reply}`);
 
       const userMsg: Message = {
         id: generateId("msg_"),
@@ -150,32 +145,14 @@ async function main() {
   } catch {
     /* ignore */
   }
-  rl.close();
-}
 
-function printBanner(info: {
-  title: string;
-  provider: string;
-  sessionId: string;
-  memCount: number;
-  skillNames: string;
-  dataDir: string;
-}) {
-  const theme = getActiveTheme();
-  const bannerHeader = renderBadge(` 🐱 ${info.title} `, theme.colors.primary, "#000000");
-  console.log(`\n${bannerHeader} ${dim("Grok-build Engine")}`);
-  console.log(colorize("─".repeat(50), theme.colors.border));
-  console.log(`  ${bold("Model")}    : ${colorize(info.provider, theme.colors.primary)}`);
-  console.log(`  ${bold("Session")}  : ${dim(info.sessionId)}`);
-  console.log(`  ${bold("Memory")}   : ${info.memCount} entries (long_term)`);
-  console.log(`  ${bold("Skills")}   : ${info.skillNames}`);
-  console.log(`  ${bold("DataDir")}  : ${info.dataDir}`);
-  console.log(colorize("─".repeat(50), theme.colors.border));
-  console.log(dim("  输入 /help 查看命令与快捷指南 | /status 查看概况仪表 | /theme 切换主题"));
-  console.log(colorize("─".repeat(50), theme.colors.border) + "\n");
+  // 退出全屏并归位还原终端
+  exitFullscreenCanvas();
+  process.exit(0);
 }
 
 main().catch((err) => {
+  exitFullscreenCanvas();
   console.error(err);
   process.exit(1);
 });
