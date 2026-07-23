@@ -1,6 +1,6 @@
 // apps/tui/src/main.ts
 /**
- * Hachimi TUI 增强与沉浸式交互入口
+ * Hachimi TUI 增强与沉浸式交互入口 (Grok-build 主题审美升级)
  */
 
 import * as readline from "node:readline/promises";
@@ -11,7 +11,7 @@ import { createAppContext } from "./app-context.js";
 import { handleSlashCommand, SLASH_COMMANDS } from "./ui/commands.js";
 import { renderModalBox } from "./ui/modal.js";
 import { HachimiTUIApp } from "./ui/app.js";
-import { getActiveTheme, colorize } from "./ui/theme.js";
+import { getActiveTheme, colorize, renderBadge, bold, dim } from "./ui/theme.js";
 
 async function main() {
   let rl!: readline.Interface;
@@ -19,13 +19,12 @@ async function main() {
   const ctx = createAppContext({
     async onToolApproval(toolName, args, permission) {
       const theme = getActiveTheme();
-      const title = colorize(`⚠️ [权限拦截确认] 工具 [${toolName}] (${permission})`, theme.colors.warning);
-      console.log(`\n${title}`);
-      console.log(colorize(`   参数: ${JSON.stringify(args)}`, theme.colors.subtext));
+      const badge = renderBadge("⚠️ APPROVAL REQUIRED", theme.colors.warning, "#000000");
+      console.log(`\n${badge} ${bold(`工具 [${toolName}] (${permission}) 试图执行`)}`);
+      console.log(dim(`   参数: ${JSON.stringify(args)}`));
 
-      const ans = (await rl.question(colorize("   👉 是否允许执行该工具？(y/N): ", theme.colors.primary)))
-        .trim()
-        .toLowerCase();
+      const promptStr = colorize("👉 是否允许执行该工具？(y/N): ", theme.colors.primary);
+      const ans = (await rl.question(`   ${promptStr}`)).trim().toLowerCase();
 
       const approved = ans === "y" || ans === "yes";
       if (approved) {
@@ -37,7 +36,7 @@ async function main() {
     },
   });
 
-  const { config, sessions, agent } = ctx;
+  const { sessions, agent } = ctx;
 
   const forceCli = process.argv.includes("--cli");
 
@@ -74,10 +73,10 @@ async function main() {
   while (true) {
     let userInput = "";
     const theme = getActiveTheme();
-    const promptLabel = colorize("你: ", theme.colors.primary);
+    const userBadge = renderBadge("👤 YOU", theme.colors.userRole, "#000000");
 
     try {
-      userInput = (await rl.question(`\n${promptLabel}`)).trim();
+      userInput = (await rl.question(`\n${userBadge} `)).trim();
     } catch {
       break;
     }
@@ -89,7 +88,7 @@ async function main() {
       const res = await handleSlashCommand(userInput, ctx);
 
       if (res.action === "exit") {
-        console.log(colorize(res.content || "再见！", theme.colors.subtext));
+        console.log(dim(res.content || "再见！"));
         break;
       }
 
@@ -124,8 +123,8 @@ async function main() {
       // 清除 spinner
       process.stdout.write(" ".repeat(30) + "\r");
 
-      const botLabel = colorize("hachimi: ", theme.colors.assistantRole);
-      console.log(`${botLabel}${reply}`);
+      const botBadge = renderBadge("🤖 HACHIMI", theme.colors.assistantRole, "#000000");
+      console.log(`${botBadge} ${colorize(reply, theme.colors.text)}`);
 
       const userMsg: Message = {
         id: generateId("msg_"),
@@ -163,26 +162,17 @@ function printBanner(info: {
   dataDir: string;
 }) {
   const theme = getActiveTheme();
-  console.log(colorize("========================================", theme.colors.primary));
-  console.log(colorize(`  ${info.title}  |  Enhanced TUI Engine`, theme.colors.primary));
-  console.log(colorize("========================================", theme.colors.primary));
-  console.log(`  model:   ${info.provider}`);
-  console.log(`  session: ${info.sessionId}`);
-  console.log(`  memory:  ${info.memCount} (long_term)`);
-  console.log(`  skills:  ${info.skillNames}`);
-  console.log(`  data:    ${info.dataDir}`);
-  console.log("----------------------------------------");
-  console.log("  命令:");
-  console.log("    /status            显示运行概况 (LLM/Token/Memory)");
-  console.log("    /config            显示系统当前配置");
-  console.log("    /theme <名称>      切换配色 (hachimi-dark, cyberpunk, monokai)");
-  console.log("    /help              帮助与快捷键");
-  console.log("    /memories          查看记忆");
-  console.log("    /remember <内容>   添加记忆");
-  console.log("    /sessions          列出与切换历史会话 (/session load <id>)");
-  console.log("    /clear             清空当前会话消息");
-  console.log("    /exit              保存并退出");
-  console.log(colorize("========================================\n", theme.colors.primary));
+  const bannerHeader = renderBadge(` 🐱 ${info.title} `, theme.colors.primary, "#000000");
+  console.log(`\n${bannerHeader} ${dim("Grok-build Engine")}`);
+  console.log(colorize("─".repeat(50), theme.colors.border));
+  console.log(`  ${bold("Model")}    : ${colorize(info.provider, theme.colors.primary)}`);
+  console.log(`  ${bold("Session")}  : ${dim(info.sessionId)}`);
+  console.log(`  ${bold("Memory")}   : ${info.memCount} entries (long_term)`);
+  console.log(`  ${bold("Skills")}   : ${info.skillNames}`);
+  console.log(`  ${bold("DataDir")}  : ${info.dataDir}`);
+  console.log(colorize("─".repeat(50), theme.colors.border));
+  console.log(dim("  输入 /help 查看命令与快捷指南 | /status 查看概况仪表 | /theme 切换主题"));
+  console.log(colorize("─".repeat(50), theme.colors.border) + "\n");
 }
 
 main().catch((err) => {
