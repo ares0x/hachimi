@@ -104,12 +104,8 @@ export function createAppContext(): AppContext {
   const tools = new ToolRegistry();
   const skills = new SkillRegistry();
 
-  skills.register(writingSkill);
-  try {
+    skills.register(writingSkill);
     skills.register(summarySkill);
-  } catch {
-    // summarySkill 不存在时忽略
-  }
 
   registerBuiltinTools(tools);
 

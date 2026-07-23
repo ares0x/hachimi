@@ -24,7 +24,7 @@ async function main() {
       .list()
       .map((s) => s.name)
       .join(", ") || "无";
-
+  console.log("------skillNames -------",skillNames)
   printBanner({
     title: config.tui.title,
     provider: config.llm.provider,
@@ -106,7 +106,8 @@ async function handleCommand(
   }
 
   // 查看记忆
-  if (command === "/memories") {
+    if (command === "/memories") {
+      memory.cleanup();   // 新增
     const all = memory.list();
     console.log("\n当前记忆：");
     if (all.length === 0) {
@@ -177,7 +178,13 @@ async function handleCommand(
     return "continue";
   }
 
-  // 状态
+  if (command === "/cleanup") {
+    memory.cleanup();
+    console.log("记忆已清理（去重 + 剪枝）\n");
+    return "continue";
+  }
+
+    // 状态
   if (command === "/status") {
     const { config, memory, sessions, skills } = ctx;
     const session = sessions.getCurrent();

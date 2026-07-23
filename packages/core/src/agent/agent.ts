@@ -1,179 +1,150 @@
 // packages/core/src/agent/agent.ts
-
 import type { Message, LLMProvider } from "../types/index.js";
 import { ToolRegistry } from "../tools/registry.js";
-import { SkillRegistry } from "../skills/registry.js";
 import { MemoryManager } from "../memory/manager.js";
+import { SkillRegistry } from "../skills/registry.js";
+import { ContextBuilder } from "../context/builder.js";
 import { generateId } from "@hachimi/shared";
 
 export interface AgentOptions {
   llm: LLMProvider;
   tools: ToolRegistry;
   memory: MemoryManager;
-  maxToolRounds?: number;
   skills?: SkillRegistry;
+  contextBuilder?: ContextBuilder;
+  maxToolRounds?: number;
 }
 
 /**
- * 最简 Agent 实现（Phase 1 + Phase 2 初期）
- * - 支持工具调用循环
- * - 支持分层 Memory 检索并注入上下文
+ * Agent 核心循环
  */
 export class Agent {
   private llm: LLMProvider;
   private tools: ToolRegistry;
   private memory: MemoryManager;
-  private maxToolRounds: number;
   private skills?: SkillRegistry;
+  private contextBuilder: ContextBuilder;
+  private maxToolRounds: number;
 
   constructor(options: AgentOptions) {
     this.llm = options.llm;
     this.tools = options.tools;
     this.memory = options.memory;
-    this.maxToolRounds = options.maxToolRounds ?? 5;
     this.skills = options.skills;
+    this.contextBuilder = options.contextBuilder ?? new ContextBuilder();
+    this.maxToolRounds = options.maxToolRounds ?? 5;
   }
 
   /**
    * 执行一轮对话
-   * @param userInput 用户输入
-   * @param history 可选的历史消息（通常由外部 Session 管理）
    */
-  async run(userInput: string, history: Message[] = []): Promise<string> {
-      const input = userInput.trim();
-      const systemParts: string[] = [];
+   async run(userInput: string, history: Message[] = []): Promise<string> {
+     const input = userInput.trim();
 
-      // 1. 基础身份 + 强制规则
-      systemParts.push(
-        `你是 hachimi，一个个人 AI 助理。
+     // 1. 自然语言记住
+     const rememberPrefixes = ["请记住", "记住", "帮我记一下", "记一下"];
+     for (const prefix of rememberPrefixes) {
+       if (input.startsWith(prefix)) {
+         const content = input.slice(prefix.length).replace(/^[：:\s]+/, "").trim();
+         if (content) {
+           this.memory.remember(content, 0.75);
+           return `好的，我已经记住了：${content}`;
+         } else {
+           return "请告诉我需要记住的具体内容，例如：请记住我喜欢喝手冲咖啡";
+         }
+       }
+     }
 
-      【重要规则】
-      1. 你只能使用我明确提供给你的技能和工具。
-      2. 当用户问「你有哪些技能」「你会什么」时，你必须且只能根据「当前可用技能列表」来回答，禁止添加任何列表中没有的能力。
-      3. 如果技能列表为空，就如实说「目前还没有配置技能」。
-      4. 回答请简洁。`
-      );
-    // ========== 自然语言记住（更宽松的检测） ==========
-        const rememberPrefixes = ["请记住", "记住", "帮我记一下", "记一下"];
+     // 2. 技能意图检测
+     let activeSkill: string | undefined;
+     const skillMatch = input.match(/(?:用|使用|以|调用)\s*([\w\u4e00-\u9fa5]+)\s*技能/i);
+     if (skillMatch) {
+       activeSkill = skillMatch[1].trim();
+       console.log(`[Skill] 检测到激活技能: ${activeSkill}`);
+     }
 
-        for (const prefix of rememberPrefixes) {
-          if (input.startsWith(prefix)) {
-            const content = input.slice(prefix.length).replace(/^[：:\s]+/, "").trim();
+     // 3. 检索记忆
+     const relevantMemories = this.memory.search(input, {
+       layers: ["session", "long_term"],
+       limit: 6,
+       minImportance: 0.3,
+     });
 
-            if (content) {
-              this.memory.remember(content, 0.75);
-              return `好的，我已经记住了：${content}`;
-            } else {
-              return "请告诉我需要记住的具体内容，例如：请记住我喜欢喝手冲咖啡";
-            }
-          }
-        }
-        // ========== 检测结束 ==========
+     // 4. 组装上下文（必须 await）
+     const built = await this.contextBuilder.build({
+       userInput: input,
+       memories: relevantMemories,
+       skills: this.skills,
+       tools: this.tools,
+       activeSkill,
+     });
 
-        // 后面原来的 memory.search 逻辑保持不变...
-        const relevantMemories = this.memory.search(input, {
-          layers: ["session", "long_term"],
-          limit: 6,
-          minImportance: 0.3,
-        });
+     // 5. 组装消息
+     const messages: Message[] = [
+       {
+         id: generateId("msg_"),
+         role: "system",
+         content: built.systemPrompt,
+         timestamp: Date.now(),
+       },
+       ...history,
+       {
+         id: generateId("msg_"),
+         role: "user",
+         content: input,
+         timestamp: Date.now(),
+       },
+     ];
 
-    // 2. 如果有相关记忆，注入为 system 消息
-    if (relevantMemories.length > 0) {
-      const memoryText = relevantMemories
-        .map((m) => `- (${m.layer}) ${m.content}`)
-        .join("\n");
-      systemParts.push(`以下是与当前对话相关的记忆，请在回答时参考：\n${memoryText}`);
-    }
+     // 6. 工具调用循环
+     let rounds = 0;
+     while (rounds < this.maxToolRounds) {
+       rounds++;
 
+       const toolDefs = this.tools.list();
+       const response = await this.llm.chat(messages, toolDefs);
 
-    if (this.skills) {
-      const skillDesc = this.skills.getPromptDescriptions();
-      if (skillDesc) {
-        systemParts.push(
-          `【当前可用技能列表】\n${skillDesc}\n\n请严格基于以上列表回答关于技能的问题。`
-        );
-      } else {
-        systemParts.push(`【当前可用技能列表】\n（空）`);
-      }
-    }
+       if (!response.tool_calls || response.tool_calls.length === 0) {
+         const finalContent = response.content ?? "";
+         messages.push({
+           id: generateId("msg_"),
+           role: "assistant",
+           content: finalContent,
+           timestamp: Date.now(),
+         });
 
-      const messages: Message[] = [];
-      if (systemParts.length > 0) {
-        messages.push({
-          id: generateId("msg_"),
-          role: "system",
-          content: systemParts.join("\n\n"),
-          timestamp: Date.now(),
-        });
-      }
-    // 3. 加入历史消息 + 当前用户输入
-    messages.push(...history);
-    messages.push({
-      id: generateId("msg_"),
-      role: "user",
-      content: userInput,
-      timestamp: Date.now(),
-    });
+         this.memory.add({
+           layer: "session",
+           content: `用户: ${input}\n助手: ${finalContent}`,
+           importance: 0.4,
+         });
 
-    // 4. 工具调用循环
-    let rounds = 0;
+         return finalContent;
+       }
 
-    while (rounds < this.maxToolRounds) {
-      rounds++;
+       messages.push({
+         id: generateId("msg_"),
+         role: "assistant",
+         content: response.content ?? "",
+         timestamp: Date.now(),
+       });
 
-      const toolDefs = this.tools.list();
-      const response = await this.llm.chat(messages, toolDefs);
+       for (const call of response.tool_calls) {
+         const result = await this.tools.execute(call.name, call.arguments);
+         messages.push({
+           id: generateId("msg_"),
+           role: "tool",
+           content: result,
+           tool_call_id: call.id,
+           name: call.name,
+           timestamp: Date.now(),
+         });
+       }
+     }
 
-      // 没有工具调用 → 返回最终回答
-      if (!response.tool_calls || response.tool_calls.length === 0) {
-        const finalContent = response.content ?? "";
+     return "达到最大工具调用轮次，已停止执行。";
+   }
 
-        messages.push({
-          id: generateId("msg_"),
-          role: "assistant",
-          content: finalContent,
-          timestamp: Date.now(),
-        });
-
-        // 5. 简单记录本次交互到 session memory（后续可做得更智能）
-        this.memory.add({
-          layer: "session",
-          content: `用户: ${userInput}\n助手: ${finalContent}`,
-          importance: 0.4,
-        });
-
-        return finalContent;
-      }
-
-      // 有工具调用
-      messages.push({
-        id: generateId("msg_"),
-        role: "assistant",
-        content: response.content ?? "",
-        timestamp: Date.now(),
-      });
-
-      // 执行工具（Phase 1/2 先串行）
-      for (const call of response.tool_calls) {
-        const result = await this.tools.execute(call.name, call.arguments);
-
-        messages.push({
-          id: generateId("msg_"),
-          role: "tool",
-          content: result,
-          tool_call_id: call.id,
-          name: call.name,
-          timestamp: Date.now(),
-        });
-      }
-    }
-
-    return "达到最大工具调用轮次，已停止执行。";
-  }
-
-  /**
-   * 获取当前使用的 MemoryManager（方便外部操作）
-   */
   getMemory(): MemoryManager {
     return this.memory;
   }

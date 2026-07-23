@@ -33,4 +33,14 @@ describe("MemoryManager persistence", () => {
     const hits = m.search("我喜欢喝什么");
     expect(hits.length).toBeGreaterThan(0);
   });
+
+  it("deduplicates same content keeping highest importance", () => {
+    const m = new MemoryManager(testFile, new FileJsonStore());
+    m.remember("用户喜欢喝咖啡", 0.6);
+    m.remember("用户喜欢喝咖啡", 0.9); // 更高 importance
+    m.cleanup();
+    const list = m.list("long_term");
+    expect(list.length).toBe(1);
+    expect(list[0].importance).toBe(0.9);
+  });
 });

@@ -14,3 +14,4 @@ data/
 *.sqlite
 data/
 data-test*
+config.json

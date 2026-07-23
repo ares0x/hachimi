@@ -1,6 +1,7 @@
 {
     "llm": {
         "provider": "deepseek",
+        "deepseekApiKey": "sk-your-api-key-here",
         "deepseekModel": "deepseek-chat"
     },
     "paths": {

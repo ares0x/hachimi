@@ -69,7 +69,8 @@ export class MemoryManager {
     };
 
     this.getLayerArray(params.layer).push(entry);
-    this.save();          // 新增：自动保存
+      this.save();          // 新增：自动保存
+      this.cleanup();
     return entry;
   }
 
@@ -165,13 +166,19 @@ export class MemoryManager {
   /**
    * 快捷记住一条信息（默认写入 long_term）
    */
-  remember(content: string, importance = 0.7, layer: MemoryLayer = "long_term"): MemoryEntry {
-    return this.add({
-      layer,
-      content,
-      importance,
-    });
-  }
+   remember(content: string, importance = 0.7, layer: MemoryLayer = "long_term"): MemoryEntry {
+     // 先清理同类
+     this.longTerm = this.longTerm.filter(e =>
+       e.content.toLowerCase().replace(/[\s\d，。？！、；：""''（）()]+/g, "") !==
+       content.toLowerCase().replace(/[\s\d，。？！、；：""''（）()]+/g, "")
+     );
+     const entry = this.add({
+       layer,
+       content,
+       importance,
+     });
+     return entry;
+   }
 
   /**
    * 查看某层记忆
@@ -206,6 +213,44 @@ export class MemoryManager {
     return false;
   }
 
+  /**
+   * 去重：相同内容只保留 importance 最高的那条
+   */
+   deduplicate() {
+     const seen = new Map<string, MemoryEntry>();
+     for (const entry of this.longTerm) {
+       const key = entry.content
+         .toLowerCase()
+         .replace(/[\s\d，。？！、；：""''（）()]+/g, "")
+         .trim();
+       const existing = seen.get(key);
+       if (!existing || entry.importance > existing.importance) {
+         seen.set(key, entry);
+       }
+     }
+     this.longTerm = Array.from(seen.values());
+   }
+
+
+  /**
+   * 清理低重要性记忆（可选定期调用）
+   */
+  prune(minImportance = 0.3, maxCount = 100) {
+    this.longTerm = this.longTerm
+      .filter((e) => e.importance >= minImportance)
+      .sort((a, b) => b.importance - a.importance)
+      .slice(0, maxCount);
+    this.save();
+  }
+
+  /**
+   * 自动去重 + 清理（推荐在 add 后调用）
+   */
+  cleanup() {
+    this.deduplicate();
+    this.prune(0.3, 100);
+    this.save();
+  }
   /**
    * 清空某一层
    */

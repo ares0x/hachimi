@@ -33,4 +33,10 @@ export class SkillRegistry {
     if (!skill) return null;
     return await skill.load();
   }
+
+  async getFullSkill(name: string): Promise<SkillContent | null> {
+    const skill = this.skills.get(name);
+    if (!skill) return null;
+    return await skill.load();
+  }
 }

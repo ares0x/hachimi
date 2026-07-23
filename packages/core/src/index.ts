@@ -8,3 +8,5 @@ export { OpenAICompatibleProvider } from "./agent/providers/openai-compatible.js
 export type { OpenAICompatibleConfig } from "./agent/providers/openai-compatible.js";
 export { MockLLMProvider } from "./agent/llm.js";
 export type { LLMProvider, LLMResponse } from "./types/index.js";
+export { ContextBuilder } from "./context/builder.js";
+export type { ContextBuildInput, BuiltContext } from "./context/builder.js";

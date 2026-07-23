@@ -79,4 +79,14 @@ export class SessionManager {
   getCurrent(): Session | null {
     return this.current;
   }
+
+  summarize() {
+    const current = this.getCurrent();
+    if (!current || current.messages.length < 10) return;
+
+    // 简单截断 + 摘要（L2 可用 LLM 总结）
+    const recent = current.messages.slice(-20);
+    current.messages = recent;
+    this.save();
+  }
 }
