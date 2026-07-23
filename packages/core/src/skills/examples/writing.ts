@@ -1,9 +1,11 @@
+// packages/core/src/skills/examples/writing.ts
 import type { SkillDefinition } from "../../types/index.js";
 
 export const writingSkill: SkillDefinition = {
   name: "writing",
   description: "帮助用户进行写作、润色、改写和结构化表达",
   tags: ["writing", "content"],
+  permission: 'safe',
   load: () => ({
     instructions: `
 你现在处于「写作助手」模式。请遵循以下原则：

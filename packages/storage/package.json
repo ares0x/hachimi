@@ -9,6 +9,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@hachimi/shared": "workspace:*"
+    "@hachimi/shared": "workspace:*",
+    "better-sqlite3": "^13.0.1"
   }
 }

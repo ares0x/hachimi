@@ -51,7 +51,6 @@ export class MemoryManager {
       });
     }
 
-  // 添加记忆
   /**
    * 添加一条记忆
    */
@@ -70,58 +69,46 @@ export class MemoryManager {
     };
 
     this.getLayerArray(params.layer).push(entry);
-
-    // 自动清理
     this.cleanup();
-
     return entry;
   }
 
   search(query: string, options: MemorySearchOptions = {}): MemoryEntry[] {
-    const {
-      layers = ["working", "session", "long_term"],
-      limit = 8,
-      minImportance = 0,
-    } = options;
+      const {
+        layers = ["working", "session", "long_term"],
+        limit = 8,
+        minImportance = 0,
+      } = options;
+      let results: MemoryEntry[] = [];
 
-    const all: MemoryEntry[] = [];
-    for (const layer of layers) {
-      all.push(...this.getLayerArray(layer));
-    }
+          for (const layer of layers) {
+            const arr = this.getLayerArray(layer);
+            results.push(...arr);
+          }
 
-    // 临时策略（Phase 2 演示用）：
-    // 如果查询较长或包含个人相关词，直接返回高重要性的长期记忆
-    const personalKeywords = ["我", "谁", "名字", "项目", "技术", "做什么", "开发"];
-    const isPersonalQuery = personalKeywords.some((kw) => query.includes(kw));
+          // 过滤重要性
+          results = results.filter((e) => e.importance >= minImportance);
 
-    let results = all.filter((e) => e.importance >= minImportance);
+          // 简单关键词匹配 + 重要性排序
+          const lowerQuery = query.toLowerCase();
+          results = results
+            .filter((e) =>
+              e.content.toLowerCase().includes(lowerQuery) || lowerQuery.length < 4
+            )
+            .sort((a, b) => b.importance - a.importance)
+            .slice(0, limit);
 
-    if (isPersonalQuery) {
-      // 个人相关问题 → 优先返回 long_term 高重要性记忆
-      results = results
-        .filter((e) => e.layer === "long_term" || e.layer === "session")
-        .sort((a, b) => b.importance - a.importance)
-        .slice(0, limit);
-    } else {
-      // 普通问题 → 简单包含匹配
-      const lowerQuery = query.toLowerCase();
-      results = results
-        .filter((e) => e.content.toLowerCase().includes(lowerQuery) || lowerQuery.length < 4)
-        .sort((a, b) => b.importance - a.importance)
-        .slice(0, limit);
-    }
-
-    // 更新访问时间
-    return results.map((e) => {
-      e.lastAccessedAt = Date.now();
-      return e;
-    });
-  }
+          // 更新访问时间
+          return results.map((e) => {
+            e.lastAccessedAt = Date.now();
+            return e;
+          });
+        }
 
   // 获取某层所有记忆
   getLayer(layer: MemoryLayer): MemoryEntry[] {
-    return [...this.getLayerArray(layer)];
-  }
+      return [...this.getLayerArray(layer)];
+    }
 
   // 清空 Working（新会话时常用）
   clearWorking() {

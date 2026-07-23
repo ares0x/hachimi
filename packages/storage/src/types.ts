@@ -13,3 +13,7 @@ export interface JsonDirStore {
   write<T>(filePath: string, data: T): void;
   remove(filePath: string): void;
 }
+
+export interface StorageBackend {
+  close?(): void;
+}

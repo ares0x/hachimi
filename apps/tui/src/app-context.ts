@@ -1,18 +1,18 @@
 // apps/tui/src/app-context.ts
 import { loadConfig, type HachimiConfig } from "@hachimi/config";
 import { log } from "@hachimi/shared";
+import { resolve } from "node:path";                    // 新增：修复 resolve 错误
 import { FileJsonStore, FileDirStore } from "@hachimi/storage";
+import { SQLiteStore } from "@hachimi/storage";
 import { Agent } from "../../../packages/core/src/agent/agent.js";
 import { ToolRegistry } from "../../../packages/core/src/tools/registry.js";
 import { MemoryManager } from "../../../packages/core/src/memory/manager.js";
 import { SessionManager } from "../../../packages/core/src/session/manager.js";
 import { SkillRegistry } from "../../../packages/core/src/skills/registry.js";
 import { writingSkill } from "../../../packages/core/src/skills/examples/writing.js";
+import { summarySkill } from "../../../packages/core/src/skills/examples/summary.js";
 import { MockLLMProvider } from "../../../packages/core/src/agent/llm.js";
 import { OpenAICompatibleProvider } from "../../../packages/core/src/agent/providers/openai-compatible.js";
-
-// 若没有 summarySkill，删除下面两行及相关 register
-import { summarySkill } from "../../../packages/core/src/skills/examples/summary.js";
 import { ContextBuilder } from "../../../packages/core/src/context/builder.js";
 
 export interface AppContext {
@@ -22,6 +22,7 @@ export interface AppContext {
   tools: ToolRegistry;
   skills: SkillRegistry;
   agent: Agent;
+  getStatus(): Record<string, any>;
 }
 
 function createLLM(config: HachimiConfig) {
@@ -91,10 +92,26 @@ export function createAppContext(): AppContext {
   log("info", "hachimi starting", {
     provider: config.llm.provider,
     dataDir: config.paths.dataDir,
+    storage: "sqlite",
   });
 
-  const fileStore = new FileJsonStore();
-  const dirStore = new FileDirStore();
+  // Storage 切换逻辑
+  const useSQLite = true; // 后续可改为从 config.storage.backend 读取
+
+  let fileStore: any;
+  let dirStore: any;
+
+  if (useSQLite) {
+    const sqlitePath = resolve(config.paths.dataDir, "hachimi.db");
+    const sqliteStore = new SQLiteStore(sqlitePath);
+    fileStore = sqliteStore;
+    dirStore = sqliteStore;
+    log("info", `使用 SQLite 存储: ${sqlitePath}`);
+  } else {
+    fileStore = new FileJsonStore();
+    dirStore = new FileDirStore();
+    log("info", "使用 File 存储（兼容模式）");
+  }
 
   const memory = new MemoryManager(config.paths.memoryFile, fileStore);
   const sessions = new SessionManager(config.paths.sessionsDir, dirStore);
@@ -113,8 +130,6 @@ export function createAppContext(): AppContext {
   }
 
   const llm = createLLM(config);
-
-  // 新增：ContextBuilder 并传入 config.context
   const contextBuilder = new ContextBuilder();
 
   const agent = new Agent({
@@ -122,11 +137,10 @@ export function createAppContext(): AppContext {
     tools,
     memory,
     skills,
-    contextBuilder,                    // 显式传入
+    contextBuilder,
     maxToolRounds: config.agent.maxToolRounds,
   });
 
-  // 确保有当前会话
   sessions.getOrCreate();
   const session = sessions.getCurrent();
 
@@ -135,12 +149,32 @@ export function createAppContext(): AppContext {
     messages: session?.messages.length ?? 0,
   });
 
-  return {
-    config,
-    memory,
-    sessions,
-    tools,
-    skills,
-    agent,
-  };
+  const context = {
+      config,
+      memory,
+      sessions,
+      tools,
+      skills,
+      agent,
+      getStatus() {
+        return {
+          llm: config.llm.provider,
+          context: {
+            maxTokens: config.context.maxTokens,
+            mode: config.context.defaultMode,
+          },
+          memory: {
+            longTermCount: memory.list("long_term").length,
+            sessionCount: memory.list("session").length,
+          },
+          session: {
+            id: sessions.getCurrent()?.id,
+            messages: sessions.getCurrent()?.messages.length ?? 0,
+          },
+          skills: skills.list().map(s => s.name),
+        };
+      },
+    };
+
+    return context;
 }

@@ -66,18 +66,20 @@ export interface MemoryEntry {
 /** Skill definition (Lazy by design) */
 export interface SkillDefinition {
   name: string;
-  description: string; // Short one-liner shown in system prompt
+  description: string;           // Short one-liner shown in system prompt
   /** Path or loader that returns the full skill content when activated */
   load: () => Promise<SkillContent>;
   tags?: string[];
+  permission?: 'safe' | 'needs_confirm' | 'dangerous';  // 新增：权限级别
 }
 
 export interface SkillContent {
   instructions: string;
   tools?: string[]; // tool names this skill uses
   examples?: string[];
+  // 可选扩展
+  requiredConfirmation?: boolean;
 }
-
 /** Tool definition */
 export interface ToolDefinition {
   name: string;
