@@ -67,9 +67,23 @@ export class SQLiteStore implements JsonFileStore, JsonDirStore, StorageBackend 
     return !!stmt.get(key);
   }
 
-  // JsonDirStore 接口实现（简化版，可后续增强）
+  // JsonDirStore 接口实现
   ensureDir(_dir: string): void { /* SQLite 不需要目录 */ }
-  list(_dir: string): string[] { return []; } // 可实现为查询 key 列表
+  list(dir: string): string[] {
+    try {
+      const normalized = dir.replace(/\\/g, "/");
+      const prefix = normalized.endsWith("/") ? normalized : `${normalized}/`;
+      const stmt = this.db.prepare("SELECT key FROM kv_store WHERE key LIKE ?");
+      const rows = stmt.all(`${prefix}%`) as Array<{ key: string }>;
+      return rows.map((r) => {
+        const k = r.key.replace(/\\/g, "/");
+        return k.substring(prefix.length);
+      });
+    } catch (err) {
+      log("warn", `SQLite list failed: ${dir}`, err);
+      return [];
+    }
+  }
 
   readDirEntry<T>(key: string): T | null {
     try {

@@ -22,6 +22,8 @@ export interface AppContext {
   tools: ToolRegistry;
   skills: SkillRegistry;
   agent: Agent;
+  contextBuilder: ContextBuilder;
+  getConfig(): HachimiConfig;
   getStatus(): Record<string, any>;
 }
 
@@ -86,7 +88,11 @@ function registerBuiltinTools(tools: ToolRegistry) {
   });
 }
 
-export function createAppContext(): AppContext {
+export interface CreateAppContextOptions {
+  onToolApproval?: (toolName: string, args: Record<string, unknown>, permission: string) => Promise<boolean>;
+}
+
+export function createAppContext(options: CreateAppContextOptions = {}): AppContext {
   const config = loadConfig();
 
   log("info", "hachimi starting", {
@@ -139,6 +145,7 @@ export function createAppContext(): AppContext {
     skills,
     contextBuilder,
     maxToolRounds: config.agent.maxToolRounds,
+    onToolApproval: options.onToolApproval,
   });
 
   sessions.getOrCreate();
@@ -149,32 +156,59 @@ export function createAppContext(): AppContext {
     messages: session?.messages.length ?? 0,
   });
 
-  const context = {
-      config,
-      memory,
-      sessions,
-      tools,
-      skills,
-      agent,
-      getStatus() {
-        return {
-          llm: config.llm.provider,
-          context: {
-            maxTokens: config.context.maxTokens,
-            mode: config.context.defaultMode,
-          },
-          memory: {
-            longTermCount: memory.list("long_term").length,
-            sessionCount: memory.list("session").length,
-          },
-          session: {
-            id: sessions.getCurrent()?.id,
-            messages: sessions.getCurrent()?.messages.length ?? 0,
-          },
-          skills: skills.list().map(s => s.name),
-        };
-      },
-    };
+  const context: AppContext = {
+    config,
+    memory,
+    sessions,
+    tools,
+    skills,
+    agent,
+    contextBuilder,
+    getConfig() {
+      return config;
+    },
+    getStatus() {
+      const currentSession = sessions.getCurrent();
+      const messages = currentSession?.messages ?? [];
+      const longTerm = memory.list("long_term");
+      const sessionMem = memory.list("session");
 
-    return context;
+      // 计算简单估算 token 数
+      const estimatedHistoryLength = JSON.stringify(messages).length;
+      const approxTokens = Math.ceil(estimatedHistoryLength / 3.5);
+
+      return {
+        title: config.tui.title,
+        llm: {
+          provider: config.llm.provider,
+          model: config.llm.provider === "openai" ? config.llm.openaiModel : (config.llm.provider === "deepseek" ? config.llm.deepseekModel : "mock-model"),
+        },
+        context: {
+          maxTokens: config.context.maxTokens,
+          mode: config.context.defaultMode,
+          estimatedTokens: approxTokens,
+          ratio: ((approxTokens / config.context.maxTokens) * 100).toFixed(1) + "%",
+        },
+        memory: {
+          longTermCount: longTerm.length,
+          sessionCount: sessionMem.length,
+          totalCount: memory.list().length,
+        },
+        session: {
+          id: currentSession?.id ?? "-",
+          title: currentSession?.title ?? "默认会话",
+          messageCount: messages.length,
+        },
+        skills: skills.list().map((s) => s.name),
+        tools: tools.list().map((t) => ({ name: t.name, permission: t.permission ?? "safe" })),
+        paths: {
+          dataDir: config.paths.dataDir,
+          memoryFile: config.paths.memoryFile,
+          sessionsDir: config.paths.sessionsDir,
+        },
+      };
+    },
+  };
+
+  return context;
 }

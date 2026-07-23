@@ -30,7 +30,7 @@ export const darkTheme: UITheme = {
     secondary: "#7C4DFF",    // 紫色 Accent
     background: "#121212",
     panelBg: "#1E1E2E",
-    border: "#45475A",
+    border: "#00E5FF",
     text: "#CDD6F4",
     subtext: "#A6ADC8",
     userRole: "#89B4FA",     // 淡蓝
@@ -70,7 +70,7 @@ export const monokaiTheme: UITheme = {
     secondary: "#F92672",    // Monokai 洋红
     background: "#272822",
     panelBg: "#3E3D32",
-    border: "#75715E",
+    border: "#A6E22E",
     text: "#F8F8F2",
     subtext: "#75715E",
     userRole: "#66D9EF",     // 浅蓝
@@ -104,3 +104,48 @@ export function setActiveTheme(name: string): boolean {
 }
 
 export const defaultTheme = darkTheme;
+
+/**
+ * 将 Hex 颜色转化为 Terminal 24-bit ANSI TrueColor Escape Code
+ */
+export function colorize(text: string, hexColor?: string): string {
+  if (!hexColor) return text;
+  const hex = hexColor.replace("#", "");
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return text;
+  return `\x1b[38;2;${r};${g};${b}m${text}\x1b[0m`;
+}
+
+/**
+ * 计算终端文本实际占用宽度（兼容 CJK 东亚全角字符与 Emoji 2 列宽）
+ */
+export function getDisplayWidth(str: string): number {
+  const clean = str.replace(/\x1b\[[0-9;]*m/g, "");
+  let width = 0;
+  for (const char of clean) {
+    const code = char.codePointAt(0) || 0;
+    if (
+      (code >= 0x4e00 && code <= 0x9fff) ||
+      (code >= 0x3000 && code <= 0x303f) ||
+      (code >= 0xff00 && code <= 0xffef) ||
+      (code >= 0x1f300 && code <= 0x1f9ff) ||
+      (code >= 0x2600 && code <= 0x26ff)
+    ) {
+      width += 2;
+    } else {
+      width += 1;
+    }
+  }
+  return width;
+}
+
+/**
+ * 按真实终端显示宽度补充空格对齐
+ */
+export function padDisplayWidth(str: string, targetWidth: number): string {
+  const currentWidth = getDisplayWidth(str);
+  const padding = Math.max(0, targetWidth - currentWidth);
+  return str + " ".repeat(padding);
+}

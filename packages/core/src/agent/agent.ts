@@ -13,6 +13,7 @@ export interface AgentOptions {
   skills?: SkillRegistry;
   contextBuilder?: ContextBuilder;
   maxToolRounds?: number;
+  onToolApproval?: (toolName: string, args: Record<string, unknown>, permission: string) => Promise<boolean>;
 }
 
 /**
@@ -25,6 +26,7 @@ export class Agent {
   private skills?: SkillRegistry;
   private contextBuilder: ContextBuilder;
   private maxToolRounds: number;
+  private onToolApproval?: (toolName: string, args: Record<string, unknown>, permission: string) => Promise<boolean>;
 
   constructor(options: AgentOptions) {
     this.llm = options.llm;
@@ -33,6 +35,7 @@ export class Agent {
     this.skills = options.skills;
     this.contextBuilder = options.contextBuilder ?? new ContextBuilder();
     this.maxToolRounds = options.maxToolRounds ?? 5;
+    this.onToolApproval = options.onToolApproval;
   }
 
   /**
@@ -137,7 +140,21 @@ export class Agent {
       });
 
       for (const call of response.tool_calls) {
-        const result = await this.tools.execute(call.name, call.arguments);
+        const toolDef = this.tools.get(call.name);
+        const permission = toolDef?.permission ?? "safe";
+
+        let approved = true;
+        if (
+          this.onToolApproval &&
+          (permission === "needs_confirm" || permission === "dangerous" || toolDef?.requiresApproval)
+        ) {
+          approved = await this.onToolApproval(call.name, call.arguments, permission);
+        }
+
+        const result = approved
+          ? await this.tools.execute(call.name, call.arguments)
+          : `[用户拦截] 工具 ${call.name} 的执行请求已被用户拒绝。`;
+
         messages.push({
           id: generateId("msg_"),
           role: "tool",

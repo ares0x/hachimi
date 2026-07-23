@@ -1,63 +1,131 @@
 // apps/tui/src/main.ts
 /**
- * Phase A 稳定入口（readline Channel）
- * - Core 全部来自 createAppContext()
- * - 不使用 OpenTUI（已延期）
- * - 行为与原先 scripts/chat.ts 对齐，并展示状态信息
+ * Hachimi TUI 增强与沉浸式交互入口
  */
 
 import * as readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-
 import { generateId } from "@hachimi/shared";
 import type { Message } from "../../../packages/core/src/types/index.js";
 import { createAppContext } from "./app-context.js";
+import { handleSlashCommand, SLASH_COMMANDS } from "./ui/commands.js";
+import { renderModalBox } from "./ui/modal.js";
+import { HachimiTUIApp } from "./ui/app.js";
+import { getActiveTheme, colorize } from "./ui/theme.js";
 
 async function main() {
-  const ctx = createAppContext();
-  const { config, memory, sessions, agent, skills } = ctx;
+  let rl!: readline.Interface;
 
-  const session = sessions.getCurrent();
-  const memCount = memory.list("long_term").length;
-  const skillNames =
-    skills
-      .list()
-      .map((s) => s.name)
-      .join(", ") || "无";
-  console.log("------skillNames -------",skillNames)
-  printBanner({
-    title: config.tui.title,
-    provider: config.llm.provider,
-    sessionId: session?.id ?? "-",
-    memCount,
-    skillNames,
-    dataDir: config.paths.dataDir,
+  const ctx = createAppContext({
+    async onToolApproval(toolName, args, permission) {
+      const theme = getActiveTheme();
+      const title = colorize(`⚠️ [权限拦截确认] 工具 [${toolName}] (${permission})`, theme.colors.warning);
+      console.log(`\n${title}`);
+      console.log(colorize(`   参数: ${JSON.stringify(args)}`, theme.colors.subtext));
+
+      const ans = (await rl.question(colorize("   👉 是否允许执行该工具？(y/N): ", theme.colors.primary)))
+        .trim()
+        .toLowerCase();
+
+      const approved = ans === "y" || ans === "yes";
+      if (approved) {
+        console.log(colorize("   ✅ 已授权执行", theme.colors.success));
+      } else {
+        console.log(colorize("   ❌ 已拒绝执行", theme.colors.error));
+      }
+      return approved;
+    },
   });
 
-  const rl = readline.createInterface({ input, output });
+  const { config, sessions, agent } = ctx;
+
+  const forceCli = process.argv.includes("--cli");
+
+  if (!forceCli) {
+    const tuiApp = new HachimiTUIApp({ ctx });
+    await tuiApp.start();
+  } else {
+    const status = ctx.getStatus();
+    printBanner({
+      title: status.title,
+      provider: status.llm.provider,
+      sessionId: status.session.id,
+      memCount: status.memory.longTermCount,
+      skillNames: status.skills.join(", ") || "无",
+      dataDir: status.paths.dataDir,
+    });
+  }
+
+  // 命令行补全提示函数
+  function completer(line: string) {
+    if (line.startsWith("/")) {
+      const hits = SLASH_COMMANDS.filter((c) => c.name.startsWith(line.toLowerCase())).map((c) => c.name);
+      return [hits.length ? hits : SLASH_COMMANDS.map((c) => c.name), line];
+    }
+    return [[], line];
+  }
+
+  rl = readline.createInterface({
+    input,
+    output,
+    completer,
+  });
 
   while (true) {
     let userInput = "";
+    const theme = getActiveTheme();
+    const promptLabel = colorize("你: ", theme.colors.primary);
+
     try {
-      userInput = (await rl.question("你: ")).trim();
+      userInput = (await rl.question(`\n${promptLabel}`)).trim();
     } catch {
-      // 输入流关闭
       break;
     }
 
     if (!userInput) continue;
 
     try {
-      const handled = await handleCommand(userInput, ctx);
-      if (handled === "exit") break;
-      if (handled === "continue") continue;
+      // 统一 Slash 命令分发
+      const res = await handleSlashCommand(userInput, ctx);
 
-      // 正常对话
+      if (res.action === "exit") {
+        console.log(colorize(res.content || "再见！", theme.colors.subtext));
+        break;
+      }
+
+      if (res.action === "clear") {
+        console.log(colorize(res.content || "", theme.colors.success));
+        continue;
+      }
+
+      if (res.action === "message") {
+        console.log(colorize(res.content || "", theme.colors.text));
+        continue;
+      }
+
+      if (res.action === "modal") {
+        console.log(
+          renderModalBox({
+            title: res.title || " 信息 ",
+            content: res.content || "",
+            theme,
+          })
+        );
+        continue;
+      }
+
+      // 正常对话响应 + 思考 Spinner 状态
+      const spinner = colorize("⠋ [Hachimi 思考中...]", theme.colors.warning);
+      process.stdout.write(`${spinner}\r`);
+
       const history = sessions.getHistory();
       const reply = await agent.run(userInput, history);
 
-      console.log("hachimi:", reply);
-      console.log();
+      // 清除 spinner
+      process.stdout.write(" ".repeat(30) + "\r");
+
+      const botLabel = colorize("hachimi: ", theme.colors.assistantRole);
+      console.log(`${botLabel}${reply}`);
 
       const userMsg: Message = {
         id: generateId("msg_"),
@@ -74,8 +142,7 @@ async function main() {
       sessions.appendMessage(userMsg);
       sessions.appendMessage(assistantMsg);
     } catch (err) {
-      console.error("出错了：", err);
-      console.log();
+      console.error(colorize("出错了：", theme.colors.error), err);
     }
   }
 
@@ -87,124 +154,6 @@ async function main() {
   rl.close();
 }
 
-/**
- * 处理斜杠命令。
- * @returns "exit" | "continue" | "fallthrough"
- */
-async function handleCommand(
-  userInput: string,
-  ctx: ReturnType<typeof createAppContext>
-): Promise<"exit" | "continue" | "fallthrough"> {
-  const { memory, sessions } = ctx;
-  const command = userInput.toLowerCase();
-
-  // 退出
-  if (["/exit", "exit", "quit"].includes(command)) {
-    sessions.save();
-    console.log("再见！");
-    return "exit";
-  }
-
-  // 查看记忆
-    if (command === "/memories") {
-      memory.cleanup();   // 新增
-    const all = memory.list();
-    console.log("\n当前记忆：");
-    if (all.length === 0) {
-      console.log("（空）");
-    } else {
-      for (const m of all) {
-        console.log(`[${m.layer}] (${m.importance}) ${m.content}`);
-      }
-    }
-    console.log();
-    return "continue";
-  }
-
-  // 手动添加记忆
-  if (command === "/remember" || userInput.startsWith("/remember ")) {
-    const content =
-      command === "/remember"
-        ? ""
-        : userInput.slice("/remember ".length).trim();
-
-    if (!content) {
-      console.log("用法：/remember <要记住的内容>\n");
-      return "continue";
-    }
-
-    memory.remember(content, 0.75);
-    console.log(`已记住：${content}\n`);
-    return "continue";
-  }
-
-  // 列出会话
-  if (command === "/sessions") {
-    const list = sessions.list();
-    const currentId = sessions.getCurrent()?.id;
-    console.log("\n历史会话：");
-    if (list.length === 0) {
-      console.log("（空）");
-    } else {
-      for (const s of list) {
-        const mark = s.id === currentId ? " (当前)" : "";
-        console.log(
-          `- ${s.id} | ${s.title || "无标题"} | ${new Date(
-            s.updatedAt
-          ).toLocaleString()}${mark}`
-        );
-      }
-    }
-    console.log();
-    return "continue";
-  }
-
-  // 清空当前会话消息
-  if (command === "/clear session") {
-    const current = sessions.getCurrent();
-    if (current) {
-      current.messages = [];
-      sessions.save(current);
-      console.log("当前会话消息已清空\n");
-    } else {
-      console.log("当前没有会话\n");
-    }
-    return "continue";
-  }
-
-  // 帮助
-  if (command === "/help" || command === "help") {
-    printHelp();
-    return "continue";
-  }
-
-  if (command === "/cleanup") {
-    memory.cleanup();
-    console.log("记忆已清理（去重 + 剪枝）\n");
-    return "continue";
-  }
-
-    // 状态
-  if (command === "/status") {
-    const { config, memory, sessions, skills } = ctx;
-    const session = sessions.getCurrent();
-    console.log("\n当前状态：");
-    console.log(`  title:    ${config.tui.title}`);
-    console.log(`  provider: ${config.llm.provider}`);
-    console.log(`  session:  ${session?.id ?? "-"}`);
-    console.log(`  messages: ${session?.messages.length ?? 0}`);
-    console.log(`  memory:   ${memory.list("long_term").length} (long_term)`);
-    console.log(
-      `  skills:   ${skills.list().map((s) => s.name).join(", ") || "无"}`
-    );
-    console.log(`  dataDir:  ${config.paths.dataDir}`);
-    console.log();
-    return "continue";
-  }
-
-  return "fallthrough";
-}
-
 function printBanner(info: {
   title: string;
   provider: string;
@@ -213,9 +162,10 @@ function printBanner(info: {
   skillNames: string;
   dataDir: string;
 }) {
-  console.log("========================================");
-  console.log(`  ${info.title}  |  Phase A (readline)`);
-  console.log("========================================");
+  const theme = getActiveTheme();
+  console.log(colorize("========================================", theme.colors.primary));
+  console.log(colorize(`  ${info.title}  |  Enhanced TUI Engine`, theme.colors.primary));
+  console.log(colorize("========================================", theme.colors.primary));
   console.log(`  model:   ${info.provider}`);
   console.log(`  session: ${info.sessionId}`);
   console.log(`  memory:  ${info.memCount} (long_term)`);
@@ -223,31 +173,16 @@ function printBanner(info: {
   console.log(`  data:    ${info.dataDir}`);
   console.log("----------------------------------------");
   console.log("  命令:");
-  console.log("    /help              帮助");
-  console.log("    /status            当前状态");
+  console.log("    /status            显示运行概况 (LLM/Token/Memory)");
+  console.log("    /config            显示系统当前配置");
+  console.log("    /theme <名称>      切换配色 (hachimi-dark, cyberpunk, monokai)");
+  console.log("    /help              帮助与快捷键");
   console.log("    /memories          查看记忆");
   console.log("    /remember <内容>   添加记忆");
-  console.log("    /sessions          列出会话");
-  console.log("    /clear session     清空当前会话");
-  console.log("    /exit              退出");
-  console.log("========================================");
-  console.log();
-}
-
-function printHelp() {
-  console.log(`
-可用命令：
-  /help              显示本帮助
-  /status            显示运行状态
-  /memories          查看所有记忆
-  /remember <内容>   手动写入长期记忆
-  /sessions          列出历史会话
-  /clear session     清空当前会话消息
-  /exit              保存并退出
-
-也可以直接说：
-  请记住我喜欢喝手冲咖啡
-`);
+  console.log("    /sessions          列出与切换历史会话 (/session load <id>)");
+  console.log("    /clear             清空当前会话消息");
+  console.log("    /exit              保存并退出");
+  console.log(colorize("========================================\n", theme.colors.primary));
 }
 
 main().catch((err) => {
