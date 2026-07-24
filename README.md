@@ -1,30 +1,30 @@
-# Hachimi (蜂蜜)
+# Hachimi (哈基米)
 
 面向 TypeScript & Node.js 的**本地优先、多终端协同、具备渐进式自我演化能力的个人 AI 助理 Harness 框架**。
 
-配合教程：[build-personal-ai-assistant](https://github.com/ares0x/build-personal-ai-assistant)  
+配合教程：[build-personal-ai-assistant](https://github.com/ares0x/build-personal-ai-assistant)
 在线阅读：[https://ares0x.github.io/build-personal-ai-assistant/](https://ares0x.github.io/build-personal-ai-assistant/)
 
-> **定位**：可运行、可演进、高解耦的个人助理内核。  
+> **定位**：可运行、可演进、高解耦的个人助理内核。
 > `tutorial` 分支对应教学 L1 Demo；`main` 面向工业级地基、多终端拓扑与插件生态。
 
 ---
 
-## 🌟 核心特性与架构 (Phase A - E 100% 落地)
+## 核心特性与架构 (Phase A - E 100% 落地)
 
-- 🔌 **多厂商 Provider 传输层 (C1)**：解耦转换 Layer，原生支持 DeepSeek, Anthropic Claude, OpenAI, Moonshot/Kimi, Qwen/DashScope, Ollama 及第三方 OneAPI / NewAPI 中转站。
-- 🧠 **四层分层记忆与混合检索 (A / B3)**：Working / Session / Long-term / Archival 四层架构，基于 Embedding 向量余弦相似度检索与上下文自动去重衰减。
-- 🚀 **守护进程模式 Daemon Mode (C4)**：基于 Fastify 的 `apps/server` 长驻守护进程，托管唯一的 `@hachimi/core` 实例作为 Single Source of Truth，提供 REST API、SSE 流式打字机 (`text/event-stream`) 与 WebSocket 双向事件总线。
-- 🔒 **C5 传输层 Bearer Token 鉴权**：请求头 `Authorization: Bearer <token>` 与 URL 参数双重安全拦截，提供网络安全防护。
-- 🎯 **C6 对话中途转向 (Mid-turn Steering)**：借鉴 Pi 架构，支持在 Agent 处于 Tool Loop 执行中途发送 `steer()` 插队修正指令，以及 `followUp()` 队列连续排队。
-- 🛡️ **C7 最小化工具执行沙箱 (ToolSandbox)**：为 `dangerous` 权限工具提供 30 秒超时断开熔断、1MB 控制台缓冲区 Cap 截断保护与环境隔离。
-- 📦 **Phase D 可移植记忆 (Portable Memory)**：定义带有 `schemaVersion: 1` 和 SHA-256 `checksum` 的数据包契约 `HachimiBundleV1`，支持命令行与 REST 接口进行**一键导出、增量叠加合并/去重导入与 Schema 自动迁移**。
-- 🧩 **Phase E 统一扩展能力源与 MCP 接入**：
+- **多厂商 Provider 传输层 (C1)**：解耦转换 Layer，原生支持 DeepSeek, Anthropic Claude, OpenAI, Moonshot/Kimi, Qwen/DashScope, Ollama 及第三方 OneAPI / NewAPI 中转站。
+- **四层分层记忆与混合检索 (A / B3)**：Working / Session / Long-term / Archival 四层架构，基于 Embedding 向量余弦相似度检索与上下文自动去重衰减。
+- **守护进程模式 Daemon Mode (C4)**：基于 Fastify 的 `apps/server` 长驻守护进程，托管唯一的 `@hachimi/core` 实例作为 Single Source of Truth，提供 REST API、SSE 流式打字机 (`text/event-stream`) 与 WebSocket 双向事件总线。
+- **C5 传输层 Bearer Token 鉴权**：请求头 `Authorization: Bearer <token>` 与 URL 参数双重安全拦截，提供网络安全防护。
+- **C6 对话中途转向 (Mid-turn Steering)**：借鉴 Pi 架构，支持在 Agent 处于 Tool Loop 执行中途发送 `steer()` 插队修正指令，以及 `followUp()` 队列连续排队。
+- **C7 最小化工具执行沙箱 (ToolSandbox)**：为 `dangerous` 权限工具提供 30 秒超时断开熔断、1MB 控制台缓冲区 Cap 截断保护与环境隔离。
+- **Phase D 可移植记忆 (Portable Memory)**：定义带有 `schemaVersion: 1` 和 SHA-256 `checksum` 的数据包契约 `HachimiBundleV1`，支持命令行与 REST 接口进行**一键导出、增量叠加合并/去重导入与 Schema 自动迁移**。
+- **Phase E 统一扩展能力源与 MCP 接入**：
   - **`CapabilitySource<T>`** 归一化能力抽象；
   - **`SkillPackageLoader`** 动态扫描与按需装载 `~/.hachimi/skills/` 外部技能包；
   - **`HookRegistry`** 声明式 `preToolCall` / `postToolCall` / `sessionStart` 生命周期钩子；
   - **`McpClientManager`** 原生 Model Context Protocol (MCP) JSON-RPC Stdio 客户端集成。
-- 💾 **双存储引擎支持**：支持原生 SQLite 存储引擎 (`SQLiteStore`) 与轻量文件存储 (`FileStore`)。
+- **双存储引擎支持**：支持原生 SQLite 存储引擎 (`SQLiteStore`) 与轻量文件存储 (`FileStore`)。
 
 ---
 
@@ -145,6 +145,3 @@ hachimi/
 
 - 教程仓库：[https://github.com/ares0x/build-personal-ai-assistant](https://github.com/ares0x/build-personal-ai-assistant)
 - 本仓库：[https://github.com/ares0x/hachimi](https://github.com/ares0x/hachimi)
-
-## 📄 License
-MIT
