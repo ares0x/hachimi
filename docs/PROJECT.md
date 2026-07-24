@@ -78,5 +78,5 @@
 
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — **系统架构设计说明书**（包含运行拓扑、四支柱分析、技术债与模块边界）
 - [`ROADMAP.md`](./ROADMAP.md) — **项目阶段路线图**（Phase A 至 Phase G 演进计划）
-- [`TASK.md`](./TASK.md) — **活跃任务清单**（当前 Phase B 详细开发任务）
+- [`TASK.md`](./TASK.md) — **活跃任务清单**（当前开发任务与已完成归档）
 - [`README.md`](../README.md) — **项目快速开始与 README 概览**
