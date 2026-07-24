@@ -2,18 +2,21 @@
 import { createHachimiApiServer } from "@hachimi/channel-api";
 import { createTelegramBot } from "@hachimi/channel-telegram";
 import { loadConfig } from "@hachimi/config";
-import { createAppContext } from "@hachimi/core";
+import { createHarnessRuntime } from "@hachimi/core";
 import { log } from "@hachimi/shared";
 
 async function main() {
-  const appContext = createAppContext();
-  const apiServer = createHachimiApiServer({ appContext });
+  // 核心解耦：全局仅初始化一个唯一的 HarnessRuntime 实例
+  const runtime = createHarnessRuntime();
+  log("info", "🚀 统一 HarnessRuntime 引擎实例已成功建立");
+
+  const apiServer = createHachimiApiServer({ runtime });
 
   // 1. 启动 HTTP REST / SSE / WebSocket / Web UI 守护进程
   const address = await apiServer.listen();
   console.log(`🌐 极简 Web 客户端已在此链接开放访问: ${address}`);
 
-  // 2. 读取配置，自动并发拉起 Telegram Bot Gateway (如同 Hermes Agent / Maka Agent)
+  // 2. 读取配置，自动并发拉起 Telegram Bot Gateway (共享同一个 HarnessRuntime)
   const cfg = loadConfig();
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN || cfg.channels?.telegram?.botToken || "";
   const allowedUsers =
@@ -27,7 +30,7 @@ async function main() {
   let telegramBot: any = null;
 
   if (telegramToken) {
-    telegramBot = createTelegramBot({ token: telegramToken, allowedUsers });
+    telegramBot = createTelegramBot({ token: telegramToken, allowedUsers, runtime });
     log("info", "🚀 正在自动启动 Telegram Bot 通道网关...");
     telegramBot.start({
       onStart: (botInfo: any) => {

@@ -5,19 +5,19 @@ export interface HachimiBundleMemoryItem {
   layer: "working" | "session" | "long_term" | "archival";
   content: string;
   importance: number;
-  timestamp: number;
+  timestamp?: number;
 }
 
 export interface HachimiBundleSessionItem {
   id: string;
-  title: string;
-  createdAt: number;
-  updatedAt: number;
-  messages: Array<{
-    id: string;
-    role: "system" | "user" | "assistant" | "tool";
-    content: string;
-    timestamp: number;
+  title?: string;
+  createdAt?: number;
+  updatedAt?: number;
+  messages?: Array<{
+    id?: string;
+    role?: "system" | "user" | "assistant" | "tool" | string;
+    content?: string;
+    timestamp?: number;
     tool_calls?: any[];
     tool_call_id?: string;
     name?: string;

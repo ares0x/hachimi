@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // packages/channels/cli/src/cli.ts
-import { createAppContext, exportBundle, importBundle } from "@hachimi/core";
+import { getOrCreateHarnessRuntime } from "@hachimi/core";
 import { runCliChannel } from "./index.js";
 
 function printHelp() {
@@ -20,7 +20,7 @@ function printHelp() {
   -h, --help         显示帮助信息
 
 示例:
-  pnpm dev:cli -p "帮我总结这段话"
+  pnpm dev:cli "帮我总结这段话"
   pnpm dev:cli -j "检查系统状态"
   pnpm dev:cli --export ./my-backup.json
   pnpm dev:cli --import ./my-backup.json
@@ -29,11 +29,21 @@ function printHelp() {
 
 async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) return "";
-  const chunks: Buffer[] = [];
-  for await (const chunk of process.stdin) {
-    chunks.push(Buffer.from(chunk));
-  }
-  return Buffer.concat(chunks).toString("utf-8").trim();
+  return new Promise((res) => {
+    const chunks: Buffer[] = [];
+    const timer = setTimeout(() => {
+      res(Buffer.concat(chunks).toString("utf-8").trim());
+    }, 50);
+
+    process.stdin.on("data", (chunk) => {
+      chunks.push(Buffer.from(chunk));
+    });
+
+    process.stdin.on("end", () => {
+      clearTimeout(timer);
+      res(Buffer.concat(chunks).toString("utf-8").trim());
+    });
+  });
 }
 
 async function main() {
@@ -52,8 +62,8 @@ async function main() {
       console.error("❌ 错误: --export 选项需要指定保存的目标文件路径。");
       process.exit(1);
     }
-    const context = createAppContext();
-    const bundle = await exportBundle(context, { filePath });
+    const runtime = getOrCreateHarnessRuntime();
+    const bundle = await runtime.exportBundle({ filePath });
     console.log(`✅ 成功导出 Hachimi 数据包至: ${filePath}`);
     console.log(
       `   包含长期记忆: ${bundle.memory.longTerm.length} 条 | 会话: ${bundle.sessions.length} 个`
@@ -69,8 +79,8 @@ async function main() {
       console.error("❌ 错误: --import 选项需要指定要导入的数据包文件路径。");
       process.exit(1);
     }
-    const context = createAppContext();
-    const result = await importBundle(context, filePath);
+    const runtime = getOrCreateHarnessRuntime();
+    const result = await runtime.importBundle(filePath);
     console.log(`✅ 成功导入并融合数据包: ${filePath}`);
     console.log(
       `   导入新增记忆: ${result.importedMemoriesCount} 条 | 跳过重复: ${result.skippedMemoriesCount} 条 | 融合会话: ${result.importedSessionsCount} 个`
@@ -106,10 +116,11 @@ async function main() {
   }
 
   if (!finalPrompt) {
-    console.error("❌ 错误: 未提供输入 Prompt。输入 hachimi --help 查看帮助。");
-    process.exit(1);
+    printHelp();
+    process.exit(0);
   }
 
+  const runtime = getOrCreateHarnessRuntime();
   const isStreamText = outputFormat === "text";
 
   const result = await runCliChannel({
@@ -117,6 +128,7 @@ async function main() {
     outputFormat,
     sessionId,
     stream: isStreamText,
+    runtime,
     onChunk: isStreamText
       ? (chunk) => {
           process.stdout.write(chunk);
@@ -129,7 +141,6 @@ async function main() {
   } else if (!isStreamText) {
     console.log(result.content);
   } else {
-    // 换行确保标准文本输出结束
     process.stdout.write("\n");
   }
 

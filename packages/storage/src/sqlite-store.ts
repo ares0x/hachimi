@@ -1,16 +1,15 @@
 // packages/storage/src/sqlite-store.ts
-import Database from "better-sqlite3";
-import { resolve } from "node:path";
-import type { JsonFileStore, JsonDirStore, StorageBackend } from "./types.js";
 import { log } from "@hachimi/shared";
+import Database from "better-sqlite3";
+import type { JsonDirStore, JsonFileStore, StorageBackend } from "./types.js";
 
 export class SQLiteStore implements JsonFileStore, JsonDirStore, StorageBackend {
-  private db: Database.Database;
+  private db: any;
   private dbPath: string;
 
   constructor(dbPath: string) {
     this.dbPath = dbPath;
-    this.db = new Database(dbPath);
+    this.db = new (Database as any)(dbPath);
     this.initTables();
     log("info", `SQLite 存储已初始化: ${dbPath}`);
   }
@@ -37,15 +36,18 @@ export class SQLiteStore implements JsonFileStore, JsonDirStore, StorageBackend 
     `);
   }
 
-  // JsonFileStore 接口实现
-  read<T>(key: string, fallback: T): T {
+  // JsonFileStore 与 JsonDirStore 共享实现
+  read<T>(key: string, fallback?: T): T {
     try {
       const stmt = this.db.prepare("SELECT value FROM kv_store WHERE key = ?");
       const row = stmt.get(key) as { value: string } | undefined;
-      return row ? (JSON.parse(row.value) as T) : fallback;
+      if (row) {
+        return JSON.parse(row.value) as T;
+      }
+      return fallback as T;
     } catch (err) {
       log("warn", `SQLite read failed: ${key}`, err);
-      return fallback;
+      return fallback as T;
     }
   }
 
@@ -64,13 +66,14 @@ export class SQLiteStore implements JsonFileStore, JsonDirStore, StorageBackend 
 
   exists(key: string): boolean {
     const stmt = this.db.prepare("SELECT 1 FROM kv_store WHERE key = ?");
-    return !!stmt.get(key);
+    return !stmt.get(key);
   }
 
   // JsonDirStore 接口实现
   ensureDir(_dir: string): void {
     /* SQLite 不需要目录 */
   }
+
   list(dir: string): string[] {
     try {
       const normalized = dir.replace(/\\/g, "/");
@@ -88,13 +91,7 @@ export class SQLiteStore implements JsonFileStore, JsonDirStore, StorageBackend 
   }
 
   readDirEntry<T>(key: string): T | null {
-    try {
-      const stmt = this.db.prepare("SELECT value FROM kv_store WHERE key = ?");
-      const row = stmt.get(key) as { value: string } | undefined;
-      return row ? (JSON.parse(row.value) as T) : null;
-    } catch {
-      return null;
-    }
+    return this.read<T>(key, null as any);
   }
 
   writeDirEntry<T>(key: string, data: T): void {

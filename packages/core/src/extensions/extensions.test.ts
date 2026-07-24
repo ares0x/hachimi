@@ -5,7 +5,7 @@ import { McpClientManager } from "./mcp-client.js";
 import { parseSkillMarkdown } from "./skill-package.js";
 
 describe("Phase E Unified Extension Registry & Plugin System", () => {
-  it("parseSkillMarkdown parses frontmatter and markdown body correctly", () => {
+  it("parseSkillMarkdown parses frontmatter and markdown body correctly", async () => {
     const rawMarkdown = `---
 name: my-custom-skill
 description: 一个自愈排错技能
@@ -19,8 +19,8 @@ tags: [debug, custom]
     expect(skill.name).toBe("my-custom-skill");
     expect(skill.description).toBe("一个自愈排错技能");
     expect(skill.tags).toContain("debug");
-    const content = typeof skill.load === "function" ? skill.load() : skill.load;
-    expect((content as any).prompt).toContain("# 技能说明");
+    const content = await (typeof skill.load === "function" ? skill.load() : skill.load);
+    expect((content as any).instructions).toContain("# 技能说明");
   });
 
   it("HookRegistry intercepts and modifies pre/post tool calls", async () => {
@@ -69,7 +69,7 @@ tags: [debug, custom]
 
     const resolved = await mcpManager.resolve("mcp_fetch-server_fetch");
     expect(resolved).toBeDefined();
-    const result = await resolved!.execute({ url: "https://example.com" });
+    const result = await resolved!.execute({ url: "https://example.com" }, {} as any);
     expect(result).toBe("Fetched content from https://example.com");
   });
 });

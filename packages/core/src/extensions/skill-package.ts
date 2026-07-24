@@ -43,7 +43,7 @@ export function parseSkillMarkdown(content: string, fallbackName: string): Skill
     description,
     tags,
     load: () => ({
-      prompt: body,
+      instructions: body,
     }),
   };
 }

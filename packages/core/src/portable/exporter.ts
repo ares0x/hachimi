@@ -1,8 +1,7 @@
 // packages/core/src/portable/exporter.ts
 import { createHash } from "node:crypto";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { mkdirSync } from "node:fs";
 import type { AppContext } from "../runtime/context.js";
 import type { ExportBundleOptions, HachimiBundleV1 } from "./types.js";
 
@@ -37,26 +36,26 @@ export async function exportBundle(
     createdAt: Date.now(),
     exportedBy: options.exportedBy || "hachimi-core-sdk",
     memory: {
-      longTerm: longTermMemories.map((m) => ({
+      longTerm: longTermMemories.map((m: any) => ({
         id: m.id,
         layer: m.layer,
         content: m.content,
         importance: m.importance,
-        timestamp: m.timestamp,
+        timestamp: m.updatedAt || m.createdAt || Date.now(),
       })),
-      archival: archivalMemories.map((m) => ({
+      archival: archivalMemories.map((m: any) => ({
         id: m.id,
         layer: m.layer,
         content: m.content,
         importance: m.importance,
-        timestamp: m.timestamp,
+        timestamp: m.updatedAt || m.createdAt || Date.now(),
       })),
     },
-    sessions: sessions.map((s) => ({
+    sessions: sessions.map((s: any) => ({
       id: s.id,
-      title: s.title,
-      createdAt: s.createdAt,
-      updatedAt: s.updatedAt,
+      title: s.title || "未命名会话",
+      createdAt: s.createdAt || Date.now(),
+      updatedAt: s.updatedAt || Date.now(),
       messages: s.messages || [],
     })),
     skillsState: {

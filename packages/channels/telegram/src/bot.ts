@@ -1,19 +1,21 @@
 // packages/channels/telegram/src/bot.ts
 import { createInterface } from "node:readline/promises";
 import { loadConfig, saveConfig } from "@hachimi/config";
-import { createAgentSession } from "@hachimi/core";
+import { HarnessRuntime, getOrCreateHarnessRuntime } from "@hachimi/core";
 import { log } from "@hachimi/shared";
 import { Bot } from "grammy";
 
 export interface TelegramChannelConfig {
   token: string;
   allowedUsers?: number[];
+  runtime?: HarnessRuntime;
 }
 
 /**
- * F2: Telegram Channel Bot 搭建（借鉴 Hermes Agent Gateway 机制）
+ * F2: Telegram Channel Bot 搭建（基于 100% 统一 HarnessRuntime）
  */
 export function createTelegramBot(config: TelegramChannelConfig): Bot {
+  const runtime = config.runtime || getOrCreateHarnessRuntime();
   const bot = new Bot(config.token);
 
   // 1. 全局错误捕获中间件
@@ -60,7 +62,7 @@ export function createTelegramBot(config: TelegramChannelConfig): Bot {
     );
   });
 
-  // 5. 消息处理与 Session 会话绑定
+  // 5. 消息处理并完全委派给 HarnessRuntime.execute
   bot.on("message:text", async (ctx) => {
     const prompt = ctx.message.text.trim();
     if (!prompt || prompt.startsWith("/")) return;
@@ -71,11 +73,15 @@ export function createTelegramBot(config: TelegramChannelConfig): Bot {
     try {
       log("info", `🤖 [Telegram Agent Processing] 正在为 Chat: ${chatId} 生成回答...`);
       await ctx.replyWithChatAction("typing");
-      const session = createAgentSession({ sessionId });
 
-      const responseText = await session.run(prompt);
+      const output = await runtime.execute({
+        prompt,
+        sessionId,
+        channel: "telegram",
+      });
+
       log("info", `✅ [Telegram Agent Finished] 回答成功生成，准备回复 Telegram...`);
-      await ctx.reply(responseText);
+      await ctx.reply(output.content);
     } catch (err: any) {
       log("error", `⚠️ [Telegram Agent Error] 答复生成失败: ${err?.message || String(err)}`);
       await ctx.reply(`⚠️ 对话生成失败: ${err?.message || String(err)}`);
@@ -86,12 +92,10 @@ export function createTelegramBot(config: TelegramChannelConfig): Bot {
 }
 
 /**
- * 启动网关流程（借鉴 Hermes Agent / Maka Agent 交互配置逻辑）：
- * 1. 从 config.json / 环境变量加载；
- * 2. 若未配置则启动交互引导交互收集并保存至 config.json；
- * 3. 开启长驻长轮询监听。
+ * 启动网关流程（共享统一 HarnessRuntime）
  */
-export async function startTelegramGateway() {
+export async function startTelegramGateway(options: { runtime?: HarnessRuntime } = {}) {
+  const runtime = options.runtime || getOrCreateHarnessRuntime();
   const cfg = loadConfig();
   let token = process.env.TELEGRAM_BOT_TOKEN || cfg.channels?.telegram?.botToken || "";
   let allowedUsers =
@@ -120,7 +124,6 @@ export async function startTelegramGateway() {
           .map((s) => Number(s.trim()))
           .filter(Boolean);
 
-        // 写入 config.json 写入保存
         cfg.channels = {
           ...cfg.channels,
           telegram: {
@@ -140,15 +143,13 @@ export async function startTelegramGateway() {
     console.log(`
 ❌ 无法启动 Telegram Gateway：未找到 TELEGRAM_BOT_TOKEN 配置。
 
-💡 使用说明（参考 Hermes Agent Gateway 配置方式）：
-1. 可直接在 config.json 中写入 "channels": { "telegram": { "botToken": "xxx", "allowedUsers": [123456] } }；
-2. 或在终端使用环境变量启动：
-   TELEGRAM_BOT_TOKEN="123456789:ABCdefGHIjkl..." pnpm dev:telegram
+💡 使用说明：
+可在 config.json 中写入 "channels": { "telegram": { "botToken": "xxx" } } 或通过环境变量 TELEGRAM_BOT_TOKEN="xxx" 启动。
 `);
     return;
   }
 
-  const bot = createTelegramBot({ token, allowedUsers });
+  const bot = createTelegramBot({ token, allowedUsers, runtime });
   log("info", "🚀 Telegram Gateway 正在长驻启动中...");
   bot.start({
     onStart: (botInfo) => {
@@ -165,7 +166,6 @@ export async function startTelegramGateway() {
   });
 }
 
-// 直接运行判断
 if (process.argv[1]?.includes("bot.ts") || process.argv[1]?.includes("bot.js")) {
   startTelegramGateway();
 }

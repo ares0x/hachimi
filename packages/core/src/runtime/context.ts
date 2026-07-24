@@ -1,18 +1,20 @@
 // packages/core/src/runtime/context.ts
+import { resolve } from "node:path";
 import {
-  loadConfig,
-  saveConfig,
-  getActiveProviderConfig,
   type HachimiConfig,
   type ProviderConfig,
+  getActiveProviderConfig,
+  loadConfig,
+  saveConfig,
 } from "@hachimi/config";
 import { log } from "@hachimi/shared";
-import { resolve } from "node:path";
-import { FileJsonStore, FileDirStore } from "@hachimi/storage";
-import { SQLiteStore } from "@hachimi/storage";
+import { FileDirStore, FileJsonStore, SQLiteStore } from "@hachimi/storage";
 import { Agent } from "../agent/agent.js";
 import { createLLMFromConfig } from "../agent/llm-factory.js";
 import { ContextBuilder } from "../context/builder.js";
+import { HookRegistry } from "../extensions/hooks.js";
+import { McpClientManager } from "../extensions/mcp-client.js";
+import { SkillPackageLoader } from "../extensions/skill-package.js";
 import { MemoryManager } from "../memory/manager.js";
 import { SessionManager } from "../session/manager.js";
 import { summarySkill, writingSkill } from "../skills/builtin/index.js";
@@ -27,6 +29,9 @@ export interface AppContext {
   skills: SkillRegistry;
   agent: Agent;
   contextBuilder: ContextBuilder;
+  hooks: HookRegistry;
+  mcp: McpClientManager;
+  skillLoader: SkillPackageLoader;
   getConfig(): HachimiConfig;
   setActiveProvider(provider: string, pConfig?: Partial<ProviderConfig>): void;
   getStatus(): Record<string, any>;
@@ -106,11 +111,20 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
 
   const tools = new ToolRegistry();
   const skills = new SkillRegistry();
+  const hooks = new HookRegistry();
+  const mcp = new McpClientManager();
+  const skillLoader = new SkillPackageLoader();
 
   skills.register(writingSkill);
   skills.register(summarySkill);
 
   registerBuiltinTools(tools);
+
+  // 自动扫描加载外部技能包
+  const externalSkills = skillLoader.loadPackages();
+  for (const extSkill of externalSkills) {
+    skills.register(extSkill);
+  }
 
   const seedDemoMemory =
     process.env.HACHIMI_SEED_DEMO_MEMORY === "true" || process.argv.includes("--demo");
@@ -148,6 +162,9 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
     skills,
     agent,
     contextBuilder,
+    hooks,
+    mcp,
+    skillLoader,
     getConfig() {
       return config;
     },

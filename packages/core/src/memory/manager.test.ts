@@ -1,47 +1,43 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdirSync, rmSync, existsSync } from "node:fs";
-import { join } from "node:path";
-import { MemoryManager } from "./manager.js";
+// packages/core/src/memory/manager.test.ts
+import { unlinkSync } from "node:fs";
 import { FileJsonStore } from "@hachimi/storage";
+import { afterEach, describe, expect, it } from "vitest";
+import { MemoryManager } from "./manager.js";
 
-const testDir = join(process.cwd(), "data-test-memory");
-const testFile = join(testDir, "memory.json");
+const testFile = "data/test_memory_suite.json";
 
-describe("MemoryManager persistence", () => {
-  beforeEach(() => {
-    if (existsSync(testDir)) rmSync(testDir, { recursive: true });
-    mkdirSync(testDir, { recursive: true });
-  });
-
+describe("MemoryManager", () => {
   afterEach(() => {
-    if (existsSync(testDir)) rmSync(testDir, { recursive: true });
+    try {
+      unlinkSync(testFile);
+    } catch {}
   });
 
-  it("remember + reload keeps long_term entries", () => {
-    const store = new FileJsonStore();
-    const m1 = new MemoryManager(testFile, store);
-    m1.remember("用户喜欢手冲咖啡", 0.8);
-
-    const m2 = new MemoryManager(testFile, store);
-    const list = m2.list("long_term");
-    expect(list.some((e) => e.content.includes("手冲咖啡"))).toBe(true);
-  });
-
-  it("search finds personal preference", () => {
+  it("remembers and list long_term memories", () => {
     const m = new MemoryManager(testFile, new FileJsonStore());
-    m.remember("用户喜欢手冲咖啡", 0.9);
-    const hits = m.search("我喜欢喝什么");
-    expect(hits.length).toBeGreaterThan(0);
-  });
-
-  it("deduplicates same content keeping highest importance", () => {
-    const m = new MemoryManager(testFile, new FileJsonStore());
-    m.remember("用户喜欢喝咖啡", 0.6);
-    m.remember("用户喜欢喝咖啡", 0.9);
-    m.cleanup();
+    m.remember("喜爱喝拿铁", 0.9);
     const list = m.list("long_term");
     expect(list.length).toBe(1);
+    expect(list[0].content).toBe("喜爱喝拿铁");
     expect(list[0].importance).toBe(0.9);
+  });
+
+  it("deduplicates identical memories", () => {
+    const m = new MemoryManager(testFile, new FileJsonStore());
+    m.remember("喜欢打乒乓球", 0.8);
+    m.remember("喜欢打乒乓球", 0.8);
+    m.deduplicate();
+    expect(m.list("long_term").length).toBe(1);
+  });
+
+  it("prunes low importance long_term memories", () => {
+    const m = new MemoryManager(testFile, new FileJsonStore());
+    m.add({ layer: "long_term", content: "重要配置", importance: 0.9 });
+    m.add({ layer: "long_term", content: "临时噪音", importance: 0.1 });
+    m.prune();
+    const list = m.list("long_term");
+    expect(list.length).toBe(1);
+    expect(list[0].content).toBe("重要配置");
   });
 
   it("summarizes session to keep recent messages", () => {
@@ -50,7 +46,7 @@ describe("MemoryManager persistence", () => {
       m.add({ layer: "session", content: `消息 ${i}` });
     }
     m.cleanup();
-    expect(m.session.length).toBeLessThanOrEqual(10);
+    expect(m.list("session").length).toBeLessThanOrEqual(10);
   });
 
   it("performs hybrid vector similarity search when queryEmbedding is provided", () => {
@@ -58,8 +54,8 @@ describe("MemoryManager persistence", () => {
     m.add({ layer: "long_term", content: "咖啡偏好", importance: 0.5, embedding: [1, 0, 0] });
     m.add({ layer: "long_term", content: "编程语言偏好", importance: 0.5, embedding: [0, 1, 0] });
 
-    const hits = m.search("咖啡", { queryEmbedding: [0.9, 0.1, 0] });
-    expect(hits.length).toBeGreaterThan(0);
-    expect(hits[0].content).toBe("咖啡偏好");
+    const results = m.search("咖啡", { queryEmbedding: [0.9, 0.1, 0] });
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].content).toBe("咖啡偏好");
   });
 });

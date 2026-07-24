@@ -1,22 +1,12 @@
+// packages/core/src/tools/registry.ts
 import { ToolSandbox } from "../sandbox/sandbox.js";
 import type { ToolDefinition } from "../types/index.js";
 
 export class ToolRegistry {
-  private tools = new Map<string, ToolDefinition>();
-  private sandbox: ToolSandbox;
-
-  constructor(sandbox?: ToolSandbox) {
-    this.sandbox = sandbox ?? new ToolSandbox();
-  }
-
-  setSandbox(sandbox: ToolSandbox): void {
-    this.sandbox = sandbox;
-  }
+  private tools: Map<string, ToolDefinition> = new Map();
+  private sandbox: ToolSandbox = new ToolSandbox();
 
   register(tool: ToolDefinition) {
-    if (this.tools.has(tool.name)) {
-      throw new Error(`Tool already registered: ${tool.name}`);
-    }
     this.tools.set(tool.name, tool);
   }
 
@@ -31,10 +21,12 @@ export class ToolRegistry {
   async execute(
     name: string,
     args: Record<string, unknown>,
-    options?: { confirm?: boolean }
+    options?: { confirm?: boolean; context?: any }
   ): Promise<string> {
     const tool = this.tools.get(name);
-    if (!tool) throw new Error(`Tool not found: ${name}`);
+    if (!tool) {
+      return `未知工具: ${name}`;
+    }
 
     const level = tool.permission ?? "safe";
 
@@ -46,12 +38,14 @@ export class ToolRegistry {
       return `需要确认才能执行工具: ${name}。请在后续版本中批准。`;
     }
 
+    const execCtx = options?.context || ({} as any);
+
     if (level === "dangerous") {
-      return await this.sandbox.executeToolInSandbox(name, () => tool.execute(args));
+      return await this.sandbox.executeToolInSandbox(name, () => tool.execute(args, execCtx));
     }
 
     try {
-      return await tool.execute(args);
+      return await tool.execute(args, execCtx);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return `Error executing tool ${name}: ${message}`;

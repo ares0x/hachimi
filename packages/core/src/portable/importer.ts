@@ -76,7 +76,7 @@ export async function importBundle(
     if (existingSession) {
       // 兼合并会话消息
       existingSession.title = s.title || existingSession.title;
-      existingSession.messages = s.messages || existingSession.messages;
+      existingSession.messages = (s.messages || existingSession.messages) as any;
       context.sessions.save(existingSession);
     } else {
       context.sessions.save({
@@ -84,7 +84,7 @@ export async function importBundle(
         title: s.title || "导入的会话",
         createdAt: s.createdAt || Date.now(),
         updatedAt: s.updatedAt || Date.now(),
-        messages: s.messages || [],
+        messages: (s.messages || []) as any,
       });
     }
     importedSessionsCount++;

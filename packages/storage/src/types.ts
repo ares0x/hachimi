@@ -9,7 +9,7 @@ export interface JsonFileStore {
 export interface JsonDirStore {
   ensureDir(dir: string): void;
   list(dir: string): string[]; // 文件名
-  read<T>(filePath: string): T | null;
+  read<T>(filePath: string, fallback?: T): T | null;
   write<T>(filePath: string, data: T): void;
   remove(filePath: string): void;
 }

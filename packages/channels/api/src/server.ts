@@ -1,20 +1,20 @@
 // packages/channels/api/src/server.ts
 import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import {
   type AppContext,
-  createAppContext,
+  HarnessRuntime,
   createAgentSession,
-  exportBundle,
-  importBundle,
+  getOrCreateHarnessRuntime,
 } from "@hachimi/core";
 import { log } from "@hachimi/shared";
 import fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 
 export interface HachimiApiServerOptions {
+  runtime?: HarnessRuntime;
   appContext?: AppContext;
   port?: number;
   host?: string;
@@ -22,6 +22,7 @@ export interface HachimiApiServerOptions {
 }
 
 export interface HachimiApiServer {
+  runtime: HarnessRuntime;
   appContext: AppContext;
   fastify: FastifyInstance;
   listen(): Promise<string>;
@@ -29,7 +30,13 @@ export interface HachimiApiServer {
 }
 
 export function createHachimiApiServer(options: HachimiApiServerOptions = {}): HachimiApiServer {
-  const appContext = options.appContext || createAppContext();
+  const runtime =
+    options.runtime ||
+    getOrCreateHarnessRuntime(
+      options.appContext ? { providerOverride: options.appContext.config.llm.activeProvider } : {}
+    );
+  const appContext = runtime.context;
+
   const secretKey = options.secretKey || process.env.HACHIMI_API_SECRET;
   const authRequired = Boolean(secretKey);
 
@@ -49,7 +56,6 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
 
   // C5 传输层 Token 鉴权中间件
   server.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
-    // 静态页面与健康检查接口免鉴权
     if (
       request.url === "/health" ||
       request.url === "/" ||
@@ -92,10 +98,10 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
 
   // 2. GET /api/status
   server.get("/api/status", async () => {
-    return appContext.getStatus();
+    return runtime.getStatus();
   });
 
-  // 3. POST /api/chat (支持 JSON 响应 & SSE 流式)
+  // 3. POST /api/chat (全部委派给 HarnessRuntime.execute)
   server.post("/api/chat", async (request: FastifyRequest, reply: FastifyReply) => {
     const body = (request.body || {}) as {
       prompt?: string;
@@ -113,28 +119,29 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
     const isSSE =
       body.stream === true || (request.headers.accept || "").includes("text/event-stream");
 
-    const session = createAgentSession({
-      sessionId: body.sessionId,
-      provider: body.provider,
-    });
-
     if (isSSE) {
       reply.raw.setHeader("Content-Type", "text/event-stream");
       reply.raw.setHeader("Cache-Control", "no-cache");
       reply.raw.setHeader("Connection", "keep-alive");
 
       try {
-        const fullContent = await session.run(prompt, {
-          onChunk: (chunk) => {
-            reply.raw.write(`data: ${JSON.stringify({ type: "chunk", chunk })}\n\n`);
+        const output = await runtime.execute({
+          prompt,
+          sessionId: body.sessionId,
+          channel: "web-sse",
+          providerOverride: body.provider,
+          options: {
+            onChunk: (chunk) => {
+              reply.raw.write(`data: ${JSON.stringify({ type: "chunk", chunk })}\n\n`);
+            },
           },
         });
 
         reply.raw.write(
           `data: ${JSON.stringify({
             type: "done",
-            sessionId: session.sessionId,
-            content: fullContent,
+            sessionId: output.sessionId,
+            content: output.content,
           })}\n\n`
         );
       } catch (err: any) {
@@ -150,21 +157,25 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
       return;
     }
 
-    const startTime = Date.now();
     try {
-      const content = await session.run(prompt);
+      const output = await runtime.execute({
+        prompt,
+        sessionId: body.sessionId,
+        channel: "api-json",
+        providerOverride: body.provider,
+      });
+
       return {
         success: true,
-        sessionId: session.sessionId,
-        content,
-        durationMs: Date.now() - startTime,
+        sessionId: output.sessionId,
+        content: output.content,
+        durationMs: output.durationMs,
       };
     } catch (err: any) {
       reply.code(500).send({
         success: false,
-        sessionId: session.sessionId,
+        sessionId: body.sessionId,
         error: err?.message || String(err),
-        durationMs: Date.now() - startTime,
       });
     }
   });
@@ -178,8 +189,8 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
       return;
     }
 
-    const steered = appContext.agent.steer(prompt);
-    return { success: steered, prompt, isRunning: appContext.agent.isRunning() };
+    const steered = runtime.steer(prompt);
+    return { success: steered, prompt, isRunning: runtime.agent.isRunning() };
   });
 
   // C6: POST /api/chat/followup
@@ -191,13 +202,13 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
       return;
     }
 
-    appContext.agent.followUp(prompt);
+    runtime.followUp(prompt);
     return { success: true, prompt };
   });
 
   // Phase D: GET /api/export
   server.get("/api/export", async () => {
-    const bundle = await exportBundle(appContext);
+    const bundle = await runtime.exportBundle();
     return { success: true, bundle };
   });
 
@@ -208,7 +219,7 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
       reply.code(400).send({ error: "Missing required parameter: bundle" });
       return;
     }
-    const result = await importBundle(appContext, body.bundle, {
+    const result = await runtime.importBundle(body.bundle, {
       mergeStrategy: body.mergeStrategy,
     });
     return { success: true, result };
@@ -216,12 +227,12 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
 
   // 4. GET /api/sessions & POST /api/sessions
   server.get("/api/sessions", async () => {
-    return { sessions: appContext.sessions.list() };
+    return { sessions: runtime.sessions.list() };
   });
 
   server.post("/api/sessions", async (request: FastifyRequest) => {
     const body = (request.body || {}) as { title?: string };
-    const created = appContext.sessions.create(body.title);
+    const created = runtime.sessions.create(body.title);
     return { session: created };
   });
 
@@ -229,37 +240,38 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
   server.get("/api/memory", async (request: FastifyRequest) => {
     const query = ((request.query as any)?.query || "").trim();
     if (query) {
-      const results = appContext.memory.search(query);
+      const results = runtime.memory.search(query);
       return { query, results };
     }
-    return { memories: appContext.memory.list() };
+    return { memories: runtime.memory.list() };
   });
 
-  // 6. GET /api/ws (WebSocket 双向通信与事件总线)
+  // 6. GET /api/ws (WebSocket 通信全部委派给 HarnessRuntime)
   server.get("/api/ws", { websocket: true }, (socket, req) => {
-    socket.on("message", async (rawMessage) => {
+    socket.on("message", async (rawMessage: any) => {
       try {
         const payload = JSON.parse(rawMessage.toString());
         if (payload.type === "chat" && payload.prompt) {
-          const session = createAgentSession({
+          const output = await runtime.execute({
+            prompt: payload.prompt,
             sessionId: payload.sessionId,
-            provider: payload.provider,
-          });
-
-          socket.send(JSON.stringify({ type: "start", sessionId: session.sessionId }));
-
-          const content = await session.run(payload.prompt, {
-            onChunk: (chunk) => {
-              socket.send(JSON.stringify({ type: "chunk", chunk }));
+            channel: "ws",
+            providerOverride: payload.provider,
+            options: {
+              onChunk: (chunk) => {
+                socket.send(JSON.stringify({ type: "chunk", chunk }));
+              },
             },
           });
 
-          socket.send(JSON.stringify({ type: "done", sessionId: session.sessionId, content }));
+          socket.send(
+            JSON.stringify({ type: "done", sessionId: output.sessionId, content: output.content })
+          );
         } else if (payload.type === "steer" && payload.prompt) {
-          const steered = appContext.agent.steer(payload.prompt);
+          const steered = runtime.steer(payload.prompt);
           socket.send(JSON.stringify({ type: "steer_ack", success: steered }));
         } else if (payload.type === "followup" && payload.prompt) {
-          appContext.agent.followUp(payload.prompt);
+          runtime.followUp(payload.prompt);
           socket.send(JSON.stringify({ type: "followup_ack", success: true }));
         } else if (payload.type === "ping") {
           socket.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
@@ -271,6 +283,7 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
   });
 
   return {
+    runtime,
     appContext,
     fastify: server,
     async listen() {
