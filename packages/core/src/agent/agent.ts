@@ -28,6 +28,7 @@ export class Agent {
   private skills?: SkillRegistry;
   private contextBuilder: ContextBuilder;
   private maxToolRounds: number;
+  private activeSkill?: string;
   private onToolApproval?: (toolName: string, args: Record<string, unknown>, permission: string) => Promise<boolean>;
   private onToolStart?: (name: string, args: Record<string, unknown>) => void;
   private onToolEnd?: (name: string, result: string, durationMs: number, success: boolean) => void;
@@ -42,6 +43,20 @@ export class Agent {
     this.onToolApproval = options.onToolApproval;
     this.onToolStart = options.onToolStart;
     this.onToolEnd = options.onToolEnd;
+
+    // B4: 自动注册 activate_skill 工具，由大模型显式调用
+    if (this.skills) {
+      try {
+        this.tools.register(
+          this.skills.getActivationTool((skillName) => {
+            this.activeSkill = skillName;
+            console.log(`[Skill] 显式激活技能: ${skillName}`);
+          })
+        );
+      } catch {
+        /* ignore if already registered */
+      }
+    }
   }
 
   /**
@@ -76,38 +91,30 @@ export class Agent {
       }
     }
 
-    // 2. 技能意图检测
-    let activeSkill: string | undefined;
-    const skillMatch = input.match(/(?:用|使用|以|调用)\s*([\w\u4e00-\u9fa5]+)\s*技能/i);
-    if (skillMatch) {
-      activeSkill = skillMatch[1].trim();
-      console.log(`[Skill] 检测到激活技能: ${activeSkill}`);
-    }
-
-    // 3. 检索记忆
+    // 2. B3: 混合向量记忆检索
     const relevantMemories = this.memory.search(input, {
       layers: ["session", "long_term"],
       limit: 6,
       minImportance: 0.3,
     });
 
-    // 4. 组装上下文（已使用优化后的 Builder）
+    // 3. 组装上下文（包含 B4 显式激活的技能）
     const built = await this.contextBuilder.build({
       userInput: input,
       memories: relevantMemories,
       skills: this.skills,
       tools: this.tools,
-      activeSkill,
+      activeSkill: this.activeSkill,
       history,
       options: {
-        maxTokens: 12000,           // 推荐从 config 包读取
+        maxTokens: 12000,
         mode: 'normal',
         summaryThreshold: 25,
       },
-      tokenEstimator: defaultTokenEstimator,   // 关键：传入 Token Estimator
+      tokenEstimator: defaultTokenEstimator,
     });
 
-    // 5. 组装消息
+    // 4. 组装消息
     const messages: Message[] = [
       {
         id: generateId("msg_"),
@@ -124,7 +131,7 @@ export class Agent {
       },
     ];
 
-    // 6. 工具调用循环
+    // 5. 工具调用循环
     let rounds = 0;
     while (rounds < this.maxToolRounds) {
       rounds++;

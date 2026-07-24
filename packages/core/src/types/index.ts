@@ -63,6 +63,8 @@ export interface MemoryEntry {
   metadata?: Record<string, unknown>;
 }
 
+/** 工具与技能的统一风险防护等级 */
+export type ToolPermission = "safe" | "needs_confirm" | "dangerous";
 
 /** Skill definition (Lazy by design) */
 export interface SkillDefinition {
@@ -71,37 +73,32 @@ export interface SkillDefinition {
   /** Path or loader that returns the full skill content when activated */
   load: () => Promise<SkillContent>;
   tags?: string[];
-  permission?: 'safe' | 'needs_confirm' | 'dangerous';  // 新增：权限级别
+  permission?: ToolPermission;
 }
 
 export interface SkillContent {
   instructions: string;
   tools?: string[]; // tool names this skill uses
   examples?: string[];
-  // 可选扩展
   requiredConfirmation?: boolean;
 }
+
 /** Tool definition */
 export interface ToolDefinition {
   name: string;
   description: string;
   parameters: Record<string, unknown>; // JSON Schema
   execute: (args: Record<string, unknown>, ctx: ToolContext) => Promise<string>;
-  /** Permission level required */
-  requiredPermission?: PermissionLevel;
+  permission?: ToolPermission;
   /** Whether this tool needs human approval before execution */
-    requiresApproval?: boolean;
-      permission?: ToolPermission;
+  requiresApproval?: boolean;
 }
-
-export type PermissionLevel = "none" | "read" | "write" | "network" | "system" | "dangerous";
 
 export interface ToolContext {
   sessionId: SessionId;
   userId: UserId;
   channel: ChannelType;
   memory: MemoryAccess;
-  // more context can be injected later
 }
 
 export interface MemoryAccess {
@@ -150,5 +147,3 @@ export interface Session {
   updatedAt: number;
   metadata?: Record<string, unknown>;
 }
-/** 工具风险等级 */
-export type ToolPermission = "safe" | "needs_confirm" | "dangerous";

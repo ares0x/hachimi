@@ -2,13 +2,13 @@
  * Shared utilities, constants, and helpers used across Hachimi packages.
  */
 
- export function generateId(prefix = ""): string {
-   return `${prefix}${crypto.randomUUID()}`;
- }
+export function generateId(prefix = ""): string {
+  return `${prefix}${crypto.randomUUID()}`;
+}
 
- export function now(): number {
-   return Date.now();
- }
+export function now(): number {
+  return Date.now();
+}
 
 export const CHANNELS = [
   "cli",
@@ -20,6 +20,7 @@ export const CHANNELS = [
   "system",
 ] as const;
 
-export { log, setLogSilent} from "./logger.js";
+export { log, setLogSilent } from "./logger.js";
 export type { LogLevel } from "./logger.js";
 export { createTokenEstimator, defaultTokenEstimator } from "./token.js";
+export { cosineSimilarity, normalizeText, jaccardSimilarity } from "./vector.js";

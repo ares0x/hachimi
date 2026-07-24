@@ -52,4 +52,14 @@ describe("MemoryManager persistence", () => {
     m.cleanup();
     expect(m.session.length).toBeLessThanOrEqual(10);
   });
+
+  it("performs hybrid vector similarity search when queryEmbedding is provided", () => {
+    const m = new MemoryManager(testFile, new FileJsonStore());
+    m.add({ layer: "long_term", content: "咖啡偏好", importance: 0.5, embedding: [1, 0, 0] });
+    m.add({ layer: "long_term", content: "编程语言偏好", importance: 0.5, embedding: [0, 1, 0] });
+
+    const hits = m.search("咖啡", { queryEmbedding: [0.9, 0.1, 0] });
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits[0].content).toBe("咖啡偏好");
+  });
 });

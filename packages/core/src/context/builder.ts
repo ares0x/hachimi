@@ -3,7 +3,6 @@ import type { MemoryEntry } from "../types/index.js";
 import type { SkillRegistry } from "../skills/registry.js";
 import type { ToolRegistry } from "../tools/registry.js";
 import type { Message } from "../types/index.js";
-import { defaultTokenEstimator } from '@hachimi/shared';
 
 export interface ContextOptions {
   maxTokens?: number;           // Token 预算上限
@@ -49,9 +48,14 @@ export class ContextBuilder {
 
   async build(input: ContextBuildInput = {}): Promise<BuiltContext> {
     const opts = { ...DEFAULT_OPTIONS, ...input.options };
-    const blocks: string[] = [];
 
-    // 1. Skills 列表（最前面，保持原有逻辑）
+    // --- 1. 静态缓存前缀 (Static Stable Prefix) ---
+    // 必须保持绝不动摇的顺序以命中 LLM Prompt Cache：Identity -> Skills 概览 -> Tools 概览
+    const staticBlocks: string[] = [];
+
+    const identity = input.identityOverride ?? this.identity;
+    staticBlocks.push(identity);
+
     let skillsBlock = "【当前可用技能列表】\n（空）";
     if (input.skills) {
       const desc = input.skills.getPromptDescriptions();
@@ -59,53 +63,60 @@ export class ContextBuilder {
         skillsBlock = `【当前可用技能列表】\n${desc}\n\n【强制规则】当用户问「你有哪些技能」「你会什么」「你的能力」时，你必须且只能列出上面列表里的技能，禁止添加任何列表外能力。`;
       }
     }
-    blocks.push(skillsBlock);
+    staticBlocks.push(skillsBlock);
 
-    // 2. 按需加载完整 Skill
-    if (input.activeSkill && input.skills) {
-      const full = await input.skills.getFullSkill(input.activeSkill);
-      if (full) {
-        const activeText = `【激活技能：${input.activeSkill}】\n${full.instructions}\n\n请严格按照以上指令完成任务。`;
-        blocks.push(activeText);
-      }
-    }
-
-    // 3. 身份
-    const identity = input.identityOverride ?? this.identity;
-    blocks.push(identity);
-
-    // 4. 记忆
-    let memoriesBlock: string | undefined;
-    if (input.memories && input.memories.length > 0) {
-      memoriesBlock = "以下是与当前对话相关的记忆，请在回答时参考：\n" +
-        input.memories.map((m) => `- (${m.layer}) ${m.content}`).join("\n");
-      blocks.push(memoriesBlock);
-    }
-
-    // 5. 历史消息 + 智能摘要（核心升级）
-    let historySummary: string | undefined;
-    if (input.history && input.history.length > 0) {
-      const historyBlock = this.buildHistoryBlock(input.history, opts);
-      blocks.push(historyBlock);
-      historySummary = historyBlock;
-    }
-
-    // 6. Tools
-    let toolsBlock: string | undefined;
+    let toolsBlock = "【可用工具】\n（无）";
     if (input.tools) {
       const list = input.tools.list();
       if (list.length > 0) {
         toolsBlock = "【可用工具】\n" +
           list.map((t) => `- ${t.name} [${t.permission ?? "safe"}]: ${t.description}`).join("\n");
-        blocks.push(toolsBlock);
+      }
+    }
+    staticBlocks.push(toolsBlock);
+
+    // --- 2. 动态变动区域 (Dynamic Region) ---
+    // 置于固定边界之后：激活的 Skill 详情 -> 相关记忆 -> 对话历史
+    const dynamicBlocks: string[] = [];
+
+    if (input.activeSkill && input.skills) {
+      const full = await input.skills.getFullSkill(input.activeSkill);
+      if (full) {
+        const activeText = `【激活技能：${input.activeSkill}】\n${full.instructions}\n\n请严格按照以上指令完成任务。`;
+        dynamicBlocks.push(activeText);
       }
     }
 
-    let systemPrompt = blocks.join("\n\n");
+    let memoriesBlock: string | undefined;
+    if (input.memories && input.memories.length > 0) {
+      memoriesBlock = "以下是与当前对话相关的记忆，请在回答时参考：\n" +
+        input.memories.map((m) => `- (${m.layer}) ${m.content}`).join("\n");
+      dynamicBlocks.push(memoriesBlock);
+    }
 
-    // 7. Token 感知截断（Phase B 关键新增）
+    let historySummary: string | undefined;
+    if (input.history && input.history.length > 0) {
+      const historyBlock = this.buildHistoryBlock(input.history, opts);
+      dynamicBlocks.push(historyBlock);
+      historySummary = historyBlock;
+    }
+
+    // 组合 System Prompt
+    const staticPart = staticBlocks.join("\n\n");
+    let dynamicPart = dynamicBlocks.join("\n\n");
+
+    let systemPrompt = dynamicPart
+      ? `${staticPart}\n\n--- 动态上下文边界 ---\n\n${dynamicPart}`
+      : staticPart;
+
+    // --- 3. Prompt Cache 友好的 Tail-only (尾部截断) ---
     if (opts.enableTokenTruncation && input.tokenEstimator) {
-      systemPrompt = this.truncateToTokenBudget(systemPrompt, opts.maxTokens, input.tokenEstimator);
+      systemPrompt = this.truncateToTokenBudget(
+        staticPart,
+        dynamicBlocks,
+        opts.maxTokens,
+        input.tokenEstimator
+      );
     }
 
     if (input.tokenEstimator) {
@@ -137,7 +148,6 @@ export class ContextBuilder {
       return `【对话历史】\n${this.formatRecentMessages(history)}`;
     }
 
-    // 智能摘要
     const summary = this.summarizeHistory(history, opts.mode);
     const recent = this.formatRecentMessages(history.slice(-10));
 
@@ -172,22 +182,15 @@ export class ContextBuilder {
         .join(" | ");
     }
 
-    // normal / thoughtful 模式
     const userInputs = recent
       .filter(m => m.role === 'user')
       .slice(-6)
-      .map(m => {
-        const contentStr = typeof m.content === 'string' ? m.content : '[complex content]';
-        return contentStr;
-      });
+      .map(m => (typeof m.content === 'string' ? m.content : '[complex content]'));
 
     const assistantResponses = recent
       .filter(m => m.role === 'assistant')
       .slice(-6)
-      .map(m => {
-        const contentStr = typeof m.content === 'string' ? m.content : '[complex content]';
-        return contentStr;
-      });
+      .map(m => (typeof m.content === 'string' ? m.content : '[complex content]'));
 
     let summary = `对话轮次：${recent.length}\n`;
 
@@ -208,23 +211,49 @@ export class ContextBuilder {
     return summary.trim();
   }
 
-  private truncateToTokenBudget(prompt: string, maxTokens: number, estimator: (text: string) => number): string {
-    let current = prompt;
-    let tokens = estimator(current);
+  /**
+   * Prompt Cache 友好的 Tail-only (尾部截断) 算法
+   * 绝对不破坏静态 Prefix 区块，只对 Dynamic Blocks（历史消息 / 记忆）末尾进行修剪
+   */
+  private truncateToTokenBudget(
+    staticPart: string,
+    dynamicBlocks: string[],
+    maxTokens: number,
+    estimator: (text: string) => number
+  ): string {
+    const buildPrompt = (dynamics: string[]) =>
+      dynamics.length > 0
+        ? `${staticPart}\n\n--- 动态上下文边界 ---\n\n${dynamics.join("\n\n")}`
+        : staticPart;
 
-    if (tokens <= maxTokens) return current;
+    let currentPrompt = buildPrompt(dynamicBlocks);
+    let tokens = estimator(currentPrompt);
 
-    // 简单递归压缩：逐步移除或缩短历史部分
-    console.warn(`[ContextBuilder] Prompt 超过 Token 限制 (${tokens} > ${maxTokens})，正在压缩...`);
+    if (tokens <= maxTokens) return currentPrompt;
 
-    // 示例压缩策略：截断到最近内容
-    const lines = current.split("\n\n");
-    while (tokens > maxTokens && lines.length > 3) {
-      lines.splice(4, 1); // 保留前几块，移除中间历史
-      current = lines.join("\n\n");
-      tokens = estimator(current);
+    console.warn(`[ContextBuilder] Prompt 超过 Token 限制 (${tokens} > ${maxTokens})，正在执行 Prompt-Cache 安全的尾部截断...`);
+
+    const workingBlocks = [...dynamicBlocks];
+
+    // 从动态区块的最末端/较老数据开始逐块或逐行从尾部裁剪，绝不动前缀
+    while (tokens > maxTokens && workingBlocks.length > 0) {
+      const lastBlockIdx = workingBlocks.length - 1;
+      const lastBlock = workingBlocks[lastBlockIdx];
+      const lines = lastBlock.split("\n");
+
+      if (lines.length > 2) {
+        // 从长历史块末尾修剪 2 行
+        lines.splice(Math.max(1, lines.length - 3), 2);
+        workingBlocks[lastBlockIdx] = lines.join("\n");
+      } else {
+        // 弹出最旧的动态 Block
+        workingBlocks.pop();
+      }
+
+      currentPrompt = buildPrompt(workingBlocks);
+      tokens = estimator(currentPrompt);
     }
 
-    return current;
+    return currentPrompt;
   }
 }

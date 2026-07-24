@@ -1,5 +1,5 @@
 // packages/core/src/skills/registry.ts
-import type { SkillDefinition, SkillContent } from "../types/index.js";
+import type { SkillDefinition, SkillContent, ToolDefinition } from "../types/index.js";
 
 export class SkillRegistry {
   private skills = new Map<string, SkillDefinition>();
@@ -25,7 +25,7 @@ export class SkillRegistry {
     const lines = this.list().map(
       (s) => `- ${s.name}: ${s.description} [${s.permission || 'safe'}]`
     );
-    return `你可以使用以下技能（需要时再深入使用）：\n${lines.join("\n")}`;
+    return `你可以使用以下技能（需要时可使用 activate_skill 工具进行激活）：\n${lines.join("\n")}`;
   }
 
   async loadContent(name: string): Promise<SkillContent | null> {
@@ -58,6 +58,42 @@ export class SkillRegistry {
       description: s.description,
       permission: s.permission || 'safe',
     }));
+  }
+
+  /**
+   * 生成供 LLM 显式调用的 activate_skill 工具定义
+   */
+  getActivationTool(onActivate?: (skillName: string) => void): ToolDefinition {
+    return {
+      name: "activate_skill",
+      description: "当用户意图需要使用某个专业技能（如写作、总结等）时，调用此工具按需装载技能指令",
+      parameters: {
+        type: "object",
+        properties: {
+          skill_name: {
+            type: "string",
+            description: "需要激活的技能名称",
+          },
+        },
+        required: ["skill_name"],
+      },
+      permission: "safe",
+      execute: async (args) => {
+        const skillName = String(args.skill_name || "").trim();
+        const skill = this.skills.get(skillName);
+        if (!skill) {
+          return `未找到名称为 ${skillName} 的技能。`;
+        }
+        const content = await this.loadContent(skillName);
+        if (!content) {
+          return `技能 ${skillName} 加载失败。`;
+        }
+        if (onActivate) {
+          onActivate(skillName);
+        }
+        return `技能 [${skillName}] 已成功激活加载！指令：${content.instructions}`;
+      },
+    };
   }
 
   clear() {
