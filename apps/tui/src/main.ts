@@ -225,7 +225,9 @@ async function main() {
         const selected = await askInteractiveSelector("🎨 选择界面主题", themeItems);
         if (selected) {
           setActiveTheme(selected.id);
-          console.log(colorize(`✨ 主题已成功切换为: [${selected.id}]`, getActiveTheme().colors.success));
+          console.log(
+            colorize(`✨ 主题已成功切换为: [${selected.id}]`, getActiveTheme().colors.success)
+          );
         }
         continue;
       }
@@ -234,25 +236,38 @@ async function main() {
         const providerItems = [
           { id: "deepseek", label: "deepseek", sublabel: "DeepSeek (deepseek-v4-pro / flash)" },
           { id: "openai", label: "openai", sublabel: "OpenAI (gpt-5.6-sol / terra / luna)" },
-          { id: "anthropic", label: "anthropic", sublabel: "Anthropic Claude (claude-fable-5 / opus-4-8 / sonnet-5)" },
+          {
+            id: "anthropic",
+            label: "anthropic",
+            sublabel: "Anthropic Claude (claude-fable-5 / opus-4-8 / sonnet-5)",
+          },
           { id: "qwen", label: "qwen", sublabel: "通义千问 (qwen3.8-max / qwen3.7-plus)" },
           { id: "moonshot", label: "moonshot", sublabel: "Moonshot / Kimi (kimi-k3)" },
           { id: "mock", label: "mock", sublabel: "Mock 模拟测试模式" },
         ];
-        const selected = await askInteractiveSelector("🤖 【Step 1/2】选择 LLM API 提供商 (Provider)", providerItems);
+        const selected = await askInteractiveSelector(
+          "🤖 【Step 1/2】选择 LLM API 提供商 (Provider)",
+          providerItems
+        );
         if (selected) {
           const providerId = selected.id;
           let selectedModel: string | undefined;
 
           // Step 2: 连贯弹出 Model 选择面板
           const presetModels = PROVIDER_PRESET_MODELS[providerId] || [
-            { id: "__custom__", label: "✏️ 输入自定义模型名称...", sublabel: "手动填写模型标识" }
+            { id: "__custom__", label: "✏️ 输入自定义模型名称...", sublabel: "手动填写模型标识" },
           ];
 
-          const modelSelected = await askInteractiveSelector(`🧠 【Step 2/2】选择 [${providerId}] 模型 (Model)`, presetModels);
+          const modelSelected = await askInteractiveSelector(
+            `🧠 【Step 2/2】选择 [${providerId}] 模型 (Model)`,
+            presetModels
+          );
           if (modelSelected) {
             if (modelSelected.id === "__custom__") {
-              const modelPrompt = colorize(`✏️ 请输入 [${providerId}] 的自定义 Model 名称: `, theme.colors.primary);
+              const modelPrompt = colorize(
+                `✏️ 请输入 [${providerId}] 的自定义 Model 名称: `,
+                theme.colors.primary
+              );
               selectedModel = (await askInteractivePrompt(modelPrompt)).trim();
             } else {
               selectedModel = modelSelected.id;
@@ -264,10 +279,18 @@ async function main() {
           let inputKey: string | undefined;
 
           if (!currentP?.apiKey && providerId !== "mock") {
-            const keyPrompt = colorize(`🔑 未检测到 [${providerId}] 的 API Key，请输入 API Key (按 Enter 确定): `, theme.colors.warning);
+            const keyPrompt = colorize(
+              `🔑 未检测到 [${providerId}] 的 API Key，请输入 API Key (按 Enter 确定): `,
+              theme.colors.warning
+            );
             inputKey = (await askInteractivePrompt(keyPrompt)).trim();
             if (!inputKey) {
-              console.log(colorize(`⚠️ 未输入 API Key，[${providerId}] 可能会回退到 Mock 模式`, theme.colors.warning));
+              console.log(
+                colorize(
+                  `⚠️ 未输入 API Key，[${providerId}] 可能会回退到 Mock 模式`,
+                  theme.colors.warning
+                )
+              );
             }
           }
 
@@ -276,7 +299,12 @@ async function main() {
             ...(inputKey ? { apiKey: inputKey } : {}),
           });
           const activeModelStr = selectedModel || currentP?.model || "default";
-          console.log(colorize(`✨ LLM 提供商与模型已成功更新为: [${providerId}] (${activeModelStr})`, getActiveTheme().colors.success));
+          console.log(
+            colorize(
+              `✨ LLM 提供商与模型已成功更新为: [${providerId}] (${activeModelStr})`,
+              getActiveTheme().colors.success
+            )
+          );
         }
         continue;
       }
@@ -284,19 +312,30 @@ async function main() {
       if (res.action === "selector_model") {
         const activeProvider = ctx.config.llm.activeProvider;
         const presetModels = PROVIDER_PRESET_MODELS[activeProvider] || [
-          { id: "__custom__", label: "✏️ 输入自定义模型名称...", sublabel: "手动填写模型标识" }
+          { id: "__custom__", label: "✏️ 输入自定义模型名称...", sublabel: "手动填写模型标识" },
         ];
 
-        const modelSelected = await askInteractiveSelector(`🧠 选择当前 [${activeProvider}] 的模型 (Model)`, presetModels);
+        const modelSelected = await askInteractiveSelector(
+          `🧠 选择当前 [${activeProvider}] 的模型 (Model)`,
+          presetModels
+        );
         if (modelSelected) {
           let chosenModel = modelSelected.id;
           if (chosenModel === "__custom__") {
-            const modelPrompt = colorize(`✏️ 请输入 [${activeProvider}] 的自定义 Model 名称: `, theme.colors.primary);
+            const modelPrompt = colorize(
+              `✏️ 请输入 [${activeProvider}] 的自定义 Model 名称: `,
+              theme.colors.primary
+            );
             chosenModel = (await askInteractivePrompt(modelPrompt)).trim();
           }
           if (chosenModel) {
             ctx.setActiveProvider(activeProvider, { model: chosenModel });
-            console.log(colorize(`✨ [${activeProvider}] 的 Model 已成功更新为: [${chosenModel}]`, getActiveTheme().colors.success));
+            console.log(
+              colorize(
+                `✨ [${activeProvider}] 的 Model 已成功更新为: [${chosenModel}]`,
+                getActiveTheme().colors.success
+              )
+            );
           }
         }
         continue;
@@ -320,7 +359,12 @@ async function main() {
         if (selected) {
           const loaded = sessions.load(selected.id);
           if (loaded) {
-            console.log(colorize(`✅ 已成功切换到会话: [${loaded.id}] (${loaded.title || "默认会话"})`, theme.colors.success));
+            console.log(
+              colorize(
+                `✅ 已成功切换到会话: [${loaded.id}] (${loaded.title || "默认会话"})`,
+                theme.colors.success
+              )
+            );
           }
         }
         continue;

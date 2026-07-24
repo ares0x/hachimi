@@ -1,12 +1,18 @@
 # Hachimi Architecture
 
-> Revision 3. Phase lettering below now matches `ROADMAP.md` Revision 3, which
-> split the old combined "daemon mode" phase into a provider/embedded-modes
-> phase and a separate daemon+sandbox+auth phase, and split the old combined
-> "multi-surface + personalization" phase into three — driven by the tutorial
-> repo's chapter-sized pacing constraint. Revision 2's product-vision content
-> (four pillars, daemon topology, portable memory, unified registry) is
-> unchanged; only phase numbers moved. See `ROADMAP.md`'s header for why.
+> Revision 4. Reconciles a phase-lettering drift: an earlier edit of this file
+> temporarily split phases into an A–J scheme that was never carried over into
+> `ROADMAP.md`/`TASK.md`, which kept tracking the original A–G scheme (and
+> `TASK.md` had already marked real sub-items done under it). Since
+> `ROADMAP.md`/`TASK.md` are the operationally active documents, this file is
+> reverted to match their A–G lettering — no prose content is lost, only
+> phase letters. One substantive addition survives from the A–J attempt: a
+> minimum tool-execution sandbox is now called out as a Phase C item (see
+> `ROADMAP.md`), not deferred to the final hardening phase — see the
+> "why now" note under Design Principle 6. Known Technical Debt below is
+> also refreshed: Phase A and B are done, so their old debt items are
+> resolved; newly found structural issues (verified against the current
+> codebase) are tracked in `docs/REFACTOR_PLAN.md` instead of duplicated here.
 
 ## Reference sources
 
@@ -33,70 +39,55 @@ docs) instead.
 
 ## Product Vision — Four Pillars
 
-Everything below is organized around four commitments the product makes. Each
-architectural decision in this document should trace back to one of these.
-
 | # | Pillar | What it constrains architecturally |
 |---|--------|--------------------------------------|
-| P1 | **Local-first, migratable memory** | Data must live on the user's machine by default, and must be movable to a new machine without data loss or manual reconstruction. This means "storage" and "portability format" are two different concerns, not one. |
-| P2 | **Gets better at knowing the user over time** | Memory isn't just storage — it needs a standing consolidation/retrieval loop that runs continuously, not a feature bolted on late. |
-| P3 | **Deep extensibility** — providers, tools, skills, MCP | These four extension axes should share one underlying registration/discovery pattern, designed once, not four bespoke systems built in different phases. |
-| P4 | **Multi-surface**: Desktop, API, and API-fed clients (Telegram, web) | Only one process can be the source of truth for a user's session/memory state at a time. If Desktop, a Telegram bridge, and a web client can all be active concurrently, they cannot each embed their own independent copy of `@hachimi/core` — they need to talk to the same running instance. |
-
-The remaining sections work through the concrete design implications of P1–P4.
+| P1 | **Local-first, migratable memory** | Data lives on the user's machine by default and must be movable to a new machine without data loss. "Storage" and "portability format" are two different concerns, not one. |
+| P2 | **Gets better at knowing the user over time** | Memory isn't just storage — it needs a standing consolidation/retrieval loop, not a feature bolted on late. |
+| P3 | **Deep extensibility** — providers, tools, skills, MCP | These extension axes share one underlying registration/discovery pattern, designed once. |
+| P4 | **Multi-surface**: Desktop, API, and API-fed clients (Telegram, web) | Only one process can be the source of truth for a user's session/memory state at a time. |
 
 ## Runtime Topology: Embedded Mode vs. Daemon Mode
 
-The most consequential architectural change so far, driven directly by P4.
+The most consequential architectural commitment so far, driven directly by P4.
 
 Instantiating `@hachimi/core` independently per channel is fine when only one
-channel is ever active (e.g. the `tutorial` branch's TUI-only demo), but it
-breaks the moment two surfaces need to be live at once — a Telegram bridge
-listening in the background while the Desktop app is also open, both referring
-to the same memory and the same in-flight session. Two independent core
-instances would immediately diverge: memory written via Telegram wouldn't be
-visible in the Desktop UI until both happened to reload from disk, and two
-agent loops could both decide to act on the same proactive trigger.
+channel is ever active, but breaks the moment two surfaces need to be live at
+once — a Telegram bridge listening in the background while Desktop is also
+open, both referring to the same memory and the same in-flight session. Two
+independent core instances would diverge immediately.
 
-So Hachimi needs **two supported ways of running the same `@hachimi/core`**,
-not one:
+So Hachimi supports **two ways of running the same `@hachimi/core`**:
 
 - **Embedded mode** — a process instantiates `@hachimi/core` directly,
-  in-process. No daemon, no network hop. This is what `apps/tui` does today,
-  and what the non-interactive print/JSON mode (Phase C) will do. Correct for:
-  one-off CLI invocations, tests, scripting, a single-user TUI session where
-  nothing else needs to see the same state concurrently.
-- **Daemon mode** — exactly one long-running process (`apps/server`) holds the
-  canonical `@hachimi/core` instance plus memory/session state. Every other
-  surface — Desktop, a web UI, the Telegram bridge, even the TUI if the user
-  wants it — connects to this one process as a thin client over a local API
-  (HTTP/WS on localhost by default). This is what makes P4 actually true: one
-  brain, many windows into it.
+  in-process. This is what `apps/tui` does today. Correct for one-off CLI
+  invocations, tests, scripting, a single-user TUI session.
+- **Daemon mode** — exactly one long-running process (`apps/server`) holds
+  the canonical `@hachimi/core` instance plus memory/session state. Desktop,
+  a web UI, the Telegram bridge, even the TUI, connect to this one process as
+  thin clients over a local API. One brain, many windows into it.
 
 `apps/server` is therefore the thing that makes Desktop + Telegram + web
-coexist correctly, not "the second, non-essential channel." The local API
-server (Phase D) is built **before** Desktop (Phase H) — Desktop becomes a
-client of the daemon rather than another embedder of core.
+coexist correctly, not "the second, non-essential channel" — it's built in
+Phase C, before Desktop (Phase F).
 
-Security note: a daemon that accepts local (and potentially remote, for a
-Telegram bridge running on someone's own VPS talking home) connections is a
-larger attack surface than an in-process embed. The existing permission engine
-(`safe`/`needs_confirm`/`dangerous`) protects tool execution, but daemon mode
-also needs basic transport-level auth (Phase D3) and a minimum tool-execution
-sandbox (Phase D4) before any non-TUI channel (Phase G) is wired to it.
+Security note: a daemon accepting local (and potentially remote, for a
+Telegram bridge on a VPS talking home) connections is a larger attack surface
+than an in-process embed. The permission engine (`safe`/`needs_confirm`/
+`dangerous`) protects tool execution, but daemon mode also needs
+transport-level auth and a minimum tool-execution sandbox — both scheduled as
+Phase C items (see `ROADMAP.md`), landing before Phase F wires up a Telegram
+bridge, not after.
 
 ```
                      ┌─────────────────────────────────────────┐
                      │              Daemon Mode                 │
-                     │                                           │
   Desktop UI ───┐    │   ┌───────────────────────────────────┐  │
   Web UI ───────┼────┼──►│     apps/server (local API)         │  │
-  Telegram ──────┘    │   │  auth: local token (min bar)        │  │
+  Telegram ──────┘    │   │  auth: local token · tool sandbox    │  │
                      │   └──────────────┬──────────────────────┘  │
                      │                  ▼                          │
-                     │        ┌──────────────────┐                 │
-                     │        │  @hachimi/core    │  ← single      │
-                     │        │  (one instance)    │    source of   │
+                     │        ┌──────────────────┐  ← single      │
+                     │        │  @hachimi/core    │    source of   │
                      │        └──────────────────┘    truth         │
                      └─────────────────────────────────────────┘
 
@@ -108,90 +99,56 @@ sandbox (Phase D4) before any non-TUI channel (Phase G) is wired to it.
                      └─────────────────────────────────────────┘
 ```
 
-Both modes construct `@hachimi/core` through the same `createAppContext()` /
-SDK entry point — the only difference is what sits in front of it. This keeps
-the "core is channel-agnostic" principle intact rather than special-casing
-daemon mode inside core.
+Both modes construct `@hachimi/core` through the same public entry point —
+the only difference is what sits in front of it.
 
 ## Portable Memory: Export/Import Bundle (P1)
 
-"Local-first" and "migratable" are in tension if taken too literally — a raw
-SQLite file copied between machines is fragile across schema versions and
-platform-specific extensions (e.g. `sqlite-vec` builds are not always
-binary-portable). So we separate two concerns that are easy to conflate under
-one "Storage Layer" label:
+A raw SQLite file copied between machines is fragile across schema versions
+and platform-specific extensions. Two separate concerns:
 
-1. **Runtime store** — whatever is fastest to query while the daemon/embed is
-   running (file-backed JSON today, SQLite + vector store from Phase B on).
-   Implementation detail, allowed to change.
-2. **Portable bundle** — a versioned, engine-independent export format that is
-   the actual unit of migration and backup (Phase E). This is the thing a user
-   moves to a new machine, not the raw database file.
+1. **Runtime store** — whatever is fastest to query while running (file-backed
+   JSON, now SQLite + vector search since Phase B). Implementation detail.
+2. **Portable bundle** — a versioned, engine-independent export format, the
+   actual unit of migration and backup (Phase D). This is what a user moves
+   to a new machine, not the raw database file.
 
-Bundle requirements:
-- Explicit schema version field; the import path must know how to upgrade an
-  older bundle, not just reject it.
-- Contains all four memory layers, session history, and skill-usage state —
-  everything that makes the assistant "know" the user, not just long-term
-  facts.
-- Export/import is a first-class command, not an afterthought — the same
-  spirit as the `sk export` idea already planned for `skillfs`, applied here
-  to memory instead of skills.
-- Import is additive-with-conflict-resolution by default (merge, don't
-  silently overwrite), since a user might be consolidating two machines' worth
-  of history rather than doing a clean move.
+Bundle requirements: explicit schema version field with an upgrade path (not
+just rejection of old bundles); contains all four memory layers, session
+history, and skill-usage state; export/import as first-class commands; import
+is additive-with-conflict-resolution by default, not silent overwrite.
 
 ## Unified Extension Registry (P3)
 
-Tools, skills, MCP, and providers can look like four separate systems arriving
-in different phases, but three of them share the same underlying shape:
+Tools, skills, and MCP look like three separate systems but share one shape:
 "register a named capability with a short description for the model, resolve
-to full content/execution on demand, gate by permission." Designing one shared
-pattern (Phase F) avoids re-deriving it three times and avoids MCP support
-looking bolted-on when it arrives.
-
-Proposed shared shape (conceptual, not a literal current-code type):
+to full content/execution on demand, gate by permission." Phase E converges
+`ToolRegistry` and `SkillRegistry` onto one interface and treats an MCP client
+as another instance of it, rather than a fourth bespoke system:
 
 ```ts
 interface CapabilitySource<T> {
   list(): CapabilityDescriptor[];       // short form, goes in system prompt
   resolve(name: string): Promise<T>;    // full form, loaded on demand
-  permission(name: string): PermissionLevel;
+  permission(name: string): ToolPermission;
 }
 ```
 
-- `ToolRegistry` and `SkillRegistry` already implement something close to this
-  shape independently. Phase F's job is to converge them onto one interface.
-- An MCP client becomes another `CapabilitySource<ToolDefinition>` —
-  external MCP servers are just another place tools come from, not a parallel
-  system with its own registration path.
-- Provider selection (Phase C's `ProviderTransport`) is a different kind of
-  capability (one active at a time, not "many registered and callable"), so it
-  does *not* fit the same interface — worth stating explicitly so a future
-  contributor doesn't try to force it in.
-- Skills-as-installable-packages (Pi/Grok-Build pattern) becomes "a
-  `CapabilitySource` that discovers entries from installed npm/git packages"
-  rather than a separate loading mechanism from in-repo skills.
+Provider selection (`ProviderTransport`, Phase C) deliberately does **not**
+fit this shape: only one provider is active per session, so it's a
+strategy/swap point, not a many-registered-capabilities list.
 
 ## Personalization: Two Tiers, Not One (P2)
 
-"The assistant gets better at knowing you" conflates two different things with
-very different maturity requirements:
-
-- **Tier 1 — Consolidation (foundational, Phase B).**
-  Deduplication, importance decay, session summarization —
-  `MemoryManager.cleanup()`'s existing `deduplicate()`/`prune()`/
-  `summarizeSession()` are early versions of this. Phase B's embedding-based
-  retrieval is also Tier 1. This tier is solid *before* Phase F/I, not after
-  — it's the mechanism, not the "feature."
-- **Tier 2 — Self-directed skill/behavior evolution (advanced, Phase I).**
+- **Tier 1 — Consolidation (foundational, Phase B — done).** Deduplication,
+  importance decay, session summarization, embedding-based retrieval. The
+  mechanism, not the feature.
+- **Tier 2 — Self-directed skill/behavior evolution (advanced, Phase F).**
   The agent proposing new skills from repeated patterns, proactive triggers,
-  sub-agent delegation. Hermes-agent's `hermes-agent-self-evolution` idea
-  (evaluate → propose → gate → adopt) is the relevant reference here, and it
-  correctly stays late: it depends on Phase F's hooks and a mature enough
-  Tier 1 to have good signal to learn from.
+  sub-agent delegation. Depends on Phase E's hooks and a mature Tier 1 to
+  learn from.
 
-## High-level Overview (current + planned)
+## High-level Overview
 
 ```
 ┌───────────────────────────────────────────────────────────────────────┐
@@ -202,38 +159,21 @@ very different maturity requirements:
                                 ▼
 ┌───────────────────────────────────────────────────────────────────────┐
 │                            Core Harness  (@hachimi/core)                │
-│                                                                         │
-│  ┌────────────┐   ┌────────────────┐   ┌───────────────────────────┐  │
-│  │ Agent Loop │◄──┤ Context Builder│◄──┤  Capability Registries     │  │
-│  │  (done,    │   │  (done, needs  │   │  Tools · Skills · MCP      │  │
-│  │  blocking)  │   │  cache-stable  │   │  (converging on one shape) │  │
-│  └─────┬──────┘   │  rework)        │   └───────────────────────────┘  │
-│        │          └────────────────┘                                  │
-│        ▼                                                               │
-│  ┌────────────┐   ┌────────────────┐   ┌───────────────────────────┐  │
-│  │   Tools    │   │  Permissions   │   │   Hooks (planned)          │  │
-│  │  Registry  │◄──┤  (unify types) │   │   (Tier 2 personalization  │  │
-│  │  (done)    │   └────────────────┘   │    depends on this)        │  │
-│  └─────┬──────┘                        └───────────────────────────┘  │
-│        │                                                               │
-│        ▼                                                               │
-│  ┌─────────────────────────────────────────────────────────────────┐  │
-│  │        Hierarchical Memory + Consolidation Loop (Tier 1)          │  │
-│  │   Working → Session → Long-term → Archival                       │  │
-│  │   Retrieval: substring → embedding (Phase B)                      │  │
-│  └─────────────────────────────────────────────────────────────────┘  │
-│        │                                                               │
-│        ▼                                                               │
-│  ┌────────────┐        ┌───────────────────────────┐                  │
-│  │  Session   │        │  LLM Provider Transport    │                  │
-│  │  Manager   │        │  (single active provider,   │                  │
-│  │  (done)    │        │   swappable, not a registry) │                │
-│  └────────────┘        └───────────────────────────┘                  │
+│  Agent Loop ◄─ Context Builder (prompt-cache stable, done) ◄─ Capability│
+│      │                                                     Registries   │
+│      ▼                                                (converging)     │
+│  Tools · Permissions (unified type, done) · Hooks (planned)             │
+│      │                                                                  │
+│      ▼                                                                  │
+│  Hierarchical Memory + Consolidation Loop (Tier 1, done)                │
+│  Working → Session → Long-term → Archival · embedding retrieval         │
+│      │                                                                  │
+│      ▼                                                                  │
+│  Session Manager        LLM ProviderTransport (multi-vendor, done)      │
 └──────────────────────────────┬──────────────────────────────────────┘
-                                │
                                 ▼
 ┌───────────────────────────────────────────────────────────────────────┐
-│      Runtime Store (file/SQLite+vector, impl detail, can change)       │
+│      Runtime Store (SQLite + vector, impl detail, can change)           │
 │      Portable Bundle (versioned export/import — the migration unit)    │
 └───────────────────────────────────────────────────────────────────────┘
 ```
@@ -242,107 +182,89 @@ very different maturity requirements:
 
 ### 1. Core is Channel-Agnostic
 `@hachimi/core` has zero knowledge of TUI, HTTP, or messaging platforms. All
-channels convert native input into `IncomingMessage` and receive
-`OutgoingMessage`. In daemon mode this boundary sits inside `apps/server`;
-in embedded mode it sits inside whatever process instantiates core directly.
-Either way, core itself never special-cases a channel.
+channels convert native input into `IncomingMessage`/`OutgoingMessage`. One
+current gap: `ChannelType` is a closed union that already lists channels not
+yet built (`wechat`, `slack`) — see `docs/REFACTOR_PLAN.md` item 6 for the fix.
 
-### 2. Hierarchical Memory (Tier 1 personalization mechanism)
-| Layer     | Lifetime       | Purpose                               | Storage today        |
-|-----------|----------------|----------------------------------------|-----------------------|
-| Working   | Current turn   | Immediate conversation context         | In-memory             |
-| Session   | Single session | Summaries, key decisions                | `data/memory.json`    |
-| Long-term | Permanent      | User preferences, habits, facts         | `data/memory.json`    |
-| Archival  | Permanent      | Documents, notes, generated artifacts   | Planned (file+vector) |
-
-**Current gap**: `MemoryManager.search()` does keyword/substring matching, not
-semantic retrieval. Phase B replaces this with embedding-based retrieval while
-keeping the four-layer model unchanged. This is foundational to P2, not
-optional polish.
+### 2. Hierarchical Memory (Tier 1 personalization mechanism) — Done
+Working → Session → Long-term → Archival, file-persisted, with
+embedding-based similarity search (cosine similarity against stored
+embeddings) as of Phase B.
 
 ### 3. Lazy Skills, Converging Toward a Shared Registry Shape
-System prompt carries only a one-line description per skill; full instructions
-+ associated tools load on activation. Phase F converges this with
-`ToolRegistry` and an MCP client onto one `CapabilitySource` shape (see above),
-and adds installable skill packages (Pi/Grok-Build pattern).
+System prompt carries only a one-line description per skill; full
+instructions + tools load on activation. Skill activation is model-chosen (an
+`activate_skill` tool the model calls explicitly) rather than text-pattern
+matching, as of Phase B4. Phase E converges this with `ToolRegistry` and MCP
+onto one `CapabilitySource` shape, and adds installable skill packages.
 
-### 4. Provider Transport Abstraction (hermes-inspired)
-Today `LLMProvider` has exactly one implementation
-(`agent/providers/openai-compatible.ts`). Hermes-agent's `ProviderTransport`
-pattern — one abstract contract, concrete transports per API shape — is the
-target shape (Phase C). Note this is deliberately *not* folded into the
-`CapabilitySource` registry pattern above: only one provider is active per
-session, so it's a strategy/swap point, not a many-registered-capabilities
-list.
+### 4. Provider Transport Abstraction — Done, naming needs a pass
+`ProviderTransport` is a real interface with concrete transports
+(`OpenAICompatibleProvider`, `AnthropicProviderTransport`) behind
+`ProviderRegistry`. One naming issue: `ProviderType` currently mixes
+protocol-level (`openai-compatible`), vendor-level (`deepseek`, `qwen`), and
+model-family (`claude`) names in one flat union — see
+`docs/REFACTOR_PLAN.md` item 4.
 
-### 5. Prompt-Cache Stability (hermes-inspired)
-Hermes-agent treats this as one of the two properties shaping almost every
-design decision: *a long-lived conversation reuses a cached prefix every
-turn*. Our `ContextBuilder` currently violates this by rebuilding the whole
-prompt every turn with content whose position shifts. Phase B fixes ordering
-so static blocks (identity, tool/skill descriptions) form a stable prefix, and
-only genuinely variable content (retrieved memories, active skill, recent
-history) sits after a clear boundary. This matters more, not less, once a
-daemon is serving multiple concurrent sessions (Phase D/G) — cache misses
-multiply across every connected client.
+### 5. Prompt-Cache Stability — Done
+`ContextBuilder.build()` explicitly separates a static cache-stable prefix
+(identity → skill descriptions → tool descriptions) from a dynamic region
+(active skill detail → retrieved memories → history), with a comment in the
+source noting this ordering must not shift. This matters more, not less, once
+a daemon serves multiple concurrent sessions — cache misses multiply across
+every connected client.
 
 ### 6. Minimal Core, Optional Permission Layer, Now Also Transport Auth + Sandbox
-Pi's no-built-in-permissions stance is legitimate for a single-user CLI tool.
 Hachimi keeps its permission skeleton because P2's proactive behavior needs an
 in-process approval gate. Daemon mode (P4) adds two further, independent
-requirements on top: transport-level authentication (Phase D3) and a
-tool-execution sandbox (Phase D4), since more than one untrusted-ish client (a
-Telegram bridge, a browser tab) may now reach the same core. These are three
+requirements: transport-level authentication and a tool-execution sandbox —
+both scheduled inside Phase C, alongside daemon mode itself, specifically
+because shipping a Telegram bridge (Phase F, a remote and less-trusted
+client) before either exists would be a real ordering risk. These are three
 different layers and should not be conflated into one permission system.
 
 ### 7. Headless First, Multiple Entry Modes
-Pi ships interactive / print-JSON / RPC / SDK modes; Grok Build separates
-`leader` / `stdio` / `headless` entry points from the TUI. Hachimi's embedded
-mode (Phase C) and daemon mode (Phase D) together cover this same ground:
+Phase C's embedded print/JSON mode and daemon mode together cover this:
 embedded-print for scripts/cron, daemon+API for everything else.
 
 ### 8. Extension Points Without Modifying Core
-Hooks remain the mechanism Tier 2 personalization depends on. Phase F (hooks)
-is a hard prerequisite for Phase I, because Tier 2 (self-directed skill
-evolution) cannot exist without them.
+Hooks (Phase E) are the mechanism Tier 2 personalization (Phase F) depends
+on — a hard prerequisite, not just a nice-to-have.
 
-## Known Technical Debt (as of this writing)
+## Known Technical Debt
 
-1. **Duplicate permission types.** `types/index.ts` defines both
-   `PermissionLevel` and `ToolPermission`; only the latter is read at runtime.
-   Unify before building further permission UI. (Phase B1)
-2. **Context builder is not prompt-cache stable.** See principle 5. (Phase B2)
-3. **`MemoryManager.search()` is keyword matching, not semantic.** See
-   principle 2 / Tier 1 personalization. (Phase B3)
-4. **`packages/storage` has both `file-store.ts` and `sqlite-store.ts`, but
-   only the file store is wired into `MemoryManager`**, and neither yet has a
-   defined portable bundle export path. (Phase B3, Phase E)
-5. **`packages/channels/{api,cli}` are empty package scaffolds** — no `src/`
-   yet, and `apps/server` has no implementation. Given the daemon-mode
-   requirement above, this is a higher-priority gap than it looks at first
-   glance. (Phase D)
-6. **No transport-level auth or tool-execution sandbox exists anywhere yet.**
-   Not a bug today (nothing listens on a network port), but must land before
-   Phase G wires up a Telegram bridge or web client. (Phase D3, D4)
+Phase A and B are done — the debt items that used to live here (duplicate
+permission types, non-cache-stable context builder, keyword-only memory
+search) are resolved. Newly identified structural issues, verified against
+the current codebase, are tracked with file-level fix instructions in
+**`docs/REFACTOR_PLAN.md`**: deep relative imports bypassing `@hachimi/core`'s
+public API, an incomplete `index.ts` export surface (the root cause of the
+previous item), the `ChannelType` closed-union coupling, provider-naming
+conflation, config's legacy-field sunset path, and a few smaller items
+(`skills/examples/` naming, `scripts/` cleanup, `AppContext` responsibility
+creep). Read that file before starting Phase C4 (`apps/server`) — the plan is
+explicitly sequenced to land before the daemon becomes a second consumer of
+`@hachimi/core`'s exports.
 
 ## Key Interfaces
 
 See `packages/core/src/types/index.ts` for current definitions.
 
 - `IncomingMessage` / `OutgoingMessage` — channel protocol boundary
-- `ToolDefinition` — tool registration + permission classification
+- `ToolDefinition` — tool registration + permission classification (unified
+  `ToolPermission` type, Phase B1)
 - `SkillDefinition` / `SkillContent` — lazy skill contract
 - `MemoryAccess` / `MemoryEntry` — how the agent reads/writes memory
-- `LLMProvider` — today single-shape, becoming a transport interface in Phase C
+- `ProviderTransport` / `ProviderTransportConfig` — multi-vendor model access
 - `CapabilitySource<T>` — proposed, not yet in code; the target shape Tools/
-  Skills/MCP converge on in Phase F
+  Skills/MCP converge on in Phase E
 
 ## Module Boundaries
 
-- **Agent** (`core/src/agent`): pure reasoning + tool-calling loop. No I/O
-  beyond the injected `LLMProvider`.
-- **Context** (`core/src/context`): assembles the system prompt; the one place
-  prompt-cache discipline is enforced.
+- **Agent** (`core/src/agent`): reasoning + tool-calling loop, delegates to
+  `ProviderTransport` for model access.
+- **Context** (`core/src/context`): assembles the system prompt; the one
+  place prompt-cache discipline is enforced.
 - **Memory** (`core/src/memory`): four-layer state + Tier 1 consolidation.
 - **Session** (`core/src/session`): multi-turn history, separate from
   long-term memory by design.
@@ -354,16 +276,15 @@ See `packages/core/src/types/index.ts` for current definitions.
 
 ## Implementation Order
 
-See `ROADMAP.md` for the full phase plan, including the tutorial chapter
-mapping. At a glance:
+See `ROADMAP.md` for the full phase plan and `docs/TASK.md` for the active
+task breakdown of the current phase.
 
-1. Phase A — Foundation~~ (done, published as L2 chapter 1)
-2. Phase B — Foundation debt + SQLite/vector memory + token accounting
-3. Phase C — Provider transport abstraction + embedded/headless modes
-4. Phase D — Daemon mode + minimum sandbox + transport auth
-5. Phase E — Portable memory bundle
-6. Phase F — Unified extension registry (tools/skills/MCP), hooks
-7. Phase G — Real channels: Telegram + REST API
-8. Phase H — Desktop client
-9. Phase I — Tier 2 personalization (self-directed skills, sub-agents, scheduling)
-10. Phase J — Hardening (sandbox maturity, auth completeness, bundle security)
+1. Phase A — Foundation~~ (done)
+2. Phase B — Foundation debt + SQLite/vector memory + token accounting~~ (done)
+3. Phase C — Provider transport (done) + embedded/headless modes + daemon
+   mode + minimum sandbox + transport auth *(in progress — see `TASK.md`)*
+4. Phase D — Portable memory bundle
+5. Phase E — Unified extension registry (tools/skills/MCP), hooks
+6. Phase F — Multi-surface clients (Desktop, web, Telegram) + Tier 2
+   personalization (self-directed skills, sub-agents, scheduling)
+7. Phase G — Hardening (sandbox maturity, auth completeness, bundle security)

@@ -8,15 +8,11 @@ export type SessionId = string;
 /** Unique identifier for a user (can be local or channel-specific) */
 export type UserId = string;
 
-/** Channel that the message originated from */
-export type ChannelType =
-  | "cli"
-  | "desktop"
-  | "api"
-  | "telegram"
-  | "wechat"
-  | "slack"
-  | "system";
+/** 已知的核心 Channel 标识符（仅用于编辑器自动补全） */
+export type KnownChannelType = "cli" | "desktop" | "api" | "telegram" | "system";
+
+/** 开放式 Channel 类型：核心作为不透明字符串处理，各渠道自定义扩展 */
+export type ChannelType = KnownChannelType | (string & {});
 
 /** A single message in the conversation */
 export interface Message {
@@ -69,9 +65,9 @@ export type ToolPermission = "safe" | "needs_confirm" | "dangerous";
 /** Skill definition (Lazy by design) */
 export interface SkillDefinition {
   name: string;
-  description: string;           // Short one-liner shown in system prompt
+  description: string; // Short one-liner shown in system prompt
   /** Path or loader that returns the full skill content when activated */
-  load: () => Promise<SkillContent>;
+  load: () => SkillContent | Promise<SkillContent>;
   tags?: string[];
   permission?: ToolPermission;
 }
@@ -149,7 +145,7 @@ export interface ProviderTransportConfig {
   extraParams?: Record<string, unknown>;
 }
 
-export interface ProviderTransport {
+export interface ProviderTransport extends LLMProvider {
   readonly id: string;
   readonly name: string;
   chat(
@@ -157,10 +153,10 @@ export interface ProviderTransport {
     tools?: ToolDefinition[],
     config?: Partial<ProviderTransportConfig>
   ): Promise<LLMResponse>;
-  chatStream?(
+  chatStream(
     messages: Message[],
     tools?: ToolDefinition[],
-    config?: Partial<ProviderTransportConfig>,
+    config?: Partial<ProviderTransportConfig> | ((chunk: string) => void),
     onChunk?: (chunk: string) => void
   ): Promise<LLMResponse>;
 }

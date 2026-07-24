@@ -9,7 +9,7 @@ export class SkillRegistry {
       throw new Error(`Skill already registered: ${skill.name}`);
     }
     this.skills.set(skill.name, skill);
-    console.log(`[Skill] 注册: ${skill.name} [权限: ${skill.permission || 'safe'}]`);
+    console.log(`[Skill] 注册: ${skill.name} [权限: ${skill.permission || "safe"}]`);
   }
 
   get(name: string) {
@@ -23,7 +23,7 @@ export class SkillRegistry {
   getPromptDescriptions(): string {
     if (this.skills.size === 0) return "";
     const lines = this.list().map(
-      (s) => `- ${s.name}: ${s.description} [${s.permission || 'safe'}]`
+      (s) => `- ${s.name}: ${s.description} [${s.permission || "safe"}]`
     );
     return `你可以使用以下技能（需要时可使用 activate_skill 工具进行激活）：\n${lines.join("\n")}`;
   }
@@ -44,19 +44,19 @@ export class SkillRegistry {
   }
 
   /** 权限检查 */
-  hasPermission(name: string, required: 'safe' | 'needs_confirm' | 'dangerous' = 'safe'): boolean {
+  hasPermission(name: string, required: "safe" | "needs_confirm" | "dangerous" = "safe"): boolean {
     const skill = this.skills.get(name);
     if (!skill) return false;
-    const skillLevel = skill.permission || 'safe';
+    const skillLevel = skill.permission || "safe";
     const levels: Record<string, number> = { safe: 0, needs_confirm: 1, dangerous: 2 };
     return levels[skillLevel] <= levels[required];
   }
 
   listWithPermissions() {
-    return this.list().map(s => ({
+    return this.list().map((s) => ({
       name: s.name,
       description: s.description,
-      permission: s.permission || 'safe',
+      permission: s.permission || "safe",
     }));
   }
 

@@ -162,18 +162,20 @@ export class MemoryManager {
 
   private getLayerArray(layer: MemoryLayer): MemoryEntry[] {
     switch (layer) {
-      case "working": return this.working;
-      case "session": return this.session;
-      case "long_term": return this.longTerm;
-      case "archival": return this.archival;
+      case "working":
+        return this.working;
+      case "session":
+        return this.session;
+      case "long_term":
+        return this.longTerm;
+      case "archival":
+        return this.archival;
     }
   }
 
   remember(content: string, importance = 0.7, layer: MemoryLayer = "long_term"): MemoryEntry {
     const normNew = normalizeText(content);
-    this.longTerm = this.longTerm.filter(
-      (e) => normalizeText(e.content) !== normNew
-    );
+    this.longTerm = this.longTerm.filter((e) => normalizeText(e.content) !== normNew);
     const entry = this.add({
       layer,
       content,
@@ -222,7 +224,9 @@ export class MemoryManager {
     for (const entry of this.longTerm) {
       const normContent = normalizeText(entry.content);
       const existingIdx = result.findIndex(
-        (e) => normalizeText(e.content) === normContent || jaccardSimilarity(e.content, entry.content) > 0.85
+        (e) =>
+          normalizeText(e.content) === normContent ||
+          jaccardSimilarity(e.content, entry.content) > 0.85
       );
       if (existingIdx === -1) {
         result.push(entry);
@@ -262,10 +266,18 @@ export class MemoryManager {
 
   clear(layer: MemoryLayer) {
     switch (layer) {
-      case "working": this.working = []; break;
-      case "session": this.session = []; break;
-      case "long_term": this.longTerm = []; break;
-      case "archival": this.archival = []; break;
+      case "working":
+        this.working = [];
+        break;
+      case "session":
+        this.session = [];
+        break;
+      case "long_term":
+        this.longTerm = [];
+        break;
+      case "archival":
+        this.archival = [];
+        break;
     }
   }
 }

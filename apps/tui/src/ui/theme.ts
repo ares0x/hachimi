@@ -9,20 +9,20 @@ export interface UITheme {
   name: string;
   label: string;
   colors: {
-    primary: string;       // 主色调（TokyoNight Blue #7AA2F7）
-    secondary: string;     // 次要 Accent 调（TokyoNight Magenta #BB9AF7）
-    background: string;    // 背景色（留空继承终端原生背景，防止打块色斑）
-    panelBg: string;       // 弹出框/面板背景
-    border: string;        // 边框颜色（#505058）
-    text: string;          // 主文本 (留空指代终端默认前景色)
-    subtext: string;       // 次要/灰度文本 (#787878)
-    userRole: string;      // 用户消息颜色 (#C8C8C8)
+    primary: string; // 主色调（TokyoNight Blue #7AA2F7）
+    secondary: string; // 次要 Accent 调（TokyoNight Magenta #BB9AF7）
+    background: string; // 背景色（留空继承终端原生背景，防止打块色斑）
+    panelBg: string; // 弹出框/面板背景
+    border: string; // 边框颜色（#505058）
+    text: string; // 主文本 (留空指代终端默认前景色)
+    subtext: string; // 次要/灰度文本 (#787878)
+    userRole: string; // 用户消息颜色 (#C8C8C8)
     assistantRole: string; // 助手消息颜色 (#BB9AF7)
-    systemRole: string;    // 系统/提示颜色 (#7AA2F7)
-    toolRole: string;      // 工具调用/返回颜色 (#73DACA)
-    success: string;       // 成功状态 (#9ECE6A)
-    warning: string;       // 警告状态 (#E0AF68)
-    error: string;         // 错误状态 (#F7768E)
+    systemRole: string; // 系统/提示颜色 (#7AA2F7)
+    toolRole: string; // 工具调用/返回颜色 (#73DACA)
+    success: string; // 成功状态 (#9ECE6A)
+    warning: string; // 警告状态 (#E0AF68)
+    error: string; // 错误状态 (#F7768E)
   };
 }
 
@@ -31,20 +31,20 @@ export const defaultTheme: UITheme = {
   name: "default",
   label: "Hachimi Default (Grok 经典)",
   colors: {
-    primary: "#0284C7",       // 高对比 TokyoNight Blue (亮/暗终端均清晰)
-    secondary: "#BB9AF7",     // TokyoNight Magenta
-    background: "",           // 留空自适应终端原生背景
+    primary: "#0284C7", // 高对比 TokyoNight Blue (亮/暗终端均清晰)
+    secondary: "#BB9AF7", // TokyoNight Magenta
+    background: "", // 留空自适应终端原生背景
     panelBg: "",
-    border: "#0284C7",        // 高对比 Accent 边框
-    text: "",                 // 留空继承终端原生黑/白文字
-    subtext: "#64748B",       // 石板灰
-    userRole: "#0284C7",      // User Accent Blue
+    border: "#0284C7", // 高对比 Accent 边框
+    text: "", // 留空继承终端原生黑/白文字
+    subtext: "#64748B", // 石板灰
+    userRole: "#0284C7", // User Accent Blue
     assistantRole: "#BB9AF7", // Assistant Purple
-    systemRole: "#0284C7",    // System Blue
-    toolRole: "#73DACA",      // Teal Tool
-    success: "#059669",       // TokyoNight Green
-    warning: "#D97706",       // TokyoNight Amber
-    error: "#DC2626",         // TokyoNight Red
+    systemRole: "#0284C7", // System Blue
+    toolRole: "#73DACA", // Teal Tool
+    success: "#059669", // TokyoNight Green
+    warning: "#D97706", // TokyoNight Amber
+    error: "#DC2626", // TokyoNight Red
   },
 };
 
@@ -55,8 +55,8 @@ export const amberTheme: UITheme = {
   name: "amber",
   label: "Hachimi Amber (暖金琥珀)",
   colors: {
-    primary: "#D97706",      // 亮琥珀
-    secondary: "#FF9E64",    // 暖红橙
+    primary: "#D97706", // 亮琥珀
+    secondary: "#FF9E64", // 暖红橙
     background: "",
     panelBg: "",
     border: "#D97706",
@@ -77,8 +77,8 @@ export const neonTheme: UITheme = {
   name: "neon",
   label: "Hachimi Neon (午夜霓虹)",
   colors: {
-    primary: "#BB9AF7",      // 电光紫
-    secondary: "#7DCFFF",    // 霓虹青
+    primary: "#BB9AF7", // 电光紫
+    secondary: "#7DCFFF", // 霓虹青
     background: "",
     panelBg: "",
     border: "#BB9AF7",
@@ -95,9 +95,9 @@ export const neonTheme: UITheme = {
 };
 
 export const THEMES: Record<string, UITheme> = {
-  "default": defaultTheme,
-  "amber": amberTheme,
-  "neon": neonTheme,
+  default: defaultTheme,
+  amber: amberTheme,
+  neon: neonTheme,
 };
 
 let currentTheme = defaultTheme;

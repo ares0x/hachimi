@@ -27,11 +27,23 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
   { name: "/status", description: "查看 LLM、Context Token 测量长条、Memory、Session 概况" },
   { name: "/config", description: "查看当前系统运行配置（脱敏显示）" },
   { name: "/provider", description: "交互式选择 LLM 提供商并开启模型设置向导" },
-  { name: "/model", description: "切换或快速设置当前 Provider 的模型 (Model)", example: "/model 或 /model deepseek-reasoner" },
-  { name: "/theme", description: "切换 TUI 色彩主题 (default / amber / neon)", example: "/theme default" },
+  {
+    name: "/model",
+    description: "切换或快速设置当前 Provider 的模型 (Model)",
+    example: "/model 或 /model deepseek-reasoner",
+  },
+  {
+    name: "/theme",
+    description: "切换 TUI 色彩主题 (default / amber / neon)",
+    example: "/theme default",
+  },
   { name: "/memories", description: "查看当前存储的所有长期与会话记忆" },
   { name: "/remember", description: "手动记录一条长期记忆", example: "/remember 用户喜欢手冲咖啡" },
-  { name: "/sessions", description: "列出或切换历史会话", example: "/sessions 或 /session load <sess_id>" },
+  {
+    name: "/sessions",
+    description: "列出或切换历史会话",
+    example: "/sessions 或 /session load <sess_id>",
+  },
   { name: "/clear", description: "清空当前会话消息" },
   { name: "/cleanup", description: "对记忆执行去重与剪枝清理" },
   { name: "/help", description: "显示使用帮助、快捷键与主题指南" },
@@ -254,7 +266,9 @@ export async function handleSlashCommand(
     }
 
     case "/": {
-      const content = SLASH_COMMANDS.map((c) => `• ${c.name.padEnd(12)} - ${c.description}`).join("\n");
+      const content = SLASH_COMMANDS.map((c) => `• ${c.name.padEnd(12)} - ${c.description}`).join(
+        "\n"
+      );
       return {
         action: "modal",
         title: " 💡 Slash 命令指南 ",

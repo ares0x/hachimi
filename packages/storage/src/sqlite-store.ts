@@ -1,7 +1,7 @@
 // packages/storage/src/sqlite-store.ts
-import Database from 'better-sqlite3';
-import { resolve } from 'node:path';
-import type { JsonFileStore, JsonDirStore, StorageBackend } from './types.js';
+import Database from "better-sqlite3";
+import { resolve } from "node:path";
+import type { JsonFileStore, JsonDirStore, StorageBackend } from "./types.js";
 import { log } from "@hachimi/shared";
 
 export class SQLiteStore implements JsonFileStore, JsonDirStore, StorageBackend {
@@ -40,9 +40,9 @@ export class SQLiteStore implements JsonFileStore, JsonDirStore, StorageBackend 
   // JsonFileStore 接口实现
   read<T>(key: string, fallback: T): T {
     try {
-      const stmt = this.db.prepare('SELECT value FROM kv_store WHERE key = ?');
+      const stmt = this.db.prepare("SELECT value FROM kv_store WHERE key = ?");
       const row = stmt.get(key) as { value: string } | undefined;
-      return row ? JSON.parse(row.value) as T : fallback;
+      return row ? (JSON.parse(row.value) as T) : fallback;
     } catch (err) {
       log("warn", `SQLite read failed: ${key}`, err);
       return fallback;
@@ -63,12 +63,14 @@ export class SQLiteStore implements JsonFileStore, JsonDirStore, StorageBackend 
   }
 
   exists(key: string): boolean {
-    const stmt = this.db.prepare('SELECT 1 FROM kv_store WHERE key = ?');
+    const stmt = this.db.prepare("SELECT 1 FROM kv_store WHERE key = ?");
     return !!stmt.get(key);
   }
 
   // JsonDirStore 接口实现
-  ensureDir(_dir: string): void { /* SQLite 不需要目录 */ }
+  ensureDir(_dir: string): void {
+    /* SQLite 不需要目录 */
+  }
   list(dir: string): string[] {
     try {
       const normalized = dir.replace(/\\/g, "/");
@@ -87,9 +89,9 @@ export class SQLiteStore implements JsonFileStore, JsonDirStore, StorageBackend 
 
   readDirEntry<T>(key: string): T | null {
     try {
-      const stmt = this.db.prepare('SELECT value FROM kv_store WHERE key = ?');
+      const stmt = this.db.prepare("SELECT value FROM kv_store WHERE key = ?");
       const row = stmt.get(key) as { value: string } | undefined;
-      return row ? JSON.parse(row.value) as T : null;
+      return row ? (JSON.parse(row.value) as T) : null;
     } catch {
       return null;
     }
@@ -100,7 +102,7 @@ export class SQLiteStore implements JsonFileStore, JsonDirStore, StorageBackend 
   }
 
   remove(key: string): void {
-    const stmt = this.db.prepare('DELETE FROM kv_store WHERE key = ?');
+    const stmt = this.db.prepare("DELETE FROM kv_store WHERE key = ?");
     stmt.run(key);
   }
 

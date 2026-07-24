@@ -1,4 +1,10 @@
-import type { Message, ToolDefinition, LLMResponse, ProviderTransport, ProviderTransportConfig } from "../../types/index.js";
+import type {
+  Message,
+  ToolDefinition,
+  LLMResponse,
+  ProviderTransport,
+  ProviderTransportConfig,
+} from "../../types/index.js";
 
 export interface AnthropicConfig extends ProviderTransportConfig {
   apiKey: string;
@@ -129,7 +135,7 @@ export class AnthropicProviderTransport implements ProviderTransport {
       throw new Error(`Anthropic API Error ${res.status}: ${errText}`);
     }
 
-    const data = await res.json();
+    const data = (await res.json()) as any;
     let textContent = "";
     const toolCalls: Array<{ id: string; name: string; arguments: Record<string, unknown> }> = [];
 

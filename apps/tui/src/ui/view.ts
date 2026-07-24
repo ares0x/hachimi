@@ -1,6 +1,14 @@
 // apps/tui/src/ui/view.ts
 import * as readline from "node:readline";
-import { getActiveTheme, colorize, getDisplayWidth, padDisplayWidth, bold, dim, renderBadge } from "./theme.js";
+import {
+  getActiveTheme,
+  colorize,
+  getDisplayWidth,
+  padDisplayWidth,
+  bold,
+  dim,
+  renderBadge,
+} from "./theme.js";
 import { SLASH_COMMANDS } from "./commands.js";
 import { renderSelectorModalBox, type SelectorItem } from "./modal.js";
 
@@ -30,8 +38,14 @@ export function renderWelcomeCard(status: any): string {
   const width = 76;
 
   const cardTitle = bold(colorize("Hachimi Assistant", theme.colors.primary)) + " " + dim("v0.1.0");
-  const subText = colorize("Personal AI Assistant Harness for TypeScript & Node.", theme.colors.text);
-  const statusBadge = colorize(`[${status.llm.provider} (${status.llm.model})]`, theme.colors.warning) + " " + dim("ready for tasks.");
+  const subText = colorize(
+    "Personal AI Assistant Harness for TypeScript & Node.",
+    theme.colors.text
+  );
+  const statusBadge =
+    colorize(`[${status.llm.provider} (${status.llm.model})]`, theme.colors.warning) +
+    " " +
+    dim("ready for tasks.");
 
   const menuItems = [
     { label: "New session", shortcut: "ctrl+w" },
@@ -62,7 +76,9 @@ export function renderWelcomeCard(status: any): string {
 
     const lineBody = `  ${logoLine}   ${rightContent}`;
     const padded = padDisplayWidth(lineBody, width - 4);
-    lines.push(`${colorize("│", theme.colors.border)} ${padded} ${colorize("│", theme.colors.border)}`);
+    lines.push(
+      `${colorize("│", theme.colors.border)} ${padded} ${colorize("│", theme.colors.border)}`
+    );
   }
 
   lines.push(colorize(`│${" ".repeat(width - 2)}│`, theme.colors.border));
@@ -125,7 +141,8 @@ export function askInteractiveSelector(
     const onKey = (char: string, key: any) => {
       const isUp = key?.name === "up" || key?.name === "k" || char === "\x1b[A";
       const isDown = key?.name === "down" || key?.name === "j" || char === "\x1b[B";
-      const isEnter = key?.name === "return" || key?.name === "enter" || char === "\r" || char === "\n";
+      const isEnter =
+        key?.name === "return" || key?.name === "enter" || char === "\r" || char === "\n";
       const isEsc = key?.name === "escape" || key?.name === "q" || char === "\x1b";
 
       if (isUp) {
@@ -251,7 +268,10 @@ export function askInteractivePrompt(promptLabel: string): Promise<string> {
       }
 
       // 回车提交
-      if (key && (key.name === "return" || key.name === "enter" || char === "\r" || char === "\n")) {
+      if (
+        key &&
+        (key.name === "return" || key.name === "enter" || char === "\r" || char === "\n")
+      ) {
         cleanup();
         process.stdout.write("\x1b[K\n");
         resolve(inputBuf.trim());

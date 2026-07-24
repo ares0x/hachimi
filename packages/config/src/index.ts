@@ -213,8 +213,10 @@ export function saveConfig(cfg: HachimiConfig, configPath = "config.json"): void
         if (pVal.apiKey) cleanP.apiKey = pVal.apiKey;
         if (pVal.model) cleanP.model = pVal.model;
         if (pVal.baseURL) cleanP.baseURL = pVal.baseURL;
-        if (pVal.customHeaders && Object.keys(pVal.customHeaders).length > 0) cleanP.customHeaders = pVal.customHeaders;
-        if (pVal.extraParams && Object.keys(pVal.extraParams).length > 0) cleanP.extraParams = pVal.extraParams;
+        if (pVal.customHeaders && Object.keys(pVal.customHeaders).length > 0)
+          cleanP.customHeaders = pVal.customHeaders;
+        if (pVal.extraParams && Object.keys(pVal.extraParams).length > 0)
+          cleanP.extraParams = pVal.extraParams;
 
         cleanProviders[pKey] = cleanP;
       }

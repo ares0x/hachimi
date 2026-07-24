@@ -1,4 +1,10 @@
-import type { Message, ToolDefinition, LLMResponse, ProviderTransport, ProviderTransportConfig } from "../../types/index.js";
+import type {
+  Message,
+  ToolDefinition,
+  LLMResponse,
+  ProviderTransport,
+  ProviderTransportConfig,
+} from "../../types/index.js";
 
 export interface OpenAICompatibleConfig extends ProviderTransportConfig {
   apiKey: string;
@@ -42,7 +48,8 @@ export class OpenAICompatibleProvider implements ProviderTransport {
               type: "function",
               function: {
                 name: tc.name,
-                arguments: typeof tc.arguments === "string" ? tc.arguments : JSON.stringify(tc.arguments),
+                arguments:
+                  typeof tc.arguments === "string" ? tc.arguments : JSON.stringify(tc.arguments),
               },
             })),
           }
@@ -96,7 +103,7 @@ export class OpenAICompatibleProvider implements ProviderTransport {
       throw new Error(`LLM API Error ${res.status}: ${errText}`);
     }
 
-    const data = await res.json();
+    const data = (await res.json()) as any;
     const choice = data.choices?.[0]?.message;
 
     if (!choice) {
@@ -109,9 +116,10 @@ export class OpenAICompatibleProvider implements ProviderTransport {
         tool_calls: choice.tool_calls.map((tc: any) => ({
           id: tc.id,
           name: tc.function.name,
-          arguments: typeof tc.function.arguments === "string"
-            ? JSON.parse(tc.function.arguments || "{}")
-            : tc.function.arguments,
+          arguments:
+            typeof tc.function.arguments === "string"
+              ? JSON.parse(tc.function.arguments || "{}")
+              : tc.function.arguments,
         })),
       };
     }
@@ -227,7 +235,8 @@ export class OpenAICompatibleProvider implements ProviderTransport {
                 } else {
                   if (tc.id) toolCallsMap[index].id = tc.id;
                   if (tc.function?.name) toolCallsMap[index].name += tc.function.name;
-                  if (tc.function?.arguments) toolCallsMap[index].argumentsStr += tc.function.arguments;
+                  if (tc.function?.arguments)
+                    toolCallsMap[index].argumentsStr += tc.function.arguments;
                 }
               }
             }

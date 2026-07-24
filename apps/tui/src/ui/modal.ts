@@ -1,5 +1,13 @@
 // apps/tui/src/ui/modal.ts
-import { getActiveTheme, colorize, getDisplayWidth, padDisplayWidth, bold, dim, type UITheme } from "./theme.js";
+import {
+  getActiveTheme,
+  colorize,
+  getDisplayWidth,
+  padDisplayWidth,
+  bold,
+  dim,
+  type UITheme,
+} from "./theme.js";
 
 export interface ModalOptions {
   title: string;
@@ -50,12 +58,7 @@ export function renderModalBox(options: ModalOptions): string {
   const hintPadded = padDisplayWidth(hintStr, width - 4);
   const hintLine = `${coloredSide} ${colorize(hintPadded, theme.colors.subtext)} ${coloredSide}`;
 
-  return [
-    coloredBorderTop,
-    ...paddedLines,
-    hintLine,
-    coloredBorderBottom,
-  ].join("\n");
+  return [coloredBorderTop, ...paddedLines, hintLine, coloredBorderBottom].join("\n");
 }
 
 export function renderSelectorModalBox(options: SelectorModalOptions): string {
@@ -87,10 +90,5 @@ export function renderSelectorModalBox(options: SelectorModalOptions): string {
   const hintPadded = padDisplayWidth(hintStr, width - 4);
   const hintLine = `${coloredSide} ${colorize(hintPadded, theme.colors.subtext)} ${coloredSide}`;
 
-  return [
-    coloredBorderTop,
-    ...paddedLines,
-    hintLine,
-    coloredBorderBottom,
-  ].join("\n");
+  return [coloredBorderTop, ...paddedLines, hintLine, coloredBorderBottom].join("\n");
 }

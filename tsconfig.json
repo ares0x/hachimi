@@ -1,26 +1,34 @@
 {
-    "compilerOptions": {
-        "target": "ES2022",
-        "module": "NodeNext",
-        "moduleResolution": "NodeNext",
-        "lib": ["ES2022"],
-        "strict": true,
-        "esModuleInterop": true,
-        "skipLibCheck": true,
-        "forceConsistentCasingInFileNames": true,
-        "resolveJsonModule": true,
-        "declaration": true,
-        "declarationMap": true,
-        "sourceMap": true,
-        "outDir": "dist",
-        "rootDir": ".",
-        "paths": {
-            "@hachimi/core": ["./packages/core/src"],
-            "@hachimi/core/*": ["./packages/core/src/*"],
-            "@hachimi/shared": ["./packages/shared/src"],
-            "@hachimi/shared/*": ["./packages/shared/src/*"]
-        }
-    },
-    "include": ["packages/**/*", "apps/**/*"],
-    "exclude": ["node_modules", "dist", "**/dist"],
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "paths": {
+      "@hachimi/core": ["./packages/core/src/index.ts"],
+      "@hachimi/core/*": ["./packages/core/src/*"],
+      "@hachimi/shared": ["./packages/shared/src/index.ts"],
+      "@hachimi/shared/*": ["./packages/shared/src/*"],
+      "@hachimi/config": ["./packages/config/src/index.ts"],
+      "@hachimi/config/*": ["./packages/config/src/*"],
+      "@hachimi/storage": ["./packages/storage/src/index.ts"],
+      "@hachimi/storage/*": ["./packages/storage/src/*"],
+      "@hachimi/channel-api": ["./packages/channels/api/src/index.ts"],
+      "@hachimi/channel-api/*": ["./packages/channels/api/src/*"],
+      "@hachimi/channel-cli": ["./packages/channels/cli/src/index.ts"],
+      "@hachimi/channel-cli/*": ["./packages/channels/cli/src/*"]
+    }
+  },
+  "include": ["packages/**/*", "apps/**/*"],
+  "exclude": ["node_modules", "dist", "**/dist"]
 }

@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-      "dev:tui": "tsx apps/tui/src/main.ts",
-      "dev:tui:node": "tsx apps/tui/src/main.ts"
+    "dev:tui": "tsx apps/tui/src/main.ts",
+    "dev:tui:node": "tsx apps/tui/src/main.ts"
   },
   "dependencies": {
     "@hachimi/config": "workspace:*",

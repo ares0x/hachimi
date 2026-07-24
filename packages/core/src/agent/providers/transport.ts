@@ -2,6 +2,7 @@ import type { ProviderTransport, ProviderTransportConfig } from "../../types/ind
 import { OpenAICompatibleProvider } from "./openai-compatible.js";
 import { AnthropicProviderTransport } from "./anthropic.js";
 
+/** 支持的 Provider 传输层标识 (规范标识：anthropic, openai, deepseek, qwen, moonshot, ollama) */
 export type ProviderType =
   | "openai-compatible"
   | "openai"
@@ -24,11 +25,15 @@ export class ProviderRegistry {
   }
 
   static create(type: ProviderType | string, config: ProviderTransportConfig): ProviderTransport {
-    const normType = type.toLowerCase().trim();
+    let normType = type.toLowerCase().trim();
+
+    // 别名规范化收敛：claude 为 anthropic 传输层的兼容别名
+    if (normType === "claude") {
+      normType = "anthropic";
+    }
 
     switch (normType) {
       case "anthropic":
-      case "claude":
         return new AnthropicProviderTransport(config);
 
       case "openai":

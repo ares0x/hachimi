@@ -10,15 +10,7 @@ export function now(): number {
   return Date.now();
 }
 
-export const CHANNELS = [
-  "cli",
-  "desktop",
-  "api",
-  "telegram",
-  "wechat",
-  "slack",
-  "system",
-] as const;
+export const CHANNELS = ["cli", "desktop", "api", "telegram", "wechat", "slack", "system"] as const;
 
 export { log, setLogSilent } from "./logger.js";
 export type { LogLevel } from "./logger.js";

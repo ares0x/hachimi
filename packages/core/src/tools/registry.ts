@@ -1,7 +1,17 @@
+import { ToolSandbox } from "../sandbox/sandbox.js";
 import type { ToolDefinition } from "../types/index.js";
 
 export class ToolRegistry {
   private tools = new Map<string, ToolDefinition>();
+  private sandbox: ToolSandbox;
+
+  constructor(sandbox?: ToolSandbox) {
+    this.sandbox = sandbox ?? new ToolSandbox();
+  }
+
+  setSandbox(sandbox: ToolSandbox): void {
+    this.sandbox = sandbox;
+  }
 
   register(tool: ToolDefinition) {
     if (this.tools.has(tool.name)) {
@@ -34,6 +44,10 @@ export class ToolRegistry {
 
     if (level === "needs_confirm" && !options?.confirm) {
       return `需要确认才能执行工具: ${name}。请在后续版本中批准。`;
+    }
+
+    if (level === "dangerous") {
+      return await this.sandbox.executeToolInSandbox(name, () => tool.execute(args));
     }
 
     try {

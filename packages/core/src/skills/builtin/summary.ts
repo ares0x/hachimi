@@ -1,10 +1,11 @@
+// packages/core/src/skills/builtin/summary.ts
 import type { SkillDefinition } from "../../types/index.js";
 
 export const summarySkill: SkillDefinition = {
   name: "summary",
   description: "帮助用户总结文本、提取要点和生成摘要",
   tags: ["summary", "writing"],
-  permission: 'safe',
+  permission: "safe",
   load: () => ({
     instructions: `
 你现在处于「总结助手」模式。请遵循：

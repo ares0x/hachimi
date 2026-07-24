@@ -65,6 +65,14 @@ share one running assistant (P4).
 - [ ] **C6 — Mid-turn steering (stretch).** Pi's `steer()`/`followUp()`
       pattern, useful once a daemon may have a client mid-conversation while
       another client also wants to send input.
+- [ ] **C7 — Minimum tool-execution sandbox.** Docker or WASM isolation for
+      `dangerous`-permission tools, independent of the in-process approval
+      gate. Added here rather than left solely to Phase G: shipping a
+      Telegram bridge (Phase F) — the first client not run by the person
+      sitting at the machine — before any execution isolation exists beyond
+      the approval gate is a real ordering risk. This does not need to be the
+      final hardened version (that's Phase G1); it needs to exist before
+      Phase F ships.
 
 ## Phase D — Portable Memory (P1)
 **Goal**: Memory can move to a new machine without manual reconstruction —

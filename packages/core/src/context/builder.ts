@@ -5,9 +5,9 @@ import type { ToolRegistry } from "../tools/registry.js";
 import type { Message } from "../types/index.js";
 
 export interface ContextOptions {
-  maxTokens?: number;           // Token 预算上限
-  summaryThreshold?: number;    // 历史消息超过多少条触发摘要
-  mode?: 'fast' | 'normal' | 'thoughtful'; // 模式影响摘要强度和细节保留
+  maxTokens?: number; // Token 预算上限
+  summaryThreshold?: number; // 历史消息超过多少条触发摘要
+  mode?: "fast" | "normal" | "thoughtful"; // 模式影响摘要强度和细节保留
   enableTokenTruncation?: boolean;
 }
 
@@ -16,7 +16,7 @@ export interface ContextBuildInput {
   memories?: MemoryEntry[];
   skills?: SkillRegistry;
   tools?: ToolRegistry;
-  activeSkill?: string;         // 按需加载的技能名
+  activeSkill?: string; // 按需加载的技能名
   identityOverride?: string;
   history?: Message[];
   options?: ContextOptions;
@@ -39,7 +39,7 @@ const DEFAULT_IDENTITY = `你是 hachimi，一个个人 AI 助理。`;
 const DEFAULT_OPTIONS: Required<ContextOptions> = {
   maxTokens: 8000,
   summaryThreshold: 20,
-  mode: 'normal',
+  mode: "normal",
   enableTokenTruncation: true,
 };
 
@@ -69,7 +69,8 @@ export class ContextBuilder {
     if (input.tools) {
       const list = input.tools.list();
       if (list.length > 0) {
-        toolsBlock = "【可用工具】\n" +
+        toolsBlock =
+          "【可用工具】\n" +
           list.map((t) => `- ${t.name} [${t.permission ?? "safe"}]: ${t.description}`).join("\n");
       }
     }
@@ -89,7 +90,8 @@ export class ContextBuilder {
 
     let memoriesBlock: string | undefined;
     if (input.memories && input.memories.length > 0) {
-      memoriesBlock = "以下是与当前对话相关的记忆，请在回答时参考：\n" +
+      memoriesBlock =
+        "以下是与当前对话相关的记忆，请在回答时参考：\n" +
         input.memories.map((m) => `- (${m.layer}) ${m.content}`).join("\n");
       dynamicBlocks.push(memoriesBlock);
     }
@@ -123,7 +125,9 @@ export class ContextBuilder {
       const tokenCount = input.tokenEstimator(systemPrompt);
       const ratio = ((tokenCount / opts.maxTokens) * 100).toFixed(1);
 
-      console.log(`[ContextBuilder] Token 使用: ${tokenCount}/${opts.maxTokens} (${ratio}%) | 模式: ${opts.mode}`);
+      console.log(
+        `[ContextBuilder] Token 使用: ${tokenCount}/${opts.maxTokens} (${ratio}%) | 模式: ${opts.mode}`
+      );
 
       if (tokenCount > opts.maxTokens * 0.85) {
         console.warn(`[ContextBuilder] Token 使用率较高 (${ratio}%)，建议注意对话长度`);
@@ -157,40 +161,43 @@ export class ContextBuilder {
   private formatRecentMessages(messages: Message[]): string {
     return messages
       .map((m) => {
-        const contentStr = typeof m.content === 'string'
-          ? m.content
-          : m.content.map(part => typeof part === 'string' ? part : '[content]').join('');
+        const contentStr =
+          typeof m.content === "string"
+            ? m.content
+            : m.content.map((part) => (typeof part === "string" ? part : "[content]")).join("");
 
         return `${m.role}: ${contentStr.substring(0, 120)}${contentStr.length > 120 ? "..." : ""}`;
       })
       .join("\n");
   }
 
-  private summarizeHistory(history: Message[], mode: 'fast' | 'normal' | 'thoughtful'): string {
+  private summarizeHistory(history: Message[], mode: "fast" | "normal" | "thoughtful"): string {
     if (history.length === 0) return "（无对话历史）";
 
     const recent = history.slice(-40);
 
-    if (mode === 'fast') {
-      return recent.slice(-8)
+    if (mode === "fast") {
+      return recent
+        .slice(-8)
         .map((m) => {
-          const contentStr = typeof m.content === 'string'
-            ? m.content
-            : m.content.map(part => typeof part === 'string' ? part : '[content]').join('');
-          return `${m.role === 'user' ? '用户' : '助手'}: ${contentStr.substring(0, 80)}${contentStr.length > 80 ? '...' : ''}`;
+          const contentStr =
+            typeof m.content === "string"
+              ? m.content
+              : m.content.map((part) => (typeof part === "string" ? part : "[content]")).join("");
+          return `${m.role === "user" ? "用户" : "助手"}: ${contentStr.substring(0, 80)}${contentStr.length > 80 ? "..." : ""}`;
         })
         .join(" | ");
     }
 
     const userInputs = recent
-      .filter(m => m.role === 'user')
+      .filter((m) => m.role === "user")
       .slice(-6)
-      .map(m => (typeof m.content === 'string' ? m.content : '[complex content]'));
+      .map((m) => (typeof m.content === "string" ? m.content : "[complex content]"));
 
     const assistantResponses = recent
-      .filter(m => m.role === 'assistant')
+      .filter((m) => m.role === "assistant")
       .slice(-6)
-      .map(m => (typeof m.content === 'string' ? m.content : '[complex content]'));
+      .map((m) => (typeof m.content === "string" ? m.content : "[complex content]"));
 
     let summary = `对话轮次：${recent.length}\n`;
 
@@ -200,11 +207,11 @@ export class ContextBuilder {
 
     if (assistantResponses.length > 0) {
       summary += `助手关键回复摘要：${assistantResponses
-        .map(r => r.substring(0, 120))
+        .map((r) => r.substring(0, 120))
         .join(" | ")}\n`;
     }
 
-    if (mode === 'thoughtful' && recent.length > 15) {
+    if (mode === "thoughtful" && recent.length > 15) {
       summary += `\n长期关注点：用户似乎在开发 AI 助理项目（hachimi）。`;
     }
 
@@ -231,7 +238,9 @@ export class ContextBuilder {
 
     if (tokens <= maxTokens) return currentPrompt;
 
-    console.warn(`[ContextBuilder] Prompt 超过 Token 限制 (${tokens} > ${maxTokens})，正在执行 Prompt-Cache 安全的尾部截断...`);
+    console.warn(
+      `[ContextBuilder] Prompt 超过 Token 限制 (${tokens} > ${maxTokens})，正在执行 Prompt-Cache 安全的尾部截断...`
+    );
 
     const workingBlocks = [...dynamicBlocks];
 
