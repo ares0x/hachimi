@@ -139,6 +139,32 @@ export interface LLMProvider {
   ): Promise<LLMResponse>;
 }
 
+export interface ProviderTransportConfig {
+  apiKey: string;
+  baseURL?: string;
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+  customHeaders?: Record<string, string>;
+  extraParams?: Record<string, unknown>;
+}
+
+export interface ProviderTransport {
+  readonly id: string;
+  readonly name: string;
+  chat(
+    messages: Message[],
+    tools?: ToolDefinition[],
+    config?: Partial<ProviderTransportConfig>
+  ): Promise<LLMResponse>;
+  chatStream?(
+    messages: Message[],
+    tools?: ToolDefinition[],
+    config?: Partial<ProviderTransportConfig>,
+    onChunk?: (chunk: string) => void
+  ): Promise<LLMResponse>;
+}
+
 export interface Session {
   id: string;
   title?: string;

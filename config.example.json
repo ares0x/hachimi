@@ -1,21 +1,37 @@
 {
-    "llm": {
-        "provider": "deepseek",
-        "deepseekModel": "deepseek-chat"
-    },
-    "paths": {
-        "dataDir": "data"
-    },
-    "agent": {
-        "maxToolRounds": 5
-    },
-    "context": {
-        "maxTokens": 12000,
-        "summaryThreshold": 25,
-        "defaultMode": "normal",
-        "enableTokenTruncation": true
-    },
-    "tui": {
-        "title": "hachimi"
+  "llm": {
+    "activeProvider": "deepseek",
+    "providers": {
+      "deepseek": {
+        "apiKey": "your-deepseek-api-key",
+        "model": "deepseek-chat",
+        "baseURL": "https://api.deepseek.com"
+      },
+      "openai": {
+        "apiKey": "your-openai-api-key",
+        "model": "gpt-4o-mini",
+        "baseURL": "https://api.openai.com/v1"
+      },
+      "anthropic": {
+        "apiKey": "your-anthropic-api-key",
+        "model": "claude-3-7-sonnet-20250219",
+        "baseURL": "https://api.anthropic.com/v1"
+      }
     }
+  },
+  "paths": {
+    "dataDir": "data"
+  },
+  "agent": {
+    "maxToolRounds": 5
+  },
+  "context": {
+    "maxTokens": 12000,
+    "summaryThreshold": 25,
+    "defaultMode": "normal",
+    "enableTokenTruncation": true
+  },
+  "tui": {
+    "title": "hachimi"
+  }
 }

@@ -3,7 +3,16 @@ import type { AppContext } from "../app-context.js";
 import { THEMES, setActiveTheme, getActiveTheme } from "./theme.js";
 
 export interface CommandResult {
-  action: "exit" | "clear" | "modal" | "message" | "selector_theme" | "selector_sessions" | "none";
+  action:
+    | "exit"
+    | "clear"
+    | "modal"
+    | "message"
+    | "selector_theme"
+    | "selector_sessions"
+    | "selector_provider"
+    | "selector_model"
+    | "none";
   title?: string;
   content?: string;
 }
@@ -17,6 +26,8 @@ export interface SlashCommandDef {
 export const SLASH_COMMANDS: SlashCommandDef[] = [
   { name: "/status", description: "查看 LLM、Context Token 测量长条、Memory、Session 概况" },
   { name: "/config", description: "查看当前系统运行配置（脱敏显示）" },
+  { name: "/provider", description: "交互式选择 LLM 提供商并开启模型设置向导" },
+  { name: "/model", description: "切换或快速设置当前 Provider 的模型 (Model)", example: "/model 或 /model deepseek-reasoner" },
   { name: "/theme", description: "切换 TUI 色彩主题 (default / amber / neon)", example: "/theme default" },
   { name: "/memories", description: "查看当前存储的所有长期与会话记忆" },
   { name: "/remember", description: "手动记录一条长期记忆", example: "/remember 用户喜欢手冲咖啡" },
@@ -46,6 +57,31 @@ export async function handleSlashCommand(
       return { action: "exit", content: "再见！" };
     }
 
+    case "/provider": {
+      const providerName = args[0]?.toLowerCase();
+      if (!providerName) {
+        return { action: "selector_provider" };
+      }
+      ctx.setActiveProvider(providerName);
+      return {
+        action: "message",
+        content: `✨ 提供商已成功切换为: [${providerName}]`,
+      };
+    }
+
+    case "/model": {
+      const modelName = args.join(" ").trim();
+      if (!modelName) {
+        return { action: "selector_model" };
+      }
+      const activeProvider = ctx.config.llm.activeProvider;
+      ctx.setActiveProvider(activeProvider, { model: modelName });
+      return {
+        action: "message",
+        content: `✨ 当前提供商 [${activeProvider}] 的模型已更新为: [${modelName}]`,
+      };
+    }
+
     case "/theme": {
       const themeName = args[0]?.toLowerCase();
       if (!themeName) {
@@ -70,7 +106,6 @@ export async function handleSlashCommand(
       const estT = status.context.estimatedTokens || 0;
       const ratioNum = Math.min(100, Math.round((estT / maxT) * 100));
 
-      // 实时渲染 Token 进度长条仪表
       const totalBlocks = 20;
       const filledBlocks = Math.round((ratioNum / 100) * totalBlocks);
       const meterGauge = `[${"█".repeat(filledBlocks)}${"░".repeat(totalBlocks - filledBlocks)}] ${ratioNum}%`;
@@ -100,8 +135,11 @@ export async function handleSlashCommand(
     case "/config": {
       const cfg = ctx.getConfig();
       const safeConfig = JSON.parse(JSON.stringify(cfg));
-      if (safeConfig.llm?.openaiApiKey) safeConfig.llm.openaiApiKey = "******";
-      if (safeConfig.llm?.deepseekApiKey) safeConfig.llm.deepseekApiKey = "******";
+      if (safeConfig.llm?.providers) {
+        for (const p of Object.values(safeConfig.llm.providers)) {
+          if ((p as any).apiKey) (p as any).apiKey = "******";
+        }
+      }
 
       const text = [
         "⚙️ 【当前运行配置 (HachimiConfig)】",
@@ -220,7 +258,7 @@ export async function handleSlashCommand(
       return {
         action: "modal",
         title: " 💡 Slash 命令指南 ",
-        content: `${content}\n\n💡 提示: 可直接输入具体命令（如 /status, /config, /help 等）执行`,
+        content: `${content}\n\n💡 提示: 可直接输入具体命令（如 /status, /config, /provider, /model 等）执行`,
       };
     }
 

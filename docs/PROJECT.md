@@ -1,7 +1,7 @@
 # Hachimi Project PRD (Product Requirements Document)
 
-> **版本号**: 1.0.0  
-> **状态**: 活跃 (Active)  
+> **版本号**: 1.0.0
+> **状态**: 活跃 (Active)
 > **定位**: 个人 AI 助理 Harness 框架 (Personal AI Assistant Harness for TypeScript & Node)
 
 ---
@@ -41,7 +41,8 @@
 
 ## 4. 关键功能模块 (Key Functional Requirements)
 
-### 4.1 Agent 核心循环与 Context 引擎
+### 4.1 Agent 核心循环与 多厂商 ProviderTransport
+- **多模型厂商与中转站兼容**：提供解耦的 `ProviderTransport` 接口，原生支持 OpenAI, Anthropic Claude, DeepSeek, Moonshot/Kimi, Qwen/DashScope 及第三方 OneAPI / NewAPI 中转站。
 - **工具调用循环 (Tool Loop)**：支持单轮与多轮工具调用，支持拦截与用户确认门控 (`safe` / `needs_confirm` / `dangerous`)。
 - **Prompt-Cache 稳定性**：严格分隔静态前缀（身份、工具/技能定义）与动态变动内容（检索记忆、当前对话），最大化利用 LLM 缓存。
 

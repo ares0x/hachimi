@@ -20,6 +20,37 @@ import {
   askInteractivePrompt,
 } from "./ui/view.js";
 
+const PROVIDER_PRESET_MODELS: Record<string, Array<{ id: string; label: string; sublabel?: string }>> = {
+  deepseek: [
+    { id: "deepseek-chat", label: "deepseek-chat", sublabel: "DeepSeek-V3 通用对话模型" },
+    { id: "deepseek-reasoner", label: "deepseek-reasoner", sublabel: "DeepSeek-R1 深度思考/推理模型" },
+    { id: "__custom__", label: "✏️ 输入自定义模型名称...", sublabel: "手动填写模型标识" },
+  ],
+  openai: [
+    { id: "gpt-4o-mini", label: "gpt-4o-mini", sublabel: "轻量快速通用模型" },
+    { id: "gpt-4o", label: "gpt-4o", sublabel: "高能力旗舰大模型" },
+    { id: "o3-mini", label: "o3-mini", sublabel: "OpenAI 深度推理模型" },
+    { id: "__custom__", label: "✏️ 输入自定义模型名称...", sublabel: "手动填写模型标识" },
+  ],
+  anthropic: [
+    { id: "claude-3-7-sonnet-20250219", label: "claude-3-7-sonnet-20250219", sublabel: "Claude 3.7 Thinking 混合推理" },
+    { id: "claude-3-5-sonnet-20241022", label: "claude-3-5-sonnet-20241022", sublabel: "Claude 3.5 Sonnet 编程旗舰" },
+    { id: "claude-3-5-haiku-20241022", label: "claude-3-5-haiku-20241022", sublabel: "Claude 3.5 Haiku 极速响应" },
+    { id: "__custom__", label: "✏️ 输入自定义模型名称...", sublabel: "手动填写模型标识" },
+  ],
+  qwen: [
+    { id: "qwen-max", label: "qwen-max", sublabel: "通义千问旗舰模型" },
+    { id: "qwen-plus", label: "qwen-plus", sublabel: "通义千问均衡模型" },
+    { id: "qwen-turbo", label: "qwen-turbo", sublabel: "通义千问极速模型" },
+    { id: "__custom__", label: "✏️ 输入自定义模型名称...", sublabel: "手动填写模型标识" },
+  ],
+  moonshot: [
+    { id: "moonshot-v1-8k", label: "moonshot-v1-8k", sublabel: "Kimi 8k 上下文" },
+    { id: "moonshot-v1-32k", label: "moonshot-v1-32k", sublabel: "Kimi 32k 长文本" },
+    { id: "__custom__", label: "✏️ 输入自定义模型名称...", sublabel: "手动填写模型标识" },
+  ],
+};
+
 async function main() {
   const ctx = createAppContext({
     async onToolApproval(toolName, args, permission) {
@@ -42,7 +73,6 @@ async function main() {
   });
 
   const { sessions, agent } = ctx;
-
   const forceCli = process.argv.includes("--cli");
 
   if (!forceCli) {
@@ -50,13 +80,11 @@ async function main() {
     await tuiApp.start();
   }
 
-  // 开启终端 Alt Buffer 备用缓冲区，进入 1:1 全屏沉浸 TUI Canvas 模式
   enterFullscreenCanvas();
   clearTerminalCanvas();
   const status = ctx.getStatus();
   console.log(renderWelcomeCard(status));
 
-  // 确保退出时清理并还原用户的终端全屏
   process.on("exit", () => {
     exitFullscreenCanvas();
   });
@@ -79,7 +107,6 @@ async function main() {
     if (!userInput) continue;
 
     try {
-      // 统一 Slash 命令分发（包括单输入 '/' 的全量命令提示菜单）
       const res = await handleSlashCommand(userInput, ctx);
 
       if (res.action === "exit") {
@@ -124,6 +151,78 @@ async function main() {
         continue;
       }
 
+      if (res.action === "selector_provider") {
+        const providerItems = [
+          { id: "deepseek", label: "deepseek", sublabel: "DeepSeek-V3 / DeepSeek-R1 (api.deepseek.com)" },
+          { id: "openai", label: "openai", sublabel: "OpenAI GPT-4o / GPT-4o-mini (api.openai.com)" },
+          { id: "anthropic", label: "anthropic", sublabel: "Anthropic Claude 3.5 Sonnet / 3.7 Thinking" },
+          { id: "qwen", label: "qwen", sublabel: "通义千问 (DashScope / OneAPI 中转站)" },
+          { id: "moonshot", label: "moonshot", sublabel: "Moonshot / Kimi (api.moonshot.cn)" },
+          { id: "mock", label: "mock", sublabel: "Mock 模拟测试模式" },
+        ];
+        const selected = await askInteractiveSelector("🤖 【Step 1/2】选择 LLM API 提供商 (Provider)", providerItems);
+        if (selected) {
+          const providerId = selected.id;
+          let selectedModel: string | undefined;
+
+          // Step 2: 连贯弹出 Model 选择面板
+          const presetModels = PROVIDER_PRESET_MODELS[providerId] || [
+            { id: "__custom__", label: "✏️ 输入自定义模型名称...", sublabel: "手动填写模型标识" }
+          ];
+
+          const modelSelected = await askInteractiveSelector(`🧠 【Step 2/2】选择 [${providerId}] 模型 (Model)`, presetModels);
+          if (modelSelected) {
+            if (modelSelected.id === "__custom__") {
+              const modelPrompt = colorize(`✏️ 请输入 [${providerId}] 的自定义 Model 名称: `, theme.colors.primary);
+              selectedModel = (await askInteractivePrompt(modelPrompt)).trim();
+            } else {
+              selectedModel = modelSelected.id;
+            }
+          }
+
+          // Step 3: 若缺失 Key，导流输入
+          const currentP = ctx.config.llm.providers[providerId];
+          let inputKey: string | undefined;
+
+          if (!currentP?.apiKey && providerId !== "mock") {
+            const keyPrompt = colorize(`🔑 未检测到 [${providerId}] 的 API Key，请输入 API Key (按 Enter 确定): `, theme.colors.warning);
+            inputKey = (await askInteractivePrompt(keyPrompt)).trim();
+            if (!inputKey) {
+              console.log(colorize(`⚠️ 未输入 API Key，[${providerId}] 可能会回退到 Mock 模式`, theme.colors.warning));
+            }
+          }
+
+          ctx.setActiveProvider(providerId, {
+            ...(selectedModel ? { model: selectedModel } : {}),
+            ...(inputKey ? { apiKey: inputKey } : {}),
+          });
+          const activeModelStr = selectedModel || currentP?.model || "default";
+          console.log(colorize(`✨ LLM 提供商与模型已成功更新为: [${providerId}] (${activeModelStr})`, getActiveTheme().colors.success));
+        }
+        continue;
+      }
+
+      if (res.action === "selector_model") {
+        const activeProvider = ctx.config.llm.activeProvider;
+        const presetModels = PROVIDER_PRESET_MODELS[activeProvider] || [
+          { id: "__custom__", label: "✏️ 输入自定义模型名称...", sublabel: "手动填写模型标识" }
+        ];
+
+        const modelSelected = await askInteractiveSelector(`🧠 选择当前 [${activeProvider}] 的模型 (Model)`, presetModels);
+        if (modelSelected) {
+          let chosenModel = modelSelected.id;
+          if (chosenModel === "__custom__") {
+            const modelPrompt = colorize(`✏️ 请输入 [${activeProvider}] 的自定义 Model 名称: `, theme.colors.primary);
+            chosenModel = (await askInteractivePrompt(modelPrompt)).trim();
+          }
+          if (chosenModel) {
+            ctx.setActiveProvider(activeProvider, { model: chosenModel });
+            console.log(colorize(`✨ [${activeProvider}] 的 Model 已成功更新为: [${chosenModel}]`, getActiveTheme().colors.success));
+          }
+        }
+        continue;
+      }
+
       if (res.action === "selector_sessions") {
         const currentId = sessions.getCurrent()?.id;
         const sessionList = sessions.list();
@@ -148,17 +247,15 @@ async function main() {
         continue;
       }
 
-      // 正常对话响应 + 思考 Spinner + 工具时间线 + 流式打字输出
       const spinner = colorize("⠋ [Hachimi 思考中...]", theme.colors.warning);
       process.stdout.write(`${spinner}\r`);
 
       let hasStreamStarted = false;
       const history = sessions.getHistory();
-      const reply = await agent.run(userInput, history, {
+      const reply = await ctx.agent.run(userInput, history, {
         onChunk: (chunk: string) => {
           if (!hasStreamStarted) {
             hasStreamStarted = true;
-            // 首字到达，擦除思考 Spinner 提示行
             process.stdout.write(" ".repeat(40) + "\r");
             const botBadge = renderBadge("🤖 HACHIMI", theme.colors.assistantRole, "#FFFFFF");
             process.stdout.write(`${botBadge} `);
@@ -177,7 +274,6 @@ async function main() {
       });
 
       if (!hasStreamStarted) {
-        // 若未触发 Chunk 打印（例如某些硬编码工具回复），兜底擦除 Spinner
         process.stdout.write(" ".repeat(40) + "\r");
         const botBadge = renderBadge("🤖 HACHIMI", theme.colors.assistantRole, "#FFFFFF");
         console.log(`${botBadge} ${reply}`);
@@ -210,7 +306,6 @@ async function main() {
     /* ignore */
   }
 
-  // 退出全屏并归位还原终端
   exitFullscreenCanvas();
   process.exit(0);
 }

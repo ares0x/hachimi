@@ -1,15 +1,17 @@
 # Hachimi Active Task Backlog (TASK.md)
 
-> **当前阶段**: Phase C — Provider 抽象与 Daemon 运行拓扑 (Provider Abstraction + Runtime Topology)  
+> **当前阶段**: Phase C — Provider 抽象与 Daemon 运行拓扑 (Provider Abstraction + Runtime Topology)
 > **关联文档**: [`PROJECT.md`](./PROJECT.md) | [`ROADMAP.md`](./ROADMAP.md) | [`ARCHITECTURE.md`](./ARCHITECTURE.md) | [`archive/PHASE_B_TASK.md`](./archive/PHASE_B_TASK.md)
 
 ---
 
 ## 📌 Phase C 任务清单与状态
 
-### 1. C1 — `ProviderTransport` 接口抽象 (Provider Transport Abstraction)
-- [ ] **C1.1**: 定义统一的 `ProviderTransport` 接口契约，实现底层消息与工具调用的转译隔离。
-- [ ] **C1.2**: 将 `openai-compatible.ts` 重构适配为首个 `ProviderTransport` 实例，将 OpenAI 格式转换逻辑抽离出 `Agent`。
+### 1. C1 — `ProviderTransport` 接口抽象与多厂商支持 (Multi-Provider Transport Abstraction) (Done)
+- [x] **C1.1**: 定义统一且通道/厂商解耦的 `ProviderTransport` 接口契约（解耦 `Agent` 与具体厂商 API 报文格式）。
+- [x] **C1.2**: 支持主流大模厂商与 API 中转站（OpenAI, Anthropic Claude, DeepSeek, Moonshot/Kimi, Qwen/DashScope, Ollama 等）。
+- [x] **C1.3**: 抽离统一的 HTTP/SSE 流式 Reader 与代理 (Custom BaseURL / Proxy / Headers) 配置，完美适配第三方 OneAPI / NewAPI 中转站。
+- [x] **C1.4**: 将现有的 `openai-compatible.ts` 重构为 `OpenAICompatibleProvider` 并新增 `AnthropicProviderTransport` 验证通用兼容性。
 
 ### 2. C2 — 嵌入模式非交互式单轮入口 (Embedded Print/JSON Mode)
 - [ ] **C2.1**: 在 `packages/channels/cli` 中实现嵌入式单轮非交互执行入口，支持 `--print` 纯文本与 `--json` 结构化输出。

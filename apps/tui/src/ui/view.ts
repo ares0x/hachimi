@@ -13,18 +13,15 @@ const HACHIMI_ASCII_LOGO = [
   "  `-----'  ",
 ];
 
-/** 进入终端 Alt Buffer 备用屏幕缓冲区（全屏沉浸模式） */
 export function enterFullscreenCanvas() {
   process.stdout.write("\x1b[?1049h\x1b[H");
 }
 
-/** 退出终端 Alt Buffer 并完美还原原终端窗口 */
 export function exitFullscreenCanvas() {
   process.stdout.write("\x1b[?1049l");
 }
 
 export function clearTerminalCanvas() {
-  // ANSI 标准清屏归位
   process.stdout.write("\x1b[2J\x1b[H");
 }
 
@@ -74,7 +71,6 @@ export function renderWelcomeCard(status: any): string {
   return lines.join("\n");
 }
 
-/** 渲染 Grok 风格的工具执行时间线树 */
 export function renderToolTimeline(
   toolName: string,
   args: Record<string, unknown>,
@@ -102,7 +98,6 @@ export function renderToolTimeline(
   return ` └── ${statusIcon} ${colorize(`完成 (${durationStr})`, success ? theme.colors.success : theme.colors.error)}: ${dim(truncatedRes)}`;
 }
 
-/** 交互式 Up/Down 方向键选择面板 */
 export function askInteractiveSelector(
   title: string,
   items: SelectorItem[]
@@ -118,7 +113,6 @@ export function askInteractiveSelector(
         selectedIndex,
       });
 
-      // 如果之前已经打印过，光标归位并擦除先前渲染的面板行
       if (printedLines > 0) {
         process.stdout.write(`\r\x1b[${printedLines}A\x1b[J`);
       }
@@ -184,18 +178,21 @@ export function askInteractiveSelector(
   });
 }
 
+/** 交互式命令行输入框，支持中文全角字符精准光标对齐与编辑 */
 export function askInteractivePrompt(promptLabel: string): Promise<string> {
   return new Promise((resolve) => {
     let inputBuf = "";
+    let cursorPos = 0;
 
     const renderPromptLine = () => {
       const theme = getActiveTheme();
 
-      // 清除当前整行，重绘 Prompt 与已知用户输入
+      // 清除当前整行并渲染 Prompt Label 与用户输入
       process.stdout.write(`\r\x1b[K${promptLabel}${colorize(inputBuf, theme.colors.text)}`);
 
-      // 当输入以 / 开头时，渲染 Fish / Grok 风格的单行幽灵补全提示 (Ghost Auto-suggestion)
-      if (inputBuf.trim().startsWith("/")) {
+      // 当输入以 / 开头且光标位于末尾时，渲染 Fish / Grok 幽灵补全提示
+      let ghostLen = 0;
+      if (inputBuf.trim().startsWith("/") && cursorPos === inputBuf.length) {
         const filter = inputBuf.trim().toLowerCase();
         const matches = SLASH_COMMANDS.filter((c) => c.name.startsWith(filter));
         if (matches.length > 0) {
@@ -205,12 +202,18 @@ export function askInteractivePrompt(promptLabel: string): Promise<string> {
 
           const ghostSuffix = matchedName.substring(typedLen);
           const descHint = `  ${dim(`(按 Tab 补全: ${match.description})`)}`;
-
           const ghostText = dim(ghostSuffix) + descHint;
+          ghostLen = getDisplayWidth(ghostSuffix + descHint);
 
-          // 写入 Ghost 提示 -> 恢复光标回到真实输入末尾
-          process.stdout.write(`\x1b[s${ghostText}\x1b[u`);
+          process.stdout.write(ghostText);
         }
+      }
+
+      // 将终端实际光标计算全角字符列宽后精确归位回 cursorPos 位置
+      const remainingText = inputBuf.substring(cursorPos);
+      const backDistance = getDisplayWidth(remainingText) + ghostLen;
+      if (backDistance > 0) {
+        process.stdout.write(`\x1b[${backDistance}D`);
       }
     };
 
@@ -223,7 +226,7 @@ export function askInteractivePrompt(promptLabel: string): Promise<string> {
         return;
       }
 
-      // 快捷键 2: Ctrl+W -> 新建会话 (New Session)
+      // 快捷键 2: Ctrl+W -> 新建会话
       if (key && key.ctrl && key.name === "w") {
         cleanup();
         process.stdout.write("\x1b[K\n");
@@ -231,7 +234,7 @@ export function askInteractivePrompt(promptLabel: string): Promise<string> {
         return;
       }
 
-      // 快捷键 3: Ctrl+S -> 恢复/查看历史会话 (Resume Session)
+      // 快捷键 3: Ctrl+S -> 恢复历史会话
       if (key && key.ctrl && key.name === "s") {
         cleanup();
         process.stdout.write("\x1b[K\n");
@@ -239,7 +242,7 @@ export function askInteractivePrompt(promptLabel: string): Promise<string> {
         return;
       }
 
-      // 快捷键 4: Ctrl+P -> 查看配置与系统状态 (Config & Status)
+      // 快捷键 4: Ctrl+P -> 查看配置与系统状态
       if (key && key.ctrl && key.name === "p") {
         cleanup();
         process.stdout.write("\x1b[K\n");
@@ -247,33 +250,89 @@ export function askInteractivePrompt(promptLabel: string): Promise<string> {
         return;
       }
 
-      if (key && (key.name === "return" || key.name === "enter")) {
+      // 回车提交
+      if (key && (key.name === "return" || key.name === "enter" || char === "\r" || char === "\n")) {
         cleanup();
         process.stdout.write("\x1b[K\n");
         resolve(inputBuf.trim());
         return;
       }
 
-      if (key && (key.name === "tab" || key.name === "right")) {
-        if (inputBuf.trim().startsWith("/")) {
+      // 左右移动光标与 Tab 补全
+      const isLeft = key?.name === "left" || char === "\x1b[D";
+      const isRight = key?.name === "right" || char === "\x1b[C";
+      const isHome = key?.name === "home" || (key?.ctrl && key?.name === "a");
+      const isEnd = key?.name === "end" || (key?.ctrl && key?.name === "e");
+
+      if (isLeft) {
+        cursorPos = Math.max(0, cursorPos - 1);
+        renderPromptLine();
+        return;
+      }
+
+      if (isRight) {
+        if (cursorPos < inputBuf.length) {
+          cursorPos++;
+        } else if (inputBuf.trim().startsWith("/")) {
           const filter = inputBuf.trim().toLowerCase();
           const matches = SLASH_COMMANDS.filter((c) => c.name.startsWith(filter));
           if (matches.length > 0) {
             inputBuf = matches[0].name + " ";
+            cursorPos = inputBuf.length;
           }
         }
         renderPromptLine();
         return;
       }
 
-      if (key && key.name === "backspace") {
-        inputBuf = inputBuf.slice(0, -1);
+      if (isHome) {
+        cursorPos = 0;
         renderPromptLine();
         return;
       }
 
+      if (isEnd) {
+        cursorPos = inputBuf.length;
+        renderPromptLine();
+        return;
+      }
+
+      if (key && key.name === "tab") {
+        if (inputBuf.trim().startsWith("/")) {
+          const filter = inputBuf.trim().toLowerCase();
+          const matches = SLASH_COMMANDS.filter((c) => c.name.startsWith(filter));
+          if (matches.length > 0) {
+            inputBuf = matches[0].name + " ";
+            cursorPos = inputBuf.length;
+          }
+        }
+        renderPromptLine();
+        return;
+      }
+
+      // 退格 Backspace (删除光标左侧字符)
+      if (key && key.name === "backspace") {
+        if (cursorPos > 0) {
+          inputBuf = inputBuf.slice(0, cursorPos - 1) + inputBuf.slice(cursorPos);
+          cursorPos--;
+        }
+        renderPromptLine();
+        return;
+      }
+
+      // 删除键 Delete (删除光标右侧字符)
+      if (key && key.name === "delete") {
+        if (cursorPos < inputBuf.length) {
+          inputBuf = inputBuf.slice(0, cursorPos) + inputBuf.slice(cursorPos + 1);
+        }
+        renderPromptLine();
+        return;
+      }
+
+      // 普通字符插入
       if (char && char.length === 1 && char.charCodeAt(0) >= 32) {
-        inputBuf += char;
+        inputBuf = inputBuf.slice(0, cursorPos) + char + inputBuf.slice(cursorPos);
+        cursorPos++;
         renderPromptLine();
         return;
       }

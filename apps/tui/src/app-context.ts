@@ -1,7 +1,7 @@
 // apps/tui/src/app-context.ts
-import { loadConfig, type HachimiConfig } from "@hachimi/config";
+import { loadConfig, saveConfig, getActiveProviderConfig, type HachimiConfig, type ProviderConfig } from "@hachimi/config";
 import { log } from "@hachimi/shared";
-import { resolve } from "node:path";                    // 新增：修复 resolve 错误
+import { resolve } from "node:path";
 import { FileJsonStore, FileDirStore } from "@hachimi/storage";
 import { SQLiteStore } from "@hachimi/storage";
 import { Agent } from "../../../packages/core/src/agent/agent.js";
@@ -12,7 +12,7 @@ import { SkillRegistry } from "../../../packages/core/src/skills/registry.js";
 import { writingSkill } from "../../../packages/core/src/skills/examples/writing.js";
 import { summarySkill } from "../../../packages/core/src/skills/examples/summary.js";
 import { MockLLMProvider } from "../../../packages/core/src/agent/llm.js";
-import { OpenAICompatibleProvider } from "../../../packages/core/src/agent/providers/openai-compatible.js";
+import { ProviderRegistry } from "../../../packages/core/src/agent/providers/transport.ts";
 import { ContextBuilder } from "../../../packages/core/src/context/builder.js";
 
 export interface AppContext {
@@ -24,32 +24,36 @@ export interface AppContext {
   agent: Agent;
   contextBuilder: ContextBuilder;
   getConfig(): HachimiConfig;
+  setActiveProvider(provider: string, pConfig?: Partial<ProviderConfig>): void;
   getStatus(): Record<string, any>;
 }
 
 function createLLM(config: HachimiConfig) {
-  const provider = config.llm.provider;
-  if (provider === "openai") {
-    if (!config.llm.openaiApiKey) {
-      throw new Error("OPENAI_API_KEY 未配置");
-    }
-    return new OpenAICompatibleProvider({
-      apiKey: config.llm.openaiApiKey,
-      model: config.llm.openaiModel,
-    });
+  const { provider, config: pConfig } = getActiveProviderConfig(config);
+
+  if (provider === "mock") {
+    log("info", "使用 MockLLMProvider");
+    return new MockLLMProvider();
   }
-  if (provider === "deepseek") {
-    if (!config.llm.deepseekApiKey) {
-      throw new Error("DEEPSEEK_API_KEY 未配置");
-    }
-    return new OpenAICompatibleProvider({
-      apiKey: config.llm.deepseekApiKey,
-      baseURL: config.llm.deepseekBaseURL,
-      model: config.llm.deepseekModel,
-    });
+
+  const apiKey = pConfig.apiKey;
+  if (!apiKey) {
+    log("warn", `未找到 ${provider} 的 API_KEY，回退到 MockLLMProvider`);
+    return new MockLLMProvider();
   }
-  log("info", "使用 MockLLMProvider");
-  return new MockLLMProvider();
+
+  log("info", `通过 ProviderRegistry 初始化模型传输层: [${provider}]`, {
+    model: pConfig.model,
+    baseURL: pConfig.baseURL,
+  });
+
+  return ProviderRegistry.create(provider, {
+    apiKey,
+    model: pConfig.model,
+    baseURL: pConfig.baseURL,
+    customHeaders: pConfig.customHeaders,
+    extraParams: pConfig.extraParams,
+  });
 }
 
 function registerBuiltinTools(tools: ToolRegistry) {
@@ -93,16 +97,15 @@ export interface CreateAppContextOptions {
 }
 
 export function createAppContext(options: CreateAppContextOptions = {}): AppContext {
-  const config = loadConfig();
+  let config = loadConfig();
 
   log("info", "hachimi starting", {
-    provider: config.llm.provider,
+    provider: config.llm.activeProvider,
     dataDir: config.paths.dataDir,
     storage: "sqlite",
   });
 
-  // Storage 切换逻辑
-  const useSQLite = true; // 后续可改为从 config.storage.backend 读取
+  const useSQLite = true;
 
   let fileStore: any;
   let dirStore: any;
@@ -135,10 +138,10 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
     memory.remember("用户正在开发一个叫 hachimi 的个人助理项目", 0.85);
   }
 
-  const llm = createLLM(config);
+  let llm = createLLM(config);
   const contextBuilder = new ContextBuilder();
 
-  const agent = new Agent({
+  let agent = new Agent({
     llm,
     tools,
     memory,
@@ -167,21 +170,45 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
     getConfig() {
       return config;
     },
+    setActiveProvider(provider: string, pConfig?: Partial<ProviderConfig>) {
+      config.llm.activeProvider = provider;
+      if (!config.llm.providers[provider]) {
+        config.llm.providers[provider] = {};
+      }
+      if (pConfig) {
+        Object.assign(config.llm.providers[provider], pConfig);
+      }
+      saveConfig(config);
+
+      llm = createLLM(config);
+      agent = new Agent({
+        llm,
+        tools,
+        memory,
+        skills,
+        contextBuilder,
+        maxToolRounds: config.agent.maxToolRounds,
+        onToolApproval: options.onToolApproval,
+      });
+      context.agent = agent;
+    },
     getStatus() {
       const currentSession = sessions.getCurrent();
       const messages = currentSession?.messages ?? [];
       const longTerm = memory.list("long_term");
       const sessionMem = memory.list("session");
 
-      // 计算简单估算 token 数
       const estimatedHistoryLength = JSON.stringify(messages).length;
       const approxTokens = Math.ceil(estimatedHistoryLength / 3.5);
+
+      const active = getActiveProviderConfig(config);
 
       return {
         title: config.tui.title,
         llm: {
-          provider: config.llm.provider,
-          model: config.llm.provider === "openai" ? config.llm.openaiModel : (config.llm.provider === "deepseek" ? config.llm.deepseekModel : "mock-model"),
+          provider: active.provider,
+          model: active.config.model || "default",
+          hasKey: Boolean(active.config.apiKey),
         },
         context: {
           maxTokens: config.context.maxTokens,

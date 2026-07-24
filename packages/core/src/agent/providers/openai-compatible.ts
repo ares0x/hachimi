@@ -1,23 +1,32 @@
-import type { Message, ToolDefinition, LLMResponse, LLMProvider } from "../../types/index.js";
+import type { Message, ToolDefinition, LLMResponse, ProviderTransport, ProviderTransportConfig } from "../../types/index.js";
 
-export interface OpenAICompatibleConfig {
+export interface OpenAICompatibleConfig extends ProviderTransportConfig {
   apiKey: string;
   baseURL?: string;
   model?: string;
   temperature?: number;
+  customHeaders?: Record<string, string>;
+  extraParams?: Record<string, unknown>;
 }
 
-export class OpenAICompatibleProvider implements LLMProvider {
+export class OpenAICompatibleProvider implements ProviderTransport {
+  readonly id = "openai-compatible";
+  readonly name = "OpenAI Compatible Transport (OpenAI/DeepSeek/Moonshot/Qwen/Proxies)";
+
   private apiKey: string;
   private baseURL: string;
   private model: string;
   private temperature: number;
+  private customHeaders: Record<string, string>;
+  private extraParams: Record<string, unknown>;
 
   constructor(config: OpenAICompatibleConfig) {
     this.apiKey = config.apiKey;
     this.baseURL = (config.baseURL || "https://api.openai.com/v1").replace(/\/$/, "");
     this.model = config.model || "gpt-4o-mini";
     this.temperature = config.temperature ?? 0.7;
+    this.customHeaders = config.customHeaders || {};
+    this.extraParams = config.extraParams || {};
   }
 
   private formatMessages(messages: Message[]) {
@@ -41,14 +50,25 @@ export class OpenAICompatibleProvider implements LLMProvider {
     }));
   }
 
-  async chat(messages: Message[], tools: ToolDefinition[] = []): Promise<LLMResponse> {
+  async chat(
+    messages: Message[],
+    tools: ToolDefinition[] = [],
+    overrideConfig?: Partial<ProviderTransportConfig>
+  ): Promise<LLMResponse> {
+    const model = overrideConfig?.model || this.model;
+    const temperature = overrideConfig?.temperature ?? this.temperature;
+    const baseURL = (overrideConfig?.baseURL || this.baseURL).replace(/\/$/, "");
+    const apiKey = overrideConfig?.apiKey || this.apiKey;
+    const customHeaders = { ...this.customHeaders, ...(overrideConfig?.customHeaders || {}) };
+    const extraParams = { ...this.extraParams, ...(overrideConfig?.extraParams || {}) };
+
     const body: any = {
-      model: this.model,
+      model,
       messages: this.formatMessages(messages),
-      temperature: this.temperature,
+      temperature,
+      ...extraParams,
     };
 
-    // 如果有工具，转为 OpenAI tools 格式
     if (tools.length > 0) {
       body.tools = tools.map((t) => ({
         type: "function",
@@ -61,11 +81,12 @@ export class OpenAICompatibleProvider implements LLMProvider {
       body.tool_choice = "auto";
     }
 
-    const res = await fetch(`${this.baseURL}/chat/completions`, {
+    const res = await fetch(`${baseURL}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
+        ...customHeaders,
       },
       body: JSON.stringify(body),
     });
@@ -82,14 +103,15 @@ export class OpenAICompatibleProvider implements LLMProvider {
       throw new Error("Invalid response from LLM API");
     }
 
-    // 处理工具调用
     if (choice.tool_calls && choice.tool_calls.length > 0) {
       return {
         content: choice.content || null,
         tool_calls: choice.tool_calls.map((tc: any) => ({
           id: tc.id,
           name: tc.function.name,
-          arguments: JSON.parse(tc.function.arguments || "{}"),
+          arguments: typeof tc.function.arguments === "string"
+            ? JSON.parse(tc.function.arguments || "{}")
+            : tc.function.arguments,
         })),
       };
     }
@@ -102,13 +124,32 @@ export class OpenAICompatibleProvider implements LLMProvider {
   async chatStream(
     messages: Message[],
     tools: ToolDefinition[] = [],
+    overrideConfig?: Partial<ProviderTransportConfig> | ((chunk: string) => void),
     onChunk?: (chunk: string) => void
   ): Promise<LLMResponse> {
+    let actualConfig: Partial<ProviderTransportConfig> | undefined;
+    let actualOnChunk: ((chunk: string) => void) | undefined = onChunk;
+
+    if (typeof overrideConfig === "function") {
+      actualOnChunk = overrideConfig;
+      actualConfig = undefined;
+    } else {
+      actualConfig = overrideConfig;
+    }
+
+    const model = actualConfig?.model || this.model;
+    const temperature = actualConfig?.temperature ?? this.temperature;
+    const baseURL = (actualConfig?.baseURL || this.baseURL).replace(/\/$/, "");
+    const apiKey = actualConfig?.apiKey || this.apiKey;
+    const customHeaders = { ...this.customHeaders, ...(actualConfig?.customHeaders || {}) };
+    const extraParams = { ...this.extraParams, ...(actualConfig?.extraParams || {}) };
+
     const body: any = {
-      model: this.model,
+      model,
       messages: this.formatMessages(messages),
-      temperature: this.temperature,
+      temperature,
       stream: true,
+      ...extraParams,
     };
 
     if (tools.length > 0) {
@@ -123,11 +164,12 @@ export class OpenAICompatibleProvider implements LLMProvider {
       body.tool_choice = "auto";
     }
 
-    const res = await fetch(`${this.baseURL}/chat/completions`, {
+    const res = await fetch(`${baseURL}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
+        ...customHeaders,
       },
       body: JSON.stringify(body),
     });
@@ -138,7 +180,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
     }
 
     if (!res.body) {
-      return this.chat(messages, tools);
+      return this.chat(messages, tools, actualConfig);
     }
 
     const reader = (res.body as any).getReader();
@@ -168,8 +210,8 @@ export class OpenAICompatibleProvider implements LLMProvider {
 
             if (delta.content) {
               accumulatedContent += delta.content;
-              if (onChunk) {
-                onChunk(delta.content);
+              if (actualOnChunk) {
+                actualOnChunk(delta.content);
               }
             }
 
