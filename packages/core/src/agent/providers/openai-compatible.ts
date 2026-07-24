@@ -20,15 +20,31 @@ export class OpenAICompatibleProvider implements LLMProvider {
     this.temperature = config.temperature ?? 0.7;
   }
 
+  private formatMessages(messages: Message[]) {
+    return messages.map((m) => ({
+      role: m.role === "tool" ? "tool" : m.role,
+      content: m.content,
+      ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {}),
+      ...(m.name ? { name: m.name } : {}),
+      ...(m.tool_calls
+        ? {
+            tool_calls: m.tool_calls.map((tc) => ({
+              id: tc.id,
+              type: "function",
+              function: {
+                name: tc.name,
+                arguments: typeof tc.arguments === "string" ? tc.arguments : JSON.stringify(tc.arguments),
+              },
+            })),
+          }
+        : {}),
+    }));
+  }
+
   async chat(messages: Message[], tools: ToolDefinition[] = []): Promise<LLMResponse> {
     const body: any = {
       model: this.model,
-      messages: messages.map((m) => ({
-        role: m.role === "tool" ? "tool" : m.role,
-        content: m.content,
-        ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {}),
-        ...(m.name ? { name: m.name } : {}),
-      })),
+      messages: this.formatMessages(messages),
       temperature: this.temperature,
     };
 
@@ -90,12 +106,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
   ): Promise<LLMResponse> {
     const body: any = {
       model: this.model,
-      messages: messages.map((m) => ({
-        role: m.role === "tool" ? "tool" : m.role,
-        content: m.content,
-        ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {}),
-        ...(m.name ? { name: m.name } : {}),
-      })),
+      messages: this.formatMessages(messages),
       temperature: this.temperature,
       stream: true,
     };

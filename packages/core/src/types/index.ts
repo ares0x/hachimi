@@ -28,6 +28,7 @@ export interface Message {
   metadata?: Record<string, unknown>;
   tool_call_id?: string;
   name?: string;
+  tool_calls?: ToolCall[];
 }
 
 export type ContentPart =

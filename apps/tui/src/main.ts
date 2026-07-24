@@ -9,12 +9,14 @@ import { createAppContext } from "./app-context.js";
 import { handleSlashCommand } from "./ui/commands.js";
 import { renderModalBox } from "./ui/modal.js";
 import { HachimiTUIApp } from "./ui/app.js";
-import { getActiveTheme, colorize, renderBadge, bold, dim } from "./ui/theme.js";
+import { getActiveTheme, setActiveTheme, colorize, renderBadge, bold, dim } from "./ui/theme.js";
 import {
   clearTerminalCanvas,
   enterFullscreenCanvas,
   exitFullscreenCanvas,
   renderWelcomeCard,
+  renderToolTimeline,
+  askInteractiveSelector,
   askInteractivePrompt,
 } from "./ui/view.js";
 
@@ -108,7 +110,45 @@ async function main() {
         continue;
       }
 
-      // 正常对话响应 + 思考 Spinner + 流式打字输出
+      if (res.action === "selector_theme") {
+        const themeItems = [
+          { id: "default", label: "default", sublabel: "Grok 经典深色 (TokyoNight)" },
+          { id: "amber", label: "amber", sublabel: "暖金琥珀" },
+          { id: "neon", label: "neon", sublabel: "午夜霓虹" },
+        ];
+        const selected = await askInteractiveSelector("🎨 选择界面主题", themeItems);
+        if (selected) {
+          setActiveTheme(selected.id);
+          console.log(colorize(`✨ 主题已成功切换为: [${selected.id}]`, getActiveTheme().colors.success));
+        }
+        continue;
+      }
+
+      if (res.action === "selector_sessions") {
+        const currentId = sessions.getCurrent()?.id;
+        const sessionList = sessions.list();
+        const sessionItems = sessionList.map((s) => ({
+          id: s.id,
+          label: `${s.title || "默认会话"} [${s.id}]`,
+          sublabel: s.id === currentId ? "👈 当前激活" : new Date(s.updatedAt).toLocaleTimeString(),
+        }));
+
+        if (sessionItems.length === 0) {
+          console.log(colorize("（暂无历史会话，按 Ctrl+W 新建）", theme.colors.subtext));
+          continue;
+        }
+
+        const selected = await askInteractiveSelector("💬 选择切换历史会话", sessionItems);
+        if (selected) {
+          const loaded = sessions.load(selected.id);
+          if (loaded) {
+            console.log(colorize(`✅ 已成功切换到会话: [${loaded.id}] (${loaded.title || "默认会话"})`, theme.colors.success));
+          }
+        }
+        continue;
+      }
+
+      // 正常对话响应 + 思考 Spinner + 工具时间线 + 流式打字输出
       const spinner = colorize("⠋ [Hachimi 思考中...]", theme.colors.warning);
       process.stdout.write(`${spinner}\r`);
 
@@ -124,6 +164,15 @@ async function main() {
             process.stdout.write(`${botBadge} `);
           }
           process.stdout.write(chunk);
+        },
+        onToolStart: (name, args) => {
+          if (!hasStreamStarted) {
+            process.stdout.write(" ".repeat(40) + "\r");
+          }
+          console.log(renderToolTimeline(name, args, "start"));
+        },
+        onToolEnd: (name, result, durationMs, success) => {
+          console.log(renderToolTimeline(name, {}, "end", result, durationMs, success));
         },
       });
 

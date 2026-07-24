@@ -3,7 +3,7 @@ import type { AppContext } from "../app-context.js";
 import { THEMES, setActiveTheme, getActiveTheme } from "./theme.js";
 
 export interface CommandResult {
-  action: "exit" | "clear" | "modal" | "message" | "none";
+  action: "exit" | "clear" | "modal" | "message" | "selector_theme" | "selector_sessions" | "none";
   title?: string;
   content?: string;
 }
@@ -49,12 +49,7 @@ export async function handleSlashCommand(
     case "/theme": {
       const themeName = args[0]?.toLowerCase();
       if (!themeName) {
-        const available = Object.keys(THEMES).join(", ");
-        const current = getActiveTheme().name;
-        return {
-          action: "message",
-          content: `🎨 当前主题: [${current}]\n可用主题列表: ${available}\n用法: /theme <主题名>`,
-        };
+        return { action: "selector_theme" };
       }
       const ok = setActiveTheme(themeName);
       if (ok) {
@@ -179,25 +174,7 @@ export async function handleSlashCommand(
         };
       }
 
-      const list = ctx.sessions.list();
-      const currentId = ctx.sessions.getCurrent()?.id;
-      let content = "";
-      if (list.length === 0) {
-        content = "（无历史会话）";
-      } else {
-        content = list
-          .map((s) => {
-            const mark = s.id === currentId ? " 👈 [当前]" : "";
-            const time = new Date(s.updatedAt).toLocaleString();
-            return `• ID: ${s.id} | ${s.title || "默认会话"} | ${time}${mark}`;
-          })
-          .join("\n");
-      }
-      return {
-        action: "modal",
-        title: " 历史会话面板 (/sessions) ",
-        content: `${content}\n\n💡 提示: 可通过 /session load <id> 或 /session create [标题] 进行会话切换与新建`,
-      };
+      return { action: "selector_sessions" };
     }
 
     case "/clear": {
@@ -222,10 +199,11 @@ export async function handleSlashCommand(
         ...SLASH_COMMANDS.map((c) => `  ${c.name.padEnd(12)} - ${c.description}`),
         "------------------------------------",
         "⌨️ 【快捷交互】",
-        "  Ctrl + C     : 退出程序",
-        "  Esc / q      : 关闭弹窗模态框",
-        "  Up / Down    : 历史命令切换",
-        "  /theme <名>  : 切换主题 (hachimi-dark, cyberpunk, monokai)",
+        "  Ctrl + W     : 新建会话",
+        "  Ctrl + S     : 恢复历史会话",
+        "  Ctrl + P     : 查看系统状态",
+        "  Ctrl + Q / C : 退出程序",
+        "  Up / Down    : 面板方向键选择 / 历史输入切换",
         "------------------------------------",
         "💬 自然语言唤醒：直接说「请记住我喜欢喝手冲咖啡」亦可写入记忆",
       ].join("\n");

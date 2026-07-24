@@ -72,4 +72,44 @@ describe("Agent tool loop", () => {
     expect(chunks.length).toBeGreaterThan(0);
     expect(chunks.join("")).toBe(reply);
   });
+
+  it("triggers onToolStart and onToolEnd callbacks during tool loop", async () => {
+    const tools = new ToolRegistry();
+    tools.register({
+      name: "calculator",
+      description: "calc",
+      parameters: {
+        type: "object",
+        properties: { a: { type: "number" }, b: { type: "number" }, operator: { type: "string" } },
+        required: ["a", "b", "operator"],
+      },
+      async execute(args: any) {
+        return String(args.a + args.b);
+      },
+    });
+
+    const memory = new MemoryManager(
+      join(process.cwd(), "data-test-agent-memory.json"),
+      new FileJsonStore()
+    );
+
+    let startedTool = "";
+    let endedTool = "";
+
+    const agent = new Agent({
+      llm: new MockLLMProvider(),
+      tools,
+      memory,
+      onToolStart: (name) => {
+        startedTool = name;
+      },
+      onToolEnd: (name) => {
+        endedTool = name;
+      },
+    });
+
+    await agent.run("请计算 2+3");
+    expect(startedTool).toBe("calculator");
+    expect(endedTool).toBe("calculator");
+  });
 });

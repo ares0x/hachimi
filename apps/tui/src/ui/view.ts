@@ -1,7 +1,8 @@
 // apps/tui/src/ui/view.ts
 import * as readline from "node:readline";
-import { getActiveTheme, colorize, getDisplayWidth, padDisplayWidth, bold, dim } from "./theme.js";
+import { getActiveTheme, colorize, getDisplayWidth, padDisplayWidth, bold, dim, renderBadge } from "./theme.js";
 import { SLASH_COMMANDS } from "./commands.js";
+import { renderSelectorModalBox, type SelectorItem } from "./modal.js";
 
 const HACHIMI_ASCII_LOGO = [
   "   /\\_/\\   ",
@@ -71,6 +72,116 @@ export function renderWelcomeCard(status: any): string {
   lines.push(colorize(`└${"─".repeat(width - 2)}┘`, theme.colors.border));
 
   return lines.join("\n");
+}
+
+/** 渲染 Grok 风格的工具执行时间线树 */
+export function renderToolTimeline(
+  toolName: string,
+  args: Record<string, unknown>,
+  status: "start" | "end",
+  result?: string,
+  durationMs?: number,
+  success: boolean = true
+): string {
+  const theme = getActiveTheme();
+  const argsStr = JSON.stringify(args);
+  const toolBadge = renderBadge("🛠️ TOOL", theme.colors.toolRole, "#FFFFFF");
+
+  if (status === "start") {
+    return [
+      `${toolBadge} ${bold(colorize(toolName, theme.colors.primary))} (${dim(argsStr)})`,
+      ` ├── ⏳ ${colorize("状态: 执行中...", theme.colors.warning)}`,
+    ].join("\n");
+  }
+
+  const durationStr = durationMs !== undefined ? `${durationMs}ms` : "";
+  const statusIcon = success ? "✅" : "❌";
+  const resPreview = (result || "").trim().split("\n")[0] || "完成";
+  const truncatedRes = resPreview.length > 50 ? resPreview.substring(0, 47) + "..." : resPreview;
+
+  return ` └── ${statusIcon} ${colorize(`完成 (${durationStr})`, success ? theme.colors.success : theme.colors.error)}: ${dim(truncatedRes)}`;
+}
+
+/** 交互式 Up/Down 方向键选择面板 */
+export function askInteractiveSelector(
+  title: string,
+  items: SelectorItem[]
+): Promise<SelectorItem | null> {
+  return new Promise((resolve) => {
+    let selectedIndex = 0;
+    let printedLines = 0;
+
+    const render = () => {
+      const modalStr = renderSelectorModalBox({
+        title,
+        items,
+        selectedIndex,
+      });
+
+      // 如果之前已经打印过，光标归位并擦除先前渲染的面板行
+      if (printedLines > 0) {
+        process.stdout.write(`\r\x1b[${printedLines}A\x1b[J`);
+      }
+
+      const lines = modalStr.split("\n");
+      process.stdout.write(modalStr + "\n");
+      printedLines = lines.length;
+    };
+
+    const onKey = (char: string, key: any) => {
+      const isUp = key?.name === "up" || key?.name === "k" || char === "\x1b[A";
+      const isDown = key?.name === "down" || key?.name === "j" || char === "\x1b[B";
+      const isEnter = key?.name === "return" || key?.name === "enter" || char === "\r" || char === "\n";
+      const isEsc = key?.name === "escape" || key?.name === "q" || char === "\x1b";
+
+      if (isUp) {
+        selectedIndex = (selectedIndex - 1 + items.length) % items.length;
+        render();
+        return;
+      }
+      if (isDown) {
+        selectedIndex = (selectedIndex + 1) % items.length;
+        render();
+        return;
+      }
+      if (isEnter) {
+        cleanup();
+        resolve(items[selectedIndex]);
+        return;
+      }
+      if (isEsc) {
+        cleanup();
+        resolve(null);
+        return;
+      }
+    };
+
+    const cleanup = () => {
+      process.stdin.removeListener("keypress", onKey);
+      if (process.stdin.isTTY) {
+        try {
+          process.stdin.setRawMode(false);
+        } catch {
+          /* ignore */
+        }
+      }
+      if (printedLines > 0) {
+        process.stdout.write(`\r\x1b[${printedLines}A\x1b[J`);
+      }
+    };
+
+    readline.emitKeypressEvents(process.stdin);
+    if (process.stdin.isTTY) {
+      try {
+        process.stdin.setRawMode(true);
+      } catch {
+        /* ignore */
+      }
+    }
+    process.stdin.on("keypress", onKey);
+
+    render();
+  });
 }
 
 export function askInteractivePrompt(promptLabel: string): Promise<string> {

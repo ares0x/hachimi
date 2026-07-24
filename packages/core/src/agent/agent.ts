@@ -14,6 +14,8 @@ export interface AgentOptions {
   contextBuilder?: ContextBuilder;
   maxToolRounds?: number;
   onToolApproval?: (toolName: string, args: Record<string, unknown>, permission: string) => Promise<boolean>;
+  onToolStart?: (name: string, args: Record<string, unknown>) => void;
+  onToolEnd?: (name: string, result: string, durationMs: number, success: boolean) => void;
 }
 
 /**
@@ -27,6 +29,8 @@ export class Agent {
   private contextBuilder: ContextBuilder;
   private maxToolRounds: number;
   private onToolApproval?: (toolName: string, args: Record<string, unknown>, permission: string) => Promise<boolean>;
+  private onToolStart?: (name: string, args: Record<string, unknown>) => void;
+  private onToolEnd?: (name: string, result: string, durationMs: number, success: boolean) => void;
 
   constructor(options: AgentOptions) {
     this.llm = options.llm;
@@ -36,6 +40,8 @@ export class Agent {
     this.contextBuilder = options.contextBuilder ?? new ContextBuilder();
     this.maxToolRounds = options.maxToolRounds ?? 5;
     this.onToolApproval = options.onToolApproval;
+    this.onToolStart = options.onToolStart;
+    this.onToolEnd = options.onToolEnd;
   }
 
   /**
@@ -44,7 +50,11 @@ export class Agent {
   async run(
     userInput: string,
     history: Message[] = [],
-    options?: { onChunk?: (chunk: string) => void }
+    options?: {
+      onChunk?: (chunk: string) => void;
+      onToolStart?: (name: string, args: Record<string, unknown>) => void;
+      onToolEnd?: (name: string, result: string, durationMs: number, success: boolean) => void;
+    }
   ): Promise<string> {
     const input = userInput.trim();
 
@@ -146,12 +156,20 @@ export class Agent {
         id: generateId("msg_"),
         role: "assistant",
         content: response.content ?? "",
+        tool_calls: response.tool_calls,
         timestamp: Date.now(),
       });
 
       for (const call of response.tool_calls) {
         const toolDef = this.tools.get(call.name);
         const permission = toolDef?.permission ?? "safe";
+
+        const startTime = Date.now();
+        if (this.onToolStart) {
+          this.onToolStart(call.name, call.arguments);
+        } else if (options?.onToolStart) {
+          options.onToolStart(call.name, call.arguments);
+        }
 
         let approved = true;
         if (
@@ -164,6 +182,13 @@ export class Agent {
         const result = approved
           ? await this.tools.execute(call.name, call.arguments)
           : `[用户拦截] 工具 ${call.name} 的执行请求已被用户拒绝。`;
+
+        const durationMs = Date.now() - startTime;
+        if (this.onToolEnd) {
+          this.onToolEnd(call.name, result, durationMs, approved);
+        } else if (options?.onToolEnd) {
+          options.onToolEnd(call.name, result, durationMs, approved);
+        }
 
         messages.push({
           id: generateId("msg_"),
