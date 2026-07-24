@@ -1,7 +1,13 @@
 // packages/channels/api/src/server.ts
 import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
-import { type AppContext, createAppContext, createAgentSession } from "@hachimi/core";
+import {
+  type AppContext,
+  createAppContext,
+  createAgentSession,
+  exportBundle,
+  importBundle,
+} from "@hachimi/core";
 import { log } from "@hachimi/shared";
 import fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 
@@ -170,6 +176,25 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
 
     appContext.agent.followUp(prompt);
     return { success: true, prompt };
+  });
+
+  // Phase D: GET /api/export
+  server.get("/api/export", async () => {
+    const bundle = await exportBundle(appContext);
+    return { success: true, bundle };
+  });
+
+  // Phase D: POST /api/import
+  server.post("/api/import", async (request: FastifyRequest, reply: FastifyReply) => {
+    const body = (request.body || {}) as { bundle?: any; mergeStrategy?: "additive" | "overwrite" };
+    if (!body.bundle) {
+      reply.code(400).send({ error: "Missing required parameter: bundle" });
+      return;
+    }
+    const result = await importBundle(appContext, body.bundle, {
+      mergeStrategy: body.mergeStrategy,
+    });
+    return { success: true, result };
   });
 
   // 4. GET /api/sessions & POST /api/sessions

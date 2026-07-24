@@ -3,6 +3,8 @@
 export * from "./types/index.js";
 export * from "./memory/index.js";
 export * from "./runtime/index.js";
+export * from "./portable/index.js";
+export * from "./extensions/index.js";
 export { ToolSandbox } from "./sandbox/sandbox.js";
 export type { ISandboxOptions } from "./sandbox/sandbox.js";
 export { ToolRegistry } from "./tools/registry.js";

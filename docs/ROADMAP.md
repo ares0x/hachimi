@@ -43,29 +43,29 @@ personalization (the "gets better at knowing you" mechanism) becomes solid.
       them reliable, since Phase D's export/import bundle will carry whatever
       state this loop produces.
 
-## Phase C — Provider Abstraction + Runtime Topology
+## Phase C — Provider Abstraction + Runtime Topology (Done)
 **Goal**: A second provider doesn't touch `Agent`, and — the reordering that
 matters most this revision — **one core instance can serve multiple
 concurrent clients**, because Desktop + Telegram + web all need to be able to
 share one running assistant (P4).
 
-- [ ] **C1 — `ProviderTransport` interface.** `openai-compatible` as first
+- [x] **C1 — `ProviderTransport` interface.** `openai-compatible` as first
       concrete transport; message/tool-call conversion moves out of `Agent`.
-- [ ] **C2 — Embedded-mode non-interactive entry.** Print/JSON single-turn
+- [x] **C2 — Embedded-mode non-interactive entry.** Print/JSON single-turn
       mode for scripts, cron, tests.
-- [ ] **C3 — SDK export from `@hachimi/core`.** `createAgentSession()`-style
+- [x] **C3 — SDK export from `@hachimi/core`.** `createAgentSession()`-style
       programmatic entry point, used by both embedded and daemon modes.
-- [ ] **C4 — Daemon mode: `apps/server` becomes real.** A long-running
+- [x] **C4 — Daemon mode: `apps/server` becomes real.** A long-running
       process holding the one canonical `@hachimi/core` instance behind a
       local HTTP/WS API. This is the promoted item from Revision 1's Phase E
       — it now lands here because Phase F's multi-surface clients
       structurally depend on it existing first.
-- [ ] **C5 — Minimum transport auth.** A local token (at minimum) gating the
+- [x] **C5 — Minimum transport auth.** A local token (at minimum) gating the
       daemon's API before anything beyond localhost-TUI connects to it.
-- [ ] **C6 — Mid-turn steering (stretch).** Pi's `steer()`/`followUp()`
+- [x] **C6 — Mid-turn steering (stretch).** Pi's `steer()`/`followUp()`
       pattern, useful once a daemon may have a client mid-conversation while
       another client also wants to send input.
-- [ ] **C7 — Minimum tool-execution sandbox.** Docker or WASM isolation for
+- [x] **C7 — Minimum tool-execution sandbox.** Docker or WASM isolation for
       `dangerous`-permission tools, independent of the in-process approval
       gate. Added here rather than left solely to Phase G: shipping a
       Telegram bridge (Phase F) — the first client not run by the person
@@ -74,35 +74,35 @@ share one running assistant (P4).
       final hardened version (that's Phase G1); it needs to exist before
       Phase F ships.
 
-## Phase D — Portable Memory (P1)
+## Phase D — Portable Memory (P1) (Done)
 **Goal**: Memory can move to a new machine without manual reconstruction —
 promoted out of "storage implementation detail" into its own phase because
 it's a direct product promise, not a side effect of picking a database.
 
-- [ ] **D1 — Versioned bundle format.** All four memory layers + session
+- [x] **D1 — Versioned bundle format.** All four memory layers + session
       history + skill-usage state, with an explicit schema version field.
-- [ ] **D2 — Export command.** One command produces a bundle from the current
+- [x] **D2 — Export command.** One command produces a bundle from the current
       runtime store (file or SQLite, whichever is active).
-- [ ] **D3 — Import command with merge semantics.** Additive-with-conflict-
+- [x] **D3 — Import command with merge semantics.** Additive-with-conflict-
       resolution by default, not silent overwrite — a user may be
       consolidating two machines, not just moving.
-- [ ] **D4 — Schema migration path.** Import must upgrade an older bundle
+- [x] **D4 — Schema migration path.** Import must upgrade an older bundle
       version, not just reject it, since this is meant to outlive several
       future storage-engine changes.
 
-## Phase E — Unified Extension Registry (P3)
+## Phase E — Unified Extension Registry (P3) (Done)
 **Goal**: Tools, skills, and MCP converge on one `CapabilitySource` shape
 (see `ARCHITECTURE.md`) instead of arriving as separate bespoke systems.
 
-- [ ] **E1 — Refactor `ToolRegistry`/`SkillRegistry`** onto a shared
+- [x] **E1 — Refactor `ToolRegistry`/`SkillRegistry`** onto a shared
       `CapabilitySource<T>` interface (list/resolve/permission).
-- [ ] **E2 — Skills as installable packages.** npm/git-installable skill
+- [x] **E2 — Skills as installable packages.** npm/git-installable skill
       packages (Pi/Grok-Build pattern), discovered the same way in-repo
       skills are today.
-- [ ] **E3 — Hooks.** Concrete pre-tool-call / post-tool-call / session-start
+- [x] **E3 — Hooks.** Concrete pre-tool-call / post-tool-call / session-start
       extension points — the prerequisite Phase F's Tier 2 personalization
       needs.
-- [ ] **E4 — MCP client**, implemented as another `CapabilitySource<ToolDefinition>`
+- [x] **E4 — MCP client**, implemented as another `CapabilitySource<ToolDefinition>`
       rather than a parallel tool-loading path.
 
 ## Phase F — Multi-Surface Clients + Tier 2 Personalization

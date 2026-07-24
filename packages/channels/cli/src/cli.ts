@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // packages/channels/cli/src/cli.ts
+import { createAppContext, exportBundle, importBundle } from "@hachimi/core";
 import { runCliChannel } from "./index.js";
 
 function printHelp() {
   console.log(`
-🌾 Hachimi CLI - 嵌入模式非交互式单轮入口
+🌾 Hachimi CLI - 嵌入模式非交互式单轮入口 & 数据可移植工具
 
 使用方式:
   hachimi [选项] <prompt>
@@ -14,12 +15,15 @@ function printHelp() {
   -p, --print        纯文本格式化输出 (默认格式，适合 Unix 管道与 Bash 脚本)
   -j, --json         结构化 JSON 格式输出 (包含 sessionId, content, toolCalls, durationMs)
   -s, --session <id> 指定要使用的会话 ID
+  --export <file>    导出全量记忆与会话为标准化数据包 (.json)
+  --import <file>    导入外部记忆数据包并执行增量合并
   -h, --help         显示帮助信息
 
 示例:
   pnpm dev:cli -p "帮我总结这段话"
   pnpm dev:cli -j "检查系统状态"
-  cat file.txt | pnpm dev:cli -p "提取关键要点"
+  pnpm dev:cli --export ./my-backup.json
+  pnpm dev:cli --import ./my-backup.json
 `);
 }
 
@@ -37,6 +41,40 @@ async function main() {
 
   if (args.includes("-h") || args.includes("--help")) {
     printHelp();
+    process.exit(0);
+  }
+
+  // 1. 处理 --export 指令
+  const exportIdx = args.indexOf("--export");
+  if (exportIdx !== -1) {
+    const filePath = args[exportIdx + 1];
+    if (!filePath) {
+      console.error("❌ 错误: --export 选项需要指定保存的目标文件路径。");
+      process.exit(1);
+    }
+    const context = createAppContext();
+    const bundle = await exportBundle(context, { filePath });
+    console.log(`✅ 成功导出 Hachimi 数据包至: ${filePath}`);
+    console.log(
+      `   包含长期记忆: ${bundle.memory.longTerm.length} 条 | 会话: ${bundle.sessions.length} 个`
+    );
+    process.exit(0);
+  }
+
+  // 2. 处理 --import 指令
+  const importIdx = args.indexOf("--import");
+  if (importIdx !== -1) {
+    const filePath = args[importIdx + 1];
+    if (!filePath) {
+      console.error("❌ 错误: --import 选项需要指定要导入的数据包文件路径。");
+      process.exit(1);
+    }
+    const context = createAppContext();
+    const result = await importBundle(context, filePath);
+    console.log(`✅ 成功导入并融合数据包: ${filePath}`);
+    console.log(
+      `   导入新增记忆: ${result.importedMemoriesCount} 条 | 跳过重复: ${result.skippedMemoriesCount} 条 | 融合会话: ${result.importedSessionsCount} 个`
+    );
     process.exit(0);
   }
 
