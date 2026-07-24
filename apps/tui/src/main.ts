@@ -4,7 +4,7 @@
  */
 
 import { generateId } from "@hachimi/shared";
-import type { Message } from "../../../packages/core/src/types/index.js";
+import type { Message } from "@hachimi/core";
 import { createAppContext } from "./app-context.js";
 import { handleSlashCommand } from "./ui/commands.js";
 import { renderModalBox } from "./ui/modal.js";

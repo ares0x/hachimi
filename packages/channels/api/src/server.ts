@@ -1,5 +1,8 @@
 // packages/channels/api/src/server.ts
+import { existsSync } from "node:fs";
+import { join, resolve } from "node:path";
 import cors from "@fastify/cors";
+import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import {
   type AppContext,
@@ -35,10 +38,24 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
   server.register(cors, { origin: true });
   server.register(websocket);
 
+  // F3: 托管 Web UI 静态资源
+  const webPublicDir = resolve(process.cwd(), "packages", "channels", "web", "public");
+  if (existsSync(webPublicDir)) {
+    server.register(fastifyStatic, {
+      root: webPublicDir,
+      prefix: "/",
+    });
+  }
+
   // C5 传输层 Token 鉴权中间件
   server.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
-    // 健康检查接口免鉴权
-    if (request.url === "/health") {
+    // 静态页面与健康检查接口免鉴权
+    if (
+      request.url === "/health" ||
+      request.url === "/" ||
+      request.url.startsWith("/style.css") ||
+      request.url.startsWith("/app.js")
+    ) {
       return;
     }
 

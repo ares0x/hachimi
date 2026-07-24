@@ -10,7 +10,10 @@
   },
   "dependencies": {
     "@hachimi/channel-api": "workspace:*",
-    "@hachimi/core": "workspace:*"
+    "@hachimi/channel-telegram": "workspace:*",
+    "@hachimi/config": "workspace:*",
+    "@hachimi/core": "workspace:*",
+    "@hachimi/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

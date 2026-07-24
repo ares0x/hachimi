@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hachimi AI Assistant - Dashboard & Surface Client</title>
+  <link rel="stylesheet" href="./style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- 侧边栏：状态与会话管理 -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">🍯</div>
+        <div class="brand-text">
+          <h2>Hachimi</h2>
+          <span class="version-tag" id="status-version">v0.1.0</span>
+        </div>
+      </div>
+
+      <!-- 运行时状态面板 -->
+      <div class="status-card glass-panel">
+        <div class="card-title">
+          <span class="pulse-dot"></span>
+          运行时状态
+        </div>
+        <div class="status-metric">
+          <span class="label">模型 Provider</span>
+          <span class="value" id="status-provider">deepseek</span>
+        </div>
+        <div class="status-metric">
+          <span class="label">Token 使用率</span>
+          <span class="value" id="status-tokens">0 / 12000 (0%)</span>
+        </div>
+        <div class="status-metric">
+          <span class="label">记忆条目</span>
+          <span class="value" id="status-memories">0 条</span>
+        </div>
+      </div>
+
+      <!-- 数据包导出导入（Phase D Portable Memory） -->
+      <div class="portable-section glass-panel">
+        <div class="card-title">📦 可移植记忆 (Portable)</div>
+        <div class="button-group">
+          <button id="btn-export" class="btn btn-secondary">导出数据包</button>
+          <label for="input-import" class="btn btn-secondary">导入数据包</label>
+          <input type="file" id="input-import" accept=".json" style="display: none;">
+        </div>
+      </div>
+
+      <!-- 会话历史列表 -->
+      <div class="sessions-section">
+        <div class="section-header">
+          <span>历史会话</span>
+          <button id="btn-new-session" class="btn-icon" title="新建会话">+</button>
+        </div>
+        <ul id="session-list" class="session-list">
+          <li class="session-item active">当前会话</li>
+        </ul>
+      </div>
+    </aside>
+
+    <!-- 主界面：聊天窗口与打字机 -->
+    <main class="chat-viewport">
+      <header class="chat-header glass-panel">
+        <div class="header-info">
+          <h3 id="current-session-title">主对话窗口</h3>
+          <p class="subtitle">Daemon API 守护进程驱动中 (Port 3700)</p>
+        </div>
+        <div class="header-actions">
+          <span class="badge badge-success" id="auth-status">C5 Auth 免鉴权</span>
+        </div>
+      </header>
+
+      <!-- 消息列表视窗 -->
+      <div class="messages-container" id="messages-container">
+        <div class="message assistant">
+          <div class="avatar">🍯</div>
+          <div class="bubble glass-bubble">
+            你好！我是你的 Hachimi 个人 AI 助理。我可以帮你管理任务、记忆偏好并执行命令行工具。请问今天有什么可以帮你的？
+          </div>
+        </div>
+      </div>
+
+      <!-- 输入框视窗 -->
+      <div class="input-area glass-panel">
+        <div class="input-wrapper">
+          <textarea id="prompt-input" placeholder="给 Hachimi 发送消息或中途修正指令..." rows="2"></textarea>
+          <div class="action-buttons">
+            <button id="btn-steer" class="btn btn-warn" title="中途转向修正">⚡ Steer</button>
+            <button id="btn-send" class="btn btn-primary">发送 (Send)</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

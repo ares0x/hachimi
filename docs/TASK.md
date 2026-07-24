@@ -7,16 +7,16 @@
 
 ## 📌 Phase F 任务清单与状态 (Multi-Surface & Personalization Tier 2)
 
-### 1. F1 — Desktop 客户端接入 (Desktop Client over Daemon API)
-- [ ] **F1.1**: 基于 Electron 或 Tauri 接入 Phase C 的守护进程 (`apps/server`) API，作为轻量客户端运行（而非重复嵌入核心）。
+### 1. F1 — Desktop 客户端接入 (Desktop Client over Daemon API) (暂缓)
+- [ ] **F1.1**: 基于 Electron 或 Tauri 接入 Phase C 的守护进程 (`apps/server`) API，作为轻量客户端运行（暂时延期）。
 - 👥 **用户角度验收**: 用户在桌面双击启动应用，自动连接后台托管的 Hachimi 守护进程并渲染富文本/图形界面。
 
-### 2. F2 — Telegram 消息通道桥接 (Telegram Messenger Client)
-- [ ] **F2.1**: 基于 `grammy` 或 `telegraf` 实现 Telegram Bot 通道客户端，连接 Daemon API。
+### 2. F2 — Telegram 消息通道桥接 (Telegram Messenger Client) (Done)
+- [x] **F2.1**: 基于 `grammy` 实现 Telegram Bot 网关 (`packages/channels/telegram`)，支持用户白名单隔离、`config.json` 持久化与首次交互引导。
 - 👥 **用户角度验收**: 用户在手机 Telegram 给 Bot 发消息，后台 Daemon 统一处理并返回答案，共享全量记忆与上下文。
 
-### 3. F3 — Web 极简客户端 (Web Surface Client)
-- [ ] **F3.1**: 提供开箱即用的 Web 聊天界面，支持 SSE 打字机渲染与 WebSocket 交互。
+### 3. F3 — Web 极简客户端 (Web Surface Client) (Done)
+- [x] **F3.1**: 基于 `packages/channels/web` 与 Fastify 静态托管，在 `http://127.0.0.1:3700/` 提供黑金玻璃拟态 Web 界面，支持 SSE 打字机、状态统计与 Portable Bundle 导入/导出。
 - 👥 **用户角度验收**: 用户打开浏览器访问 `http://localhost:3700` 即可直接在 Web 界面与 Agent 对话。
 
 ### 4. F4 — 极简子 Agent 派发 (Minimal Sub-Agent Delegation)

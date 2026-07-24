@@ -112,14 +112,11 @@ together because both depend on everything above (daemon mode, hooks,
 extensibility) already existing.
 
 Multi-surface:
-- [ ] **F1 — Desktop client.** A UI that talks to the Phase C daemon over its
-      local API — not a separate embed of core. Electron or Tauri; the choice
-      matters less now that Desktop is "just a client."
-- [ ] **F2 — One messaging channel** (Telegram, given existing `ChannelType`
-      support) as a daemon client — the real test of "core has zero channel
-      knowledge," since this is the first client that isn't run by the same
-      person sitting at the machine.
-- [ ] **F3 — Web client** (optional at this stage, same daemon API as F1/F2).
+- [ ] **F1 — Desktop client (Deferred).** A UI that talks to the Phase C daemon over its
+      local API — Electron or Tauri (deferred temporarily for F2/F3 focus).
+- [x] **F2 — One messaging channel** (Telegram Bot Gateway in `packages/channels/telegram`)
+      as a daemon client with whitelist security & interactive setup.
+- [x] **F3 — Web client** (Web UI surface client in `packages/channels/web` hosted at `http://127.0.0.1:3700/`).
 
 Tier 2 personalization:
 - [ ] **F4 — Minimal sub-agent delegation.** Narrow and explicit (one parent,

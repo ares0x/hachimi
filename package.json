@@ -16,6 +16,7 @@
     "dev:tui": "tsx apps/tui/src/main.ts",
     "dev:cli": "tsx packages/channels/cli/src/cli.ts",
     "dev:server": "tsx apps/server/src/main.ts",
+    "dev:telegram": "tsx packages/channels/telegram/src/bot.ts",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",

@@ -1,7 +1,6 @@
 // apps/tui/src/ui/app.ts
 import { createCliRenderer, Box, Text, Input } from "@opentui/core";
 import { generateId } from "@hachimi/shared";
-import type { Message } from "../../../../packages/core/src/types/index.js";
 import type { AppContext } from "../app-context.js";
 import { handleSlashCommand } from "./commands.js";
 import { renderModalBox } from "./modal.js";

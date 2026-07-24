@@ -1,5 +1,5 @@
 // packages/config/src/index.ts
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 export type LLMProviderName =
@@ -26,6 +26,19 @@ export interface ProviderConfig {
   baseURL?: string;
   customHeaders?: Record<string, string>;
   extraParams?: Record<string, unknown>;
+}
+
+export interface TelegramChannelConfig {
+  botToken?: string;
+  allowedUsers?: number[];
+}
+
+export interface ChannelsConfig {
+  telegram?: TelegramChannelConfig;
+  api?: {
+    port?: number;
+    secretKey?: string;
+  };
 }
 
 export interface HachimiConfig {
@@ -59,6 +72,7 @@ export interface HachimiConfig {
   tui: {
     title: string;
   };
+  channels?: ChannelsConfig;
 }
 
 /** 预置各主流 Provider 的专属环境变量级联默认配置 */
@@ -123,6 +137,16 @@ const defaultConfig: HachimiConfig = {
   tui: {
     title: "hachimi",
   },
+  channels: {
+    telegram: {
+      botToken: process.env.TELEGRAM_BOT_TOKEN || "",
+      allowedUsers: process.env.TELEGRAM_ALLOWED_USERS
+        ? process.env.TELEGRAM_ALLOWED_USERS.split(",")
+            .map((s) => Number(s.trim()))
+            .filter(Boolean)
+        : [],
+    },
+  },
 };
 
 /**
@@ -149,32 +173,6 @@ export function loadConfig(configPath = "config.json"): HachimiConfig {
             };
           }
         }
-
-        // 向后兼容旧格式平铺字段的迁移点
-        if (raw.llm.deepseekApiKey || raw.llm.deepseekModel) {
-          cfg.llm.providers.deepseek = {
-            ...cfg.llm.providers.deepseek,
-            ...(raw.llm.deepseekApiKey ? { apiKey: raw.llm.deepseekApiKey } : {}),
-            ...(raw.llm.deepseekModel ? { model: raw.llm.deepseekModel } : {}),
-            ...(raw.llm.deepseekBaseURL ? { baseURL: raw.llm.deepseekBaseURL } : {}),
-          };
-        }
-        if (raw.llm.openaiApiKey || raw.llm.openaiModel) {
-          cfg.llm.providers.openai = {
-            ...cfg.llm.providers.openai,
-            ...(raw.llm.openaiApiKey ? { apiKey: raw.llm.openaiApiKey } : {}),
-            ...(raw.llm.openaiModel ? { model: raw.llm.openaiModel } : {}),
-            ...(raw.llm.openaiBaseURL ? { baseURL: raw.llm.openaiBaseURL } : {}),
-          };
-        }
-        if (raw.llm.anthropicApiKey || raw.llm.anthropicModel) {
-          cfg.llm.providers.anthropic = {
-            ...cfg.llm.providers.anthropic,
-            ...(raw.llm.anthropicApiKey ? { apiKey: raw.llm.anthropicApiKey } : {}),
-            ...(raw.llm.anthropicModel ? { model: raw.llm.anthropicModel } : {}),
-            ...(raw.llm.anthropicBaseURL ? { baseURL: raw.llm.anthropicBaseURL } : {}),
-          };
-        }
       }
 
       if (raw.paths) {
@@ -185,6 +183,16 @@ export function loadConfig(configPath = "config.json"): HachimiConfig {
       if (raw.agent) Object.assign(cfg.agent, raw.agent);
       if (raw.context) Object.assign(cfg.context, raw.context);
       if (raw.tui) Object.assign(cfg.tui, raw.tui);
+      if (raw.channels) {
+        cfg.channels = {
+          ...cfg.channels,
+          ...raw.channels,
+          telegram: {
+            ...cfg.channels?.telegram,
+            ...raw.channels?.telegram,
+          },
+        };
+      }
     } catch (err) {
       console.warn("[config] 读取 config.json 失败，使用默认配置", err);
     }
@@ -201,23 +209,17 @@ export function loadConfig(configPath = "config.json"): HachimiConfig {
 }
 
 /**
- * 保存配置到本地 config.json 文件 (仅保存 activeProvider 或有有效 apiKey 的 Provider)
+ * 保存配置到本地 config.json 文件
  */
 export function saveConfig(cfg: HachimiConfig, configPath = "config.json"): void {
   try {
     const cleanProviders: Record<string, ProviderConfig> = {};
     for (const [pKey, pVal] of Object.entries(cfg.llm.providers)) {
-      // 仅保留已被激活，或者具有显式 apiKey 的 Provider 节点
       if (pKey === cfg.llm.activeProvider || Boolean(pVal.apiKey)) {
         const cleanP: ProviderConfig = {};
         if (pVal.apiKey) cleanP.apiKey = pVal.apiKey;
         if (pVal.model) cleanP.model = pVal.model;
         if (pVal.baseURL) cleanP.baseURL = pVal.baseURL;
-        if (pVal.customHeaders && Object.keys(pVal.customHeaders).length > 0)
-          cleanP.customHeaders = pVal.customHeaders;
-        if (pVal.extraParams && Object.keys(pVal.extraParams).length > 0)
-          cleanP.extraParams = pVal.extraParams;
-
         cleanProviders[pKey] = cleanP;
       }
     }
@@ -233,6 +235,7 @@ export function saveConfig(cfg: HachimiConfig, configPath = "config.json"): void
       agent: cfg.agent,
       context: cfg.context,
       tui: cfg.tui,
+      channels: cfg.channels,
     };
     writeFileSync(configPath, JSON.stringify(toSave, null, 2), "utf-8");
   } catch (err) {
