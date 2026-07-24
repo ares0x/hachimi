@@ -4,17 +4,17 @@
     "providers": {
       "deepseek": {
         "apiKey": "your-deepseek-api-key",
-        "model": "deepseek-chat",
+        "model": "deepseek-v4-pro",
         "baseURL": "https://api.deepseek.com"
       },
       "openai": {
         "apiKey": "your-openai-api-key",
-        "model": "gpt-4o-mini",
+        "model": "gpt-5.6-sol",
         "baseURL": "https://api.openai.com/v1"
       },
       "anthropic": {
         "apiKey": "your-anthropic-api-key",
-        "model": "claude-3-7-sonnet-20250219",
+        "model": "claude-fable-5",
         "baseURL": "https://api.anthropic.com/v1"
       }
     }

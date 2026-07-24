@@ -20,34 +20,113 @@ import {
   askInteractivePrompt,
 } from "./ui/view.js";
 
-const PROVIDER_PRESET_MODELS: Record<string, Array<{ id: string; label: string; sublabel?: string }>> = {
+const PROVIDER_PRESET_MODELS: Record<
+  string,
+  Array<{ id: string; label: string; sublabel?: string }>
+> = {
   deepseek: [
-    { id: "deepseek-chat", label: "deepseek-chat", sublabel: "DeepSeek-V3 通用对话模型" },
-    { id: "deepseek-reasoner", label: "deepseek-reasoner", sublabel: "DeepSeek-R1 深度思考/推理模型" },
-    { id: "__custom__", label: "✏️ 输入自定义模型名称...", sublabel: "手动填写模型标识" },
+    {
+      id: "deepseek-v4-pro",
+      label: "deepseek-v4-pro",
+      sublabel: "DeepSeek-V4 旗舰推理模型（2026最新）",
+    },
+    {
+      id: "deepseek-v4-flash",
+      label: "deepseek-v4-flash",
+      sublabel: "DeepSeek-V4 高速高性价比模型",
+    },
+    {
+      id: "__custom__",
+      label: "✏️ 输入自定义模型名称...",
+      sublabel: "手动填写模型标识",
+    },
   ],
+
   openai: [
-    { id: "gpt-4o-mini", label: "gpt-4o-mini", sublabel: "轻量快速通用模型" },
-    { id: "gpt-4o", label: "gpt-4o", sublabel: "高能力旗舰大模型" },
-    { id: "o3-mini", label: "o3-mini", sublabel: "OpenAI 深度推理模型" },
-    { id: "__custom__", label: "✏️ 输入自定义模型名称...", sublabel: "手动填写模型标识" },
+    {
+      id: "gpt-5.6-sol",
+      label: "gpt-5.6-sol",
+      sublabel: "OpenAI 最新旗舰模型（复杂推理、Agent）",
+    },
+    {
+      id: "gpt-5.6-terra",
+      label: "gpt-5.6-terra",
+      sublabel: "GPT-5.6 高能力均衡模型",
+    },
+    {
+      id: "gpt-5.6-luna",
+      label: "gpt-5.6-luna",
+      sublabel: "GPT-5.6 快速高性价比模型",
+    },
+    {
+      id: "__custom__",
+      label: "✏️ 输入自定义模型名称...",
+      sublabel: "手动填写模型标识",
+    },
   ],
+
   anthropic: [
-    { id: "claude-3-7-sonnet-20250219", label: "claude-3-7-sonnet-20250219", sublabel: "Claude 3.7 Thinking 混合推理" },
-    { id: "claude-3-5-sonnet-20241022", label: "claude-3-5-sonnet-20241022", sublabel: "Claude 3.5 Sonnet 编程旗舰" },
-    { id: "claude-3-5-haiku-20241022", label: "claude-3-5-haiku-20241022", sublabel: "Claude 3.5 Haiku 极速响应" },
-    { id: "__custom__", label: "✏️ 输入自定义模型名称...", sublabel: "手动填写模型标识" },
+    {
+      id: "claude-fable-5",
+      label: "claude-fable-5",
+      sublabel: "Claude 最新旗舰模型（Mythos级，复杂任务与Agent）",
+    },
+    {
+      id: "claude-opus-4-8",
+      label: "claude-opus-4-8",
+      sublabel: "Claude Opus 顶级可靠旗舰模型",
+    },
+    {
+      id: "claude-sonnet-5",
+      label: "claude-sonnet-5",
+      sublabel: "新一代高性价比 Agent 与编程模型",
+    },
+    {
+      id: "__custom__",
+      label: "✏️ 输入自定义模型名称...",
+      sublabel: "手动填写模型标识",
+    },
   ],
+
   qwen: [
-    { id: "qwen-max", label: "qwen-max", sublabel: "通义千问旗舰模型" },
-    { id: "qwen-plus", label: "qwen-plus", sublabel: "通义千问均衡模型" },
-    { id: "qwen-turbo", label: "qwen-turbo", sublabel: "通义千问极速模型" },
-    { id: "__custom__", label: "✏️ 输入自定义模型名称...", sublabel: "手动填写模型标识" },
+    {
+      id: "qwen3.8-max", // 或 qwen3.7-max / qwen3.7-max-preview，根据实际API
+      label: "qwen3.8-max",
+      sublabel: "通义千问最新旗舰模型，复杂推理与长程 Agent",
+    },
+    {
+      id: "qwen3.7-plus",
+      label: "qwen3.7-plus",
+      sublabel: "通义千问新一代均衡模型，支持 Agent 与工具调用",
+    },
+    {
+      id: "qwen3.7-flash", // 或 qwen-flash / qwen3.6-flash
+      label: "qwen3.7-flash",
+      sublabel: "高速高性价比模型",
+    },
+    {
+      id: "__custom__",
+      label: "✏️ 输入自定义模型名称...",
+      sublabel: "手动填写模型标识",
+    },
   ],
+
   moonshot: [
-    { id: "moonshot-v1-8k", label: "moonshot-v1-8k", sublabel: "Kimi 8k 上下文" },
-    { id: "moonshot-v1-32k", label: "moonshot-v1-32k", sublabel: "Kimi 32k 长文本" },
-    { id: "__custom__", label: "✏️ 输入自定义模型名称...", sublabel: "手动填写模型标识" },
+    {
+      id: "kimi-k3",
+      label: "kimi-k3",
+      sublabel: "Kimi 最新前沿旗舰模型（2.8T，超长上下文、多模态）",
+    },
+    {
+      id: "kimi-k2.6",
+      label: "kimi-k2.6",
+      sublabel: "Kimi 新一代通用推理与 Agent 模型",
+    },
+    {
+      id: "__custom__",
+      label: "✏️ 输入自定义模型名称...",
+      sublabel: "手动填写模型标识",
+    },
   ],
 };
 
@@ -153,11 +232,11 @@ async function main() {
 
       if (res.action === "selector_provider") {
         const providerItems = [
-          { id: "deepseek", label: "deepseek", sublabel: "DeepSeek-V3 / DeepSeek-R1 (api.deepseek.com)" },
-          { id: "openai", label: "openai", sublabel: "OpenAI GPT-4o / GPT-4o-mini (api.openai.com)" },
-          { id: "anthropic", label: "anthropic", sublabel: "Anthropic Claude 3.5 Sonnet / 3.7 Thinking" },
-          { id: "qwen", label: "qwen", sublabel: "通义千问 (DashScope / OneAPI 中转站)" },
-          { id: "moonshot", label: "moonshot", sublabel: "Moonshot / Kimi (api.moonshot.cn)" },
+          { id: "deepseek", label: "deepseek", sublabel: "DeepSeek (deepseek-v4-pro / flash)" },
+          { id: "openai", label: "openai", sublabel: "OpenAI (gpt-5.6-sol / terra / luna)" },
+          { id: "anthropic", label: "anthropic", sublabel: "Anthropic Claude (claude-fable-5 / opus-4-8 / sonnet-5)" },
+          { id: "qwen", label: "qwen", sublabel: "通义千问 (qwen3.8-max / qwen3.7-plus)" },
+          { id: "moonshot", label: "moonshot", sublabel: "Moonshot / Kimi (kimi-k3)" },
           { id: "mock", label: "mock", sublabel: "Mock 模拟测试模式" },
         ];
         const selected = await askInteractiveSelector("🤖 【Step 1/2】选择 LLM API 提供商 (Provider)", providerItems);

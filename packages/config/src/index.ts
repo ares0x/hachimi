@@ -66,32 +66,32 @@ function buildEnvDefaultProviders(): Record<string, ProviderConfig> {
   return {
     deepseek: {
       apiKey: process.env.DEEPSEEK_API_KEY,
-      model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
+      model: process.env.DEEPSEEK_MODEL || "deepseek-v4-pro",
       baseURL: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
     },
     openai: {
       apiKey: process.env.OPENAI_API_KEY,
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      model: process.env.OPENAI_MODEL || "gpt-5.6-sol",
       baseURL: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
     },
     anthropic: {
       apiKey: process.env.ANTHROPIC_API_KEY,
-      model: process.env.ANTHROPIC_MODEL || "claude-3-7-sonnet-20250219",
+      model: process.env.ANTHROPIC_MODEL || "claude-fable-5",
       baseURL: process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com/v1",
     },
     claude: {
       apiKey: process.env.ANTHROPIC_API_KEY,
-      model: process.env.ANTHROPIC_MODEL || "claude-3-7-sonnet-20250219",
+      model: process.env.ANTHROPIC_MODEL || "claude-fable-5",
       baseURL: process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com/v1",
     },
     qwen: {
       apiKey: process.env.DASHSCOPE_API_KEY || process.env.QWEN_API_KEY,
-      model: process.env.QWEN_MODEL || "qwen-max",
+      model: process.env.QWEN_MODEL || "qwen3.8-max",
       baseURL: process.env.QWEN_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1",
     },
     moonshot: {
       apiKey: process.env.MOONSHOT_API_KEY,
-      model: process.env.MOONSHOT_MODEL || "moonshot-v1-8k",
+      model: process.env.MOONSHOT_MODEL || "kimi-k3",
       baseURL: process.env.MOONSHOT_BASE_URL || "https://api.moonshot.cn/v1",
     },
     mock: {
