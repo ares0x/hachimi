@@ -78,4 +78,21 @@ export class MockLLMProvider implements LLMProvider {
       content: `我是 hachimi 的 MockLLM。你刚才说：${userContent}`,
     };
   }
+
+  async chatStream(
+    messages: Message[],
+    tools: ToolDefinition[] = [],
+    onChunk?: (chunk: string) => void
+  ): Promise<LLMResponse> {
+    const res = await this.chat(messages, tools);
+    if (res.content && onChunk) {
+      // 模拟逐字流式打字输出
+      const text = res.content;
+      const chunkSize = 5;
+      for (let i = 0; i < text.length; i += chunkSize) {
+        onChunk(text.substring(i, i + chunkSize));
+      }
+    }
+    return res;
+  }
 }

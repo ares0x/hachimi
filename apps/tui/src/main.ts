@@ -108,18 +108,33 @@ async function main() {
         continue;
       }
 
-      // 正常对话响应 + 思考 Spinner 状态
+      // 正常对话响应 + 思考 Spinner + 流式打字输出
       const spinner = colorize("⠋ [Hachimi 思考中...]", theme.colors.warning);
       process.stdout.write(`${spinner}\r`);
 
+      let hasStreamStarted = false;
       const history = sessions.getHistory();
-      const reply = await agent.run(userInput, history);
+      const reply = await agent.run(userInput, history, {
+        onChunk: (chunk: string) => {
+          if (!hasStreamStarted) {
+            hasStreamStarted = true;
+            // 首字到达，擦除思考 Spinner 提示行
+            process.stdout.write(" ".repeat(40) + "\r");
+            const botBadge = renderBadge("🤖 HACHIMI", theme.colors.assistantRole, "#FFFFFF");
+            process.stdout.write(`${botBadge} `);
+          }
+          process.stdout.write(chunk);
+        },
+      });
 
-      // 清除 spinner
-      process.stdout.write(" ".repeat(35) + "\r");
-
-      const botBadge = renderBadge("🤖 HACHIMI", theme.colors.assistantRole, "#FFFFFF");
-      console.log(`${botBadge} ${reply}`);
+      if (!hasStreamStarted) {
+        // 若未触发 Chunk 打印（例如某些硬编码工具回复），兜底擦除 Spinner
+        process.stdout.write(" ".repeat(40) + "\r");
+        const botBadge = renderBadge("🤖 HACHIMI", theme.colors.assistantRole, "#FFFFFF");
+        console.log(`${botBadge} ${reply}`);
+      } else {
+        process.stdout.write("\n");
+      }
 
       const userMsg: Message = {
         id: generateId("msg_"),

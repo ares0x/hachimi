@@ -38,7 +38,7 @@ export function renderWelcomeCard(status: any): string {
   const menuItems = [
     { label: "New session", shortcut: "ctrl+w" },
     { label: "Resume session", shortcut: "ctrl+s" },
-    { label: "Config & status", shortcut: "ctrl+c" },
+    { label: "Config & status", shortcut: "ctrl+p" },
     { label: "Quit", shortcut: "ctrl+q" },
   ];
 
@@ -104,10 +104,36 @@ export function askInteractivePrompt(promptLabel: string): Promise<string> {
     };
 
     const onKey = (char: string, key: any) => {
-      if (key && key.ctrl && key.name === "c") {
+      // 快捷键 1: Ctrl+Q / Ctrl+C -> 退出程序
+      if (key && key.ctrl && (key.name === "q" || key.name === "c")) {
         cleanup();
-        exitFullscreenCanvas();
-        process.exit(0);
+        process.stdout.write("\x1b[K\n");
+        resolve("/exit");
+        return;
+      }
+
+      // 快捷键 2: Ctrl+W -> 新建会话 (New Session)
+      if (key && key.ctrl && key.name === "w") {
+        cleanup();
+        process.stdout.write("\x1b[K\n");
+        resolve("/session create");
+        return;
+      }
+
+      // 快捷键 3: Ctrl+S -> 恢复/查看历史会话 (Resume Session)
+      if (key && key.ctrl && key.name === "s") {
+        cleanup();
+        process.stdout.write("\x1b[K\n");
+        resolve("/sessions");
+        return;
+      }
+
+      // 快捷键 4: Ctrl+P -> 查看配置与系统状态 (Config & Status)
+      if (key && key.ctrl && key.name === "p") {
+        cleanup();
+        process.stdout.write("\x1b[K\n");
+        resolve("/status");
+        return;
       }
 
       if (key && (key.name === "return" || key.name === "enter")) {

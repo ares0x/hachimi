@@ -134,6 +134,11 @@ export interface LLMResponse {
 
 export interface LLMProvider {
   chat(messages: Message[], tools?: ToolDefinition[]): Promise<LLMResponse>;
+  chatStream?(
+    messages: Message[],
+    tools?: ToolDefinition[],
+    onChunk?: (chunk: string) => void
+  ): Promise<LLMResponse>;
 }
 
 export interface Session {

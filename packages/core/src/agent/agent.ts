@@ -41,7 +41,11 @@ export class Agent {
   /**
    * 执行一轮对话
    */
-  async run(userInput: string, history: Message[] = []): Promise<string> {
+  async run(
+    userInput: string,
+    history: Message[] = [],
+    options?: { onChunk?: (chunk: string) => void }
+  ): Promise<string> {
     const input = userInput.trim();
 
     // 1. 自然语言记住
@@ -51,9 +55,13 @@ export class Agent {
         const content = input.slice(prefix.length).replace(/^[：:\s]+/, "").trim();
         if (content) {
           this.memory.remember(content, 0.75);
-          return `好的，我已经记住了：${content}`;
+          const reply = `好的，我已经记住了：${content}`;
+          if (options?.onChunk) options.onChunk(reply);
+          return reply;
         } else {
-          return "请告诉我需要记住的具体内容，例如：请记住我喜欢喝手冲咖啡";
+          const reply = "请告诉我需要记住的具体内容，例如：请记住我喜欢喝手冲咖啡";
+          if (options?.onChunk) options.onChunk(reply);
+          return reply;
         }
       }
     }
@@ -111,7 +119,9 @@ export class Agent {
     while (rounds < this.maxToolRounds) {
       rounds++;
       const toolDefs = this.tools.list();
-      const response = await this.llm.chat(messages, toolDefs);
+      const response = this.llm.chatStream
+        ? await this.llm.chatStream(messages, toolDefs, options?.onChunk)
+        : await this.llm.chat(messages, toolDefs);
 
       if (!response.tool_calls || response.tool_calls.length === 0) {
         const finalContent = response.content ?? "";
