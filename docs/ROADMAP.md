@@ -1,15 +1,8 @@
 # Development Roadmap
 
-Revision 2. Reordered relative to Revision 1 based on the four product
-pillars in `ARCHITECTURE.md` (local-first/portable memory, personalization,
-extensibility, multi-surface). The biggest change: **daemon mode / local API
-(old Phase E) moves up to Phase C**, and **portable memory export/import
-becomes its own phase (D)** instead of being an implicit part of storage work.
-Desktop moves from "last, biggest lift" to "a client built once the daemon
-exists" inside Phase F.
+Revision 3. Updated following Phase H (H1 & H2) Harness Core Reinforcement & Hardening completion.
 
-Each phase must leave the project runnable and testable, and closes with a
-short review before the next one starts.
+Each phase must leave the project runnable and testable, and closes with a short review before the next one starts.
 
 ## Phase A — Foundation (Done)
 - [x] Monorepo structure (`apps/`, `packages/`)
@@ -23,131 +16,51 @@ short review before the next one starts.
 - [x] Vitest coverage for agent/memory/session/permissions
 
 ## Phase B — Fix the Foundation Before Building On It (Done)
-**Goal**: Resolve the structural issues identified in `ARCHITECTURE.md` before
-adding new surface area on top of them. This is also where Tier 1
-personalization (the "gets better at knowing you" mechanism) becomes solid.
-
-- [x] **B1 — Unify permission types.** Collapse `PermissionLevel` and
-      `ToolPermission` into one type, used consistently.
-- [x] **B2 — Prompt-cache-stable `ContextBuilder`.** Fixed prefix
-      (identity/tools/skill-descriptions), variable content after a clear
-      boundary. Replace "splice out a random middle block" truncation with
-      tail-only trimming.
-- [x] **B3 — Memory retrieval v2 (Tier 1 personalization).** Embedding-based
-      similarity search in `MemoryManager.search()`, same four-layer model.
-- [x] **B4 — Reconsider skill-activation detection.** Regex-based skill
-      matching is brittle; evaluate exposing activation as a model-chosen tool
-      call instead.
-- [x] **B5 — Harden consolidation.** `deduplicate()`/`prune()`/
-      `summarizeSession()` exist but are simple; this is the point to make
-      them reliable, since Phase D's export/import bundle will carry whatever
-      state this loop produces.
+- [x] **B1 — Unify permission types.** Collapse `PermissionLevel` and `ToolPermission` into one type.
+- [x] **B2 — Prompt-cache-stable `ContextBuilder`.** Fixed prefix (identity/tools/skill-descriptions), variable content after a clear boundary. Tail-only trimming.
+- [x] **B3 — Memory retrieval v2.** Embedding-based similarity search in `MemoryManager.search()`.
+- [x] **B4 — Skill activation via model-chosen tool.**
+- [x] **B5 — Harden consolidation.** Reliable deduplication and pruning.
 
 ## Phase C — Provider Abstraction + Runtime Topology (Done)
-**Goal**: A second provider doesn't touch `Agent`, and — the reordering that
-matters most this revision — **one core instance can serve multiple
-concurrent clients**, because Desktop + Telegram + web all need to be able to
-share one running assistant (P4).
+- [x] **C1 — `ProviderTransport` interface.** OpenAI, DeepSeek, Anthropic transports.
+- [x] **C2 — Embedded-mode non-interactive entry.**
+- [x] **C3 — SDK export from `@hachimi/core`.** `createAgentSession()`-style programmatic entry.
+- [x] **C4 — Daemon mode: `apps/server` becomes real.** HTTP/WS API server holding canonical `@hachimi/core` instance.
+- [x] **C5 — Minimum transport auth.** Local secret token gating daemon API.
+- [x] **C6 — Mid-turn steering (steer & followUp).**
+- [x] **C7 — Minimum tool-execution sandbox.** `ToolSandbox` timeout & buffer cap.
 
-- [x] **C1 — `ProviderTransport` interface.** `openai-compatible` as first
-      concrete transport; message/tool-call conversion moves out of `Agent`.
-- [x] **C2 — Embedded-mode non-interactive entry.** Print/JSON single-turn
-      mode for scripts, cron, tests.
-- [x] **C3 — SDK export from `@hachimi/core`.** `createAgentSession()`-style
-      programmatic entry point, used by both embedded and daemon modes.
-- [x] **C4 — Daemon mode: `apps/server` becomes real.** A long-running
-      process holding the one canonical `@hachimi/core` instance behind a
-      local HTTP/WS API. This is the promoted item from Revision 1's Phase E
-      — it now lands here because Phase F's multi-surface clients
-      structurally depend on it existing first.
-- [x] **C5 — Minimum transport auth.** A local token (at minimum) gating the
-      daemon's API before anything beyond localhost-TUI connects to it.
-- [x] **C6 — Mid-turn steering (stretch).** Pi's `steer()`/`followUp()`
-      pattern, useful once a daemon may have a client mid-conversation while
-      another client also wants to send input.
-- [x] **C7 — Minimum tool-execution sandbox.** Docker or WASM isolation for
-      `dangerous`-permission tools, independent of the in-process approval
-      gate. Added here rather than left solely to Phase G: shipping a
-      Telegram bridge (Phase F) — the first client not run by the person
-      sitting at the machine — before any execution isolation exists beyond
-      the approval gate is a real ordering risk. This does not need to be the
-      final hardened version (that's Phase G1); it needs to exist before
-      Phase F ships.
+## Phase D — Portable Memory (Done)
+- [x] **D1 — Versioned bundle format.**
+- [x] **D2 — Export command.**
+- [x] **D3 — Import command with merge semantics.**
+- [x] **D4 — Schema migration path.**
 
-## Phase D — Portable Memory (P1) (Done)
-**Goal**: Memory can move to a new machine without manual reconstruction —
-promoted out of "storage implementation detail" into its own phase because
-it's a direct product promise, not a side effect of picking a database.
+## Phase E — Unified Extension Registry (Done)
+- [x] **E1 — `CapabilitySource` refactor.**
+- [x] **E2 — Skills as installable packages.**
+- [x] **E3 — Hooks.** `onPreToolCall` / `onPostToolCall` / `onSessionStart`.
+- [x] **E4 — MCP client integration.**
 
-- [x] **D1 — Versioned bundle format.** All four memory layers + session
-      history + skill-usage state, with an explicit schema version field.
-- [x] **D2 — Export command.** One command produces a bundle from the current
-      runtime store (file or SQLite, whichever is active).
-- [x] **D3 — Import command with merge semantics.** Additive-with-conflict-
-      resolution by default, not silent overwrite — a user may be
-      consolidating two machines, not just moving.
-- [x] **D4 — Schema migration path.** Import must upgrade an older bundle
-      version, not just reject it, since this is meant to outlive several
-      future storage-engine changes.
+## Phase F — Multi-Surface Clients (In Progress)
+- [x] **F2 — Telegram Bot Gateway.**
+- [x] **F3 — Web UI Client.**
+- [ ] **F4 — Minimal sub-agent delegation.**
+- [ ] **F5 — Skill-from-experience extraction.**
+- [ ] **F6 — Scheduled/proactive triggers.**
 
-## Phase E — Unified Extension Registry (P3) (Done)
-**Goal**: Tools, skills, and MCP converge on one `CapabilitySource` shape
-(see `ARCHITECTURE.md`) instead of arriving as separate bespoke systems.
-
-- [x] **E1 — Refactor `ToolRegistry`/`SkillRegistry`** onto a shared
-      `CapabilitySource<T>` interface (list/resolve/permission).
-- [x] **E2 — Skills as installable packages.** npm/git-installable skill
-      packages (Pi/Grok-Build pattern), discovered the same way in-repo
-      skills are today.
-- [x] **E3 — Hooks.** Concrete pre-tool-call / post-tool-call / session-start
-      extension points — the prerequisite Phase F's Tier 2 personalization
-      needs.
-- [x] **E4 — MCP client**, implemented as another `CapabilitySource<ToolDefinition>`
-      rather than a parallel tool-loading path.
-
-## Phase F — Multi-Surface Clients + Tier 2 Personalization
-**Goal**: This is where P4 (Desktop/API/Telegram/web) and P2's advanced tier
-(self-directed skill evolution, proactive behavior) both land — grouped
-together because both depend on everything above (daemon mode, hooks,
-extensibility) already existing.
-
-Multi-surface:
-- [ ] **F1 — Desktop client (Deferred).** A UI that talks to the Phase C daemon over its
-      local API — Electron or Tauri (deferred temporarily for F2/F3 focus).
-- [x] **F2 — One messaging channel** (Telegram Bot Gateway in `packages/channels/telegram`)
-      as a daemon client with whitelist security & interactive setup.
-- [x] **F3 — Web client** (Web UI surface client in `packages/channels/web` hosted at `http://127.0.0.1:3700/`).
-
-Tier 2 personalization:
-- [ ] **F4 — Minimal sub-agent delegation.** Narrow and explicit (one parent,
-      a small number of typed sub-tasks) — matches "minimal Multi-Agent"
-      product identity rather than an open-ended framework.
-- [ ] **F5 — Skill-from-experience extraction.** An `afterTurn` hook (Phase
-      E3 prerequisite) proposing new skills/refinements from session-history
-      patterns.
-- [ ] **F6 — Scheduled/proactive triggers.** Cron-style or event-driven
-      prompts, gated by the existing permission engine plus Phase C5's
-      transport auth.
-
-## Phase G — Hardening
-**Goal**: Close the gaps that only matter once multiple real clients and
-proactive behavior are both live.
-
-- [ ] **G1 — Sandboxing story for `dangerous`-permission tools**, independent
-      of the in-process approval gate — Grok Build's public docs are a useful
-      checklist of what "documented sandboxing" looks like.
-- [ ] **G2 — Transport auth completeness.** Beyond Phase C5's minimum token:
-      per-client scoping if a remote Telegram-bridge-on-a-VPS scenario is
-      actually going to be supported (P4 mentions this as a stretch case).
-- [ ] **G3 — Bundle-format security review.** The portable memory bundle (D1)
-      is now also a backup artifact — confirm it doesn't leak anything
-      sensitive if a user syncs it through a general-purpose cloud drive.
-
----
-
-## Explicitly out of scope for this roadmap
-- Anything derived from `liuup/claude-code-analysis`. If a future phase wants
-  a Claude-Code-documented idea, cite Anthropic's own public docs instead.
-- Full multi-agent orchestration frameworks (F4 stays intentionally narrow).
-- Remote/multi-user daemon hosting (G2's VPS case is a stretch note, not a
-  committed deliverable, unless the product vision explicitly expands to it).
+## Phase H — Harness Core Hardening & Reinforcement (Done)
+- [x] **H1.1 — Unified `createAgentSession` / Composition Root.** TUI, CLI, Daemon all assemble via `@hachimi/core` public exports.
+- [x] **H1.2 — Core Public API Surface Freezing.** Package `"exports"` enforcement and [`docs/API.md`](file:///Users/jace/workspace/Code/Node/Personal/hachimi/docs/API.md) documentation.
+- [x] **H1.3 — Single Configuration Path.** Single `activeProvider` resolution path; legacy fields deprecated.
+- [x] **H1.4 — Automated CI & Smoke Test.** `.github/workflows/ci.yml` and `pnpm smoke:mock`.
+- [x] **H1.5 — Error Boundaries & Exception Protection.** `HarnessRuntime.execute()` try-catch error isolation.
+- [x] **H1.6 — Daemon Request ID Tracking.** `x-request-id` header & log context correlation.
+- [x] **H2.1 — ContextBuilder Contract & Lock Test.** Lock prefix sequence `Identity -> Skills -> Tools -> Dynamic` and tail-only truncation.
+- [x] **H2.2 — Unified Tool Execution Pipeline.** 5-step pipeline for all permission levels with uniform 30s timeout cap.
+- [x] **H2.3 — Tri-Level Permission Consistency.** Full-path approval pipeline & `tests/core/permission-matrix.test.ts`.
+- [x] **H2.4a/b — Sandbox Semantics & Scope Note.** 30s timeout & 1MB buffer cap (*Note: H2.4b MVP = Process timeout & buffer cap; Docker container sandbox stretch -> Phase G1*).
+- [x] **H2.5 — Self-Correction & Circuit Breaker.** 1-retry model feedback on tool failure; 3-consecutive-failure circuit breaker.
+- [x] **H2.6 — Lifecycle Hooks Loop Integration.** `onSessionStart`, `onPreToolCall`, `onPostToolCall` wired into Agent loop with counter tests.
+- [x] **H2.7 — MCP Tool Alignment & Failure Isolation.** MCP tools share pipeline; bad MCP failures isolated without crashing loop.

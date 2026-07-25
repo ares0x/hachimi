@@ -20,9 +20,9 @@ export class SessionManager {
   }
 
   /** 创建新会话 */
-  create(title?: string): Session {
+  create(title?: string, customId?: string): Session {
     const session: Session = {
-      id: generateId("sess_"),
+      id: customId || generateId("sess_"),
       title: title || `会话 ${new Date().toLocaleString()}`,
       messages: [],
       createdAt: Date.now(),
@@ -33,8 +33,13 @@ export class SessionManager {
     return session;
   }
 
-  /** 获取当前会话，没有则创建 */
-  getOrCreate(): Session {
+  /** 获取当前或指定 ID 的会话，没有则创建 */
+  getOrCreate(id?: string): Session {
+    if (id) {
+      const loaded = this.load(id);
+      if (loaded) return loaded;
+      return this.create(undefined, id);
+    }
     if (this.current) return this.current;
     return this.create();
   }

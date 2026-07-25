@@ -84,10 +84,7 @@ export class HarnessRuntime {
     const startTime = Date.now();
 
     // 1. Session 加载或获取
-    if (input.sessionId) {
-      this.sessions.load(input.sessionId);
-    }
-    const sessionObj = this.sessions.getOrCreate();
+    const sessionObj = this.sessions.getOrCreate(input.sessionId);
     const sessionId = sessionObj.id;
 
     // 2. 触发 sessionStart Hook

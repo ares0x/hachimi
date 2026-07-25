@@ -1,22 +1,69 @@
 // packages/core/src/sandbox/sandbox.ts
+import { PathJail } from "./path-jail.js";
+
 export interface ISandboxOptions {
   /** 工具最大允许执行时长 (毫秒)，默认 30,000ms */
   timeoutMs?: number;
   /** 最大控制台/输出字符缓冲区上限，默认 1024 * 1024 (1MB) */
   maxBuffer?: number;
-  /** 允许透传的环境变量 Key 列表 (为空则隔离全部环境) */
+  /** 允许透传的环境变量 Key 列表 (为空或不指定则剥离绝大部分敏感 Key) */
   allowedEnvKeys?: string[];
+  /** 工作区根目录 */
+  workspaceRoot?: string;
   /** 执行模式: "process" | "docker" */
   mode?: "process" | "docker";
 }
 
+const DEFAULT_SENSITIVE_ENV_KEYS = [
+  "DEEPSEEK_API_KEY",
+  "OPENAI_API_KEY",
+  "ANTHROPIC_API_KEY",
+  "TELEGRAM_BOT_TOKEN",
+  "HACHIMI_API_SECRET",
+  "AWS_SECRET_ACCESS_KEY",
+  "AWS_ACCESS_KEY_ID",
+  "DATABASE_URL",
+  "SECRET_KEY",
+  "PRIVATE_KEY",
+];
+
 export class ToolSandbox {
   private defaultTimeoutMs: number;
   private defaultMaxBuffer: number;
+  public readonly pathJail: PathJail;
 
   constructor(options: ISandboxOptions = {}) {
     this.defaultTimeoutMs = options.timeoutMs ?? 30000;
     this.defaultMaxBuffer = options.maxBuffer ?? 1024 * 1024;
+    this.pathJail = new PathJail({ workspaceRoot: options.workspaceRoot });
+  }
+
+  /**
+   * G1.1: 环境变量自动脱敏 (Environment Scrubbing)
+   * 从 process.env 中过滤掉主进程敏感 API Key，防止工具脚本读取偷拿外泄
+   */
+  static scrubEnv(
+    rawEnv: Record<string, string | undefined> = process.env,
+    allowedKeys?: string[]
+  ): Record<string, string> {
+    const clean: Record<string, string> = {};
+    const allowedSet = allowedKeys ? new Set(allowedKeys) : null;
+
+    for (const [key, val] of Object.entries(rawEnv)) {
+      if (val === undefined) continue;
+
+      if (allowedSet) {
+        if (allowedSet.has(key)) {
+          clean[key] = val;
+        }
+      } else {
+        if (!DEFAULT_SENSITIVE_ENV_KEYS.includes(key.toUpperCase())) {
+          clean[key] = val;
+        }
+      }
+    }
+
+    return clean;
   }
 
   /**

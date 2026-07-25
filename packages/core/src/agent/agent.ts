@@ -1,10 +1,19 @@
 // packages/core/src/agent/agent.ts
-import { generateId, defaultTokenEstimator } from "@hachimi/shared";
+import { defaultTokenEstimator, generateId } from "@hachimi/shared";
 import { ContextBuilder } from "../context/builder.js";
+import type { HookRegistry } from "../extensions/hooks.js";
 import type { MemoryManager } from "../memory/manager.js";
 import type { SkillRegistry } from "../skills/registry.js";
 import type { ToolRegistry } from "../tools/registry.js";
-import type { LLMProvider, Message, LLMResponse } from "../types/index.js";
+import type { LLMProvider, Message } from "../types/index.js";
+
+export interface AgentRunOptions {
+  onChunk?: (chunk: string) => void;
+  onToolStart?: (name: string, args: Record<string, unknown>) => void;
+  onToolEnd?: (name: string, result: string, durationMs: number, success: boolean) => void;
+  hooks?: HookRegistry;
+  sessionId?: string;
+}
 
 export interface AgentOptions {
   llm: LLMProvider;
@@ -12,6 +21,7 @@ export interface AgentOptions {
   memory: MemoryManager;
   skills?: SkillRegistry;
   contextBuilder?: ContextBuilder;
+  hooks?: HookRegistry;
   maxToolRounds?: number;
   onToolApproval?: (
     toolName: string,
@@ -31,6 +41,7 @@ export class Agent {
   private memory: MemoryManager;
   private skills?: SkillRegistry;
   private contextBuilder: ContextBuilder;
+  private hooks?: HookRegistry;
   private maxToolRounds: number;
   private activeSkill?: string;
   private running = false;
@@ -51,6 +62,7 @@ export class Agent {
     this.memory = options.memory;
     this.skills = options.skills;
     this.contextBuilder = options.contextBuilder ?? new ContextBuilder();
+    this.hooks = options.hooks;
     this.maxToolRounds = options.maxToolRounds ?? 5;
     this.onToolApproval = options.onToolApproval;
     this.onToolStart = options.onToolStart;
@@ -112,11 +124,7 @@ export class Agent {
   async run(
     userInput: string,
     history: Message[] = [],
-    options?: {
-      onChunk?: (chunk: string) => void;
-      onToolStart?: (name: string, args: Record<string, unknown>) => void;
-      onToolEnd?: (name: string, result: string, durationMs: number, success: boolean) => void;
-    }
+    options?: AgentRunOptions
   ): Promise<string> {
     this.running = true;
     try {
@@ -129,11 +137,7 @@ export class Agent {
   private async executeRun(
     userInput: string,
     history: Message[] = [],
-    options?: {
-      onChunk?: (chunk: string) => void;
-      onToolStart?: (name: string, args: Record<string, unknown>) => void;
-      onToolEnd?: (name: string, result: string, durationMs: number, success: boolean) => void;
-    }
+    options?: AgentRunOptions
   ): Promise<string> {
     const input = userInput.trim();
 
@@ -278,7 +282,12 @@ export class Agent {
         }
 
         const result = approved
-          ? await this.tools.execute(call.name, call.arguments)
+          ? await this.tools.execute(call.name, call.arguments, {
+              confirm: approved,
+              onToolApproval: this.onToolApproval,
+              hooks: options?.hooks || this.hooks,
+              sessionId: options?.sessionId,
+            })
           : `[用户拦截] 工具 ${call.name} 的执行请求已被用户拒绝。`;
 
         const durationMs = Date.now() - startTime;

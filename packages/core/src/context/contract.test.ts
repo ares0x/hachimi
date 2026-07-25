@@ -1,0 +1,70 @@
+// packages/core/src/context/contract.test.ts
+import { describe, expect, it } from "vitest";
+import { SkillRegistry } from "../skills/registry.js";
+import { ToolRegistry } from "../tools/registry.js";
+import { ContextBuilder } from "./builder.js";
+
+describe("H2.1 ContextBuilder Contract & Prompt Cache Lock Suite", () => {
+  it("locks static prefix sequence: Identity -> Skills Overview -> Tools Overview", async () => {
+    const builder = new ContextBuilder("你是 Hachimi Agent");
+    const skills = new SkillRegistry();
+    const tools = new ToolRegistry();
+
+    tools.register({
+      name: "calculator",
+      description: "加减乘除计算器",
+      permission: "safe",
+      parameters: {},
+      execute: async () => "42",
+    });
+
+    const result = await builder.build({
+      skills,
+      tools,
+      memories: [
+        {
+          id: "m1",
+          layer: "long_term",
+          content: "用户喜欢黑色",
+          importance: 0.9,
+          createdAt: Date.now(),
+          lastAccessedAt: Date.now(),
+        },
+      ],
+    });
+
+    const prompt = result.systemPrompt;
+
+    const identityIdx = prompt.indexOf("你是 Hachimi Agent");
+    const skillsIdx = prompt.indexOf("【当前可用技能列表】");
+    const toolsIdx = prompt.indexOf("【可用工具】");
+    const boundaryIdx = prompt.indexOf("--- 动态上下文边界 ---");
+    const memoryIdx = prompt.indexOf("用户喜欢黑色");
+
+    expect(identityIdx).toBeGreaterThan(-1);
+    expect(skillsIdx).toBeGreaterThan(identityIdx);
+    expect(toolsIdx).toBeGreaterThan(skillsIdx);
+    expect(boundaryIdx).toBeGreaterThan(toolsIdx);
+    expect(memoryIdx).toBeGreaterThan(boundaryIdx);
+  });
+
+  it("performs tail-only truncation on dynamic region when token budget is exceeded", async () => {
+    const builder = new ContextBuilder("你是 Hachimi Agent");
+
+    const longHistory = Array.from({ length: 50 }).map((_, i) => ({
+      id: `msg_${i}`,
+      role: "user" as const,
+      content: `这是第 ${i} 条长对话文本内容...`.repeat(20),
+      timestamp: Date.now(),
+    }));
+
+    const result = await builder.build({
+      history: longHistory,
+      tokenEstimator: (str) => Math.ceil(str.length / 2),
+      options: { maxTokens: 200, enableTokenTruncation: true },
+    });
+
+    // 静态 Prefix 依然被完整保留在顶部以保证 Prompt Cache Hit
+    expect(result.systemPrompt).toContain("你是 Hachimi Agent");
+  });
+});

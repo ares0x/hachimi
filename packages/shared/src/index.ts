@@ -12,7 +12,8 @@ export function now(): number {
 
 export const CHANNELS = ["cli", "desktop", "api", "telegram", "wechat", "slack", "system"] as const;
 
-export { log, setLogSilent } from "./logger.js";
+export { log, setLogSilent, setLogLevel, setLogFormat, createScopedLogger } from "./logger.js";
 export type { LogLevel } from "./logger.js";
 export { createTokenEstimator, defaultTokenEstimator } from "./token.js";
 export { cosineSimilarity, normalizeText, jaccardSimilarity } from "./vector.js";
+export * from "./errors.js";
