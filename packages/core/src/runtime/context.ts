@@ -42,6 +42,8 @@ export interface CreateAppContextOptions {
   configPath?: string;
   configOverride?: Partial<HachimiConfig>;
   providerOverride?: string;
+  channelPolicy?: "deny" | "allow-safe" | "allowlist";
+  allowedTools?: string[];
   onToolApproval?: (
     toolName: string,
     args: Record<string, unknown>,
@@ -73,7 +75,6 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
 
   const memory = new MemoryManager(config.paths.memoryFile, sqliteStore);
   const sessions = new SessionManager(config.paths.sessionsDir, sqliteStore);
-
   const tools = new ToolRegistry();
   const skills = new SkillRegistry();
   const hooks = new HookRegistry();
@@ -101,14 +102,31 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
   let llm = createLLMFromConfig(config);
   const contextBuilder = new ContextBuilder();
 
+  // 默认无 UI 渠道的权限兜底策略 (H2 无 UI 渠道策略: deny / allow-safe / allowlist)
+  const defaultApprovalHandler = async (
+    toolName: string,
+    _args: Record<string, unknown>,
+    permission: string
+  ): Promise<boolean> => {
+    const policy = options.channelPolicy || "allow-safe";
+    if (policy === "deny") return false;
+    if (policy === "allowlist") {
+      return (options.allowedTools || []).includes(toolName);
+    }
+    return permission === "safe";
+  };
+
+  const effectiveToolApproval = options.onToolApproval || defaultApprovalHandler;
+
   let agent = new Agent({
     llm,
     tools,
     memory,
     skills,
     contextBuilder,
+    hooks,
     maxToolRounds: config.agent.maxToolRounds,
-    onToolApproval: options.onToolApproval,
+    onToolApproval: effectiveToolApproval,
   });
 
   sessions.getOrCreate();

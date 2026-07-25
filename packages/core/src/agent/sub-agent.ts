@@ -78,8 +78,8 @@ export class SubAgentDelegator {
     });
 
     const prompt = options.contextHint
-      ? `【子 Agent 独立隔离任务】\n任务描述：${options.taskDescription}\n背景参考：${options.contextHint}`
-      : `【子 Agent 独立隔离任务】\n任务描述：${options.taskDescription}`;
+      ? `【专职 Worker 子 Agent 独立隔离任务】\n你是一个专职子任务处理工 Agent。请聚焦于完成以下子任务并输出清晰结构化总结，不要继承主助理人设，禁止试图递归派发子任务。\n任务描述：${options.taskDescription}\n背景参考：${options.contextHint}`
+      : `【专职 Worker 子 Agent 独立隔离任务】\n你是一个专职子任务处理工 Agent。请聚焦于完成以下子任务并输出清晰结构化总结，不要继承主助理人设，禁止试图递归派发子任务。\n任务描述：${options.taskDescription}`;
 
     const executeChildTask = async (): Promise<SubAgentResult> => {
       try {
@@ -152,7 +152,7 @@ export class SubAgentDelegator {
     return {
       name: "delegate_subagent",
       description:
-        "【强烈建议自主调用】当用户的请求属于复杂子任务、技术方案比对、长报错分析或耗时调研时，你应当主动调用此工具派发后台子 Agent 独立研究，无需等待用户显式要求。耗时分析请设 async: true！",
+        "【自主/隔离派发】仅当任务匹配复杂技术调研、长报错分析、代码审查或耗时计算等独立子任务场景时调用此工具派发后台子 Agent。简单问答切勿派发。耗时分析建议设 async: true！",
       permission: "safe",
       parameters: {
         type: "object",
@@ -183,6 +183,10 @@ export class SubAgentDelegator {
           async?: boolean;
         };
         const parentSessionId = ctx?.sessionId;
+
+        if (parentSessionId?.startsWith("sub_sess_")) {
+          return "[系统安全拦截] 子 Agent 禁止再次递归派发子任务，以防止无限嵌套死锁与递归爆炸。";
+        }
 
         const result = await this.runSubAgent({
           taskDescription,

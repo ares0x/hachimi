@@ -80,17 +80,28 @@ export class ContextBuilder {
     if (input.tools && input.tools.get("delegate_subagent")) {
       const subAgentRule =
         "【自主子 Agent 派发指南】\n" +
-        "当评估用户的任务属于以下类型时，你应当主动调用 `delegate_subagent` 工具派发后台子 Agent 独立研究，无需等待用户显式要求：\n" +
+        "仅当评估用户的任务匹配以下场景时，方可主动调用 `delegate_subagent` 工具派发后台子 Agent 独立处理：\n" +
         "1. 复杂技术调研 / 方案对比分析 (如比对技术 A 与 B 的差异)\n" +
-        "2. 复杂代码 / 长错误日志深度排查\n" +
-        "3. 属于独立子模块且可能产生繁重细节的子任务\n" +
-        "长耗时分析强烈建议传入 `async: true` 开启非阻塞后台派发！";
+        "2. 复杂代码 / 长错误日志深度排查与提炼\n" +
+        "3. 属于独立子模块且细节繁重的长任务\n" +
+        "普通简单问答或一两句话可回答的问题，禁止派发子 Agent，直接回答即可。长耗时分析建议传入 `async: true` 开启非阻塞后台派发！";
       staticBlocks.push(subAgentRule);
     }
 
     // --- 2. 动态变动区域 (Dynamic Region) ---
-    // 置于固定边界之后：激活的 Skill 详情 -> 相关记忆 -> 对话历史
+    // 置于固定边界之后：系统本地时间 -> 激活的 Skill 详情 -> 相关记忆 -> 对话历史
     const dynamicBlocks: string[] = [];
+
+    const now = new Date();
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const timeStr = now.toLocaleString("zh-CN", {
+      hour12: false,
+      dateStyle: "full",
+      timeStyle: "medium",
+    });
+    dynamicBlocks.push(
+      `【当前系统本地时间】\n${timeStr} (时区: ${timeZone})\n当用户询问“几点了”、“今天几号”或基于当前时间计算时，请直接参考此时间。`
+    );
 
     if (input.activeSkill && input.skills) {
       const full = await input.skills.getFullSkill(input.activeSkill);
