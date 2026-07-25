@@ -6,22 +6,22 @@ export class MockLLMProvider implements LLMProvider {
   async chat(messages: Message[], tools: ToolDefinition[] = []): Promise<LLMResponse> {
     const lastMessage = messages[messages.length - 1];
 
-    // 1. 工具结果优先
+    // 1. Tool result priority
     if (lastMessage?.role === "tool") {
       return { content: `计算结果是：${lastMessage.content}` };
     }
 
-    // 2. 提取 system 消息（记忆 + Skills）
+    // 2. Extract system message (Memories + Skills)
     const systemMsg = messages.find((m) => m.role === "system");
     const systemText = typeof systemMsg?.content === "string" ? systemMsg.content : "";
     const hasMemory = systemText.length > 10;
     const hasSkillsList = systemText.includes("技能列表") || systemText.includes("writing");
 
-    // 3. 用户输入
+    // 3. User input
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
     const userContent = typeof lastUser?.content === "string" ? lastUser.content : "";
 
-    // 4. 工具调用匹配 (计算器或通用调用工具语法)
+    // 4. Tool call matching (Calculator or generic tool call syntax)
     const callMatch = userContent.match(/调用工具\s*([a-zA-Z0-9_\-]+)/);
     if (callMatch) {
       const toolName = callMatch[1];
@@ -53,7 +53,7 @@ export class MockLLMProvider implements LLMProvider {
       };
     }
 
-    // 5. 问技能（最强优先）
+    // 5. Query skills
     if (/你有哪些技能|你会什么|你的能力|你的技能/.test(userContent)) {
       if (hasSkillsList) {
         return {
@@ -62,33 +62,33 @@ export class MockLLMProvider implements LLMProvider {
       }
     }
 
-    // 6. 有记忆时的回复逻辑
+    // 6. Reply logic with memory
     if (hasMemory) {
-      // 1. 身份
+      // 1. Identity
       if (/我是谁|名字|叫什么/.test(userContent)) {
         return { content: "你是小明。根据记忆，你喜欢简洁的回答。" };
       }
-      // 2. 项目
+      // 2. Project
       if (/项目|在做|开发什么|hachimi/.test(userContent)) {
         return { content: "你正在开发一个叫 hachimi 的个人助理项目。" };
       }
-      // 3. 技术栈
+      // 3. Tech stack
       if (/技术|用什么|前端|语言|TypeScript|Go/.test(userContent)) {
         return { content: "你是一名前端开发者，熟悉 TypeScript 和 Go。" };
       }
-      // 4. 喜好 / 喝什么
+      // 4. Preferences / Beverage
       if (/喜欢|喜好|喝什么|爱喝|咖啡/.test(userContent)) {
         if (systemText.includes("手冲咖啡") || systemText.includes("咖啡")) {
           return { content: "根据我的记忆，你喜欢喝手冲咖啡。" };
         }
       }
-      // 5. 通用有记忆回复
+      // 5. Generic memory response
       return {
         content: `我参考了记忆后回答：${userContent}`,
       };
     }
 
-    // 7. 默认回复
+    // 7. Default response
     return {
       content: `我是 hachimi 的 MockLLM。你刚才说：${userContent}`,
     };
@@ -101,7 +101,7 @@ export class MockLLMProvider implements LLMProvider {
   ): Promise<LLMResponse> {
     const res = await this.chat(messages, tools);
     if (res.content && onChunk) {
-      // 模拟逐字流式打字输出
+      // Simulate chunked typing output stream
       const text = res.content;
       const chunkSize = 5;
       for (let i = 0; i < text.length; i += chunkSize) {

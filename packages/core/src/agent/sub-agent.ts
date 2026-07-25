@@ -40,26 +40,25 @@ export interface SubAgentResult {
 }
 
 /**
- * 架构级优化：极简子 Agent 派发器 (SubAgentDelegator)
- * 支持同步 / 异步非阻塞派发 (async: true)、状态查询 (check_subagent_status) 与链路追踪
+ * Sub-Agent delegator (SubAgentDelegator) supporting sync/async non-blocking dispatch and status tracking
  */
 export class SubAgentDelegator {
   private tasks: Map<string, SubAgentTaskState> = new Map();
 
   constructor(private runtime: HarnessRuntime) {}
 
-  /** 获取指定任务状态 */
+  /** Get task state */
   getTaskState(taskId: string): SubAgentTaskState | undefined {
     return this.tasks.get(taskId);
   }
 
-  /** 列出全量子 Agent 任务 */
+  /** List all sub-agent task states */
   listTaskStates(): SubAgentTaskState[] {
     return Array.from(this.tasks.values()).sort((a, b) => b.createdAt - a.createdAt);
   }
 
   /**
-   * 运行或派发子 Agent 任务
+   * Run or dispatch sub-agent task
    */
   async runSubAgent(options: SubAgentRunOptions): Promise<SubAgentResult> {
     const taskId = generateId("task_sub_");

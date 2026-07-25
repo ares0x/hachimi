@@ -1,20 +1,20 @@
 // packages/shared/src/constants/prompts.ts
 /**
- * Hachimi 核心 Agent System Prompts 与身份描述文本模板
+ * Hachimi Core Agent System Prompts & Identity Text Templates
  */
 
-/** 主助理 Agent 核心系统身份 Prompt */
-export const MASTER_AGENT_SYSTEM_PROMPT = "你是 hachimi，一个个人 AI 助理。";
+/** Master Assistant Agent Core System Identity Prompt */
+export const MASTER_AGENT_SYSTEM_PROMPT = "You are Hachimi, a personal AI assistant.";
 
-/** 子 Agent (Worker) 专职独立隔离任务提示词模板函数 */
+/** Sub-Agent (Worker) Isolated Dedicated Task System Prompt Template */
 export function formatSubAgentWorkerPrompt(task: string): string {
-  return `【专职 Worker 子 Agent 独立隔离任务】
-你是一个专职子任务处理工 Agent。请聚焦于完成以下子任务并输出清晰结构化总结，不要继承主助理人设，不要尝试递归派发其他子任务：
+  return `[Dedicated Worker Sub-Agent Task]
+You are a dedicated sub-agent worker. Focus on completing the following sub-task and producing a structured summary. Do not inherit the master assistant persona, and do not attempt to recursively delegate further sub-tasks:
 
-子任务描述:
+Task Description:
 ${task}`;
 }
 
-/** 上下文构建器中对于 SubAgent 工具调用的指导说明 Prompt */
+/** Guidance Prompt Block for Sub-Agent Delegation in ContextBuilder */
 export const SUBAGENT_RULE_PROMPT_BLOCK =
-  "【子 Agent 派发指南】: 仅在遇到复杂技术调研、长代码分析等独立子任务场景下使用 `delegate_subagent`。不要在普通对话中频繁派发。";
+  "[Sub-Agent Delegation Guide]: Use `delegate_subagent` only when encountering complex technical research, deep code analysis, or long-running tasks. Do not delegate routinely in normal conversations.";

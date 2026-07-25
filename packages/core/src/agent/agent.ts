@@ -38,7 +38,7 @@ export interface AgentOptions {
 }
 
 /**
- * Agent 核心循环
+ * Agent core execution loop
  */
 export class Agent {
   private llm: LLMProvider;

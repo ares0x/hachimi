@@ -54,7 +54,7 @@ describe("ContextBuilder Prompt-Cache stability and tail truncation", () => {
     });
 
     // 必须保留静态前缀 header
-    expect(built.systemPrompt).toContain("你是 hachimi");
+    expect(built.systemPrompt).toContain("You are Hachimi");
     // Token 必须受到上限控制
     const tokenCount = defaultTokenEstimator(built.systemPrompt);
     expect(tokenCount).toBeLessThanOrEqual(500);

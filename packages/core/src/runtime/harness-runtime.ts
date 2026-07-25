@@ -47,8 +47,8 @@ export interface RuntimeOutput {
 }
 
 /**
- * 统一的核心 Harness 运行时 Orchestrator 主类 (HarnessRuntime)
- * 收拢 Agent 循环、上下文组装、Tool 执行、Memory 更新、插件 Hook 拦截与错误隔离边界 (H1.5)
+ * Unified Core Harness Runtime Orchestrator (HarnessRuntime)
+ * Consolidates Agent loops, context assembly, tool execution, memory updates, hooks, and error boundaries
  */
 export class HarnessRuntime {
   public readonly context: AppContext;
@@ -78,7 +78,7 @@ export class HarnessRuntime {
     this.mcp = this.context.mcp;
     this.skillLoader = this.context.skillLoader;
 
-    // 自动注册极简子 Agent 派发与状态查询工具
+    // Automatically register sub-agent delegation and status check tools
     this.subAgentDelegator = new SubAgentDelegator(this);
     if (!this.tools.get("delegate_subagent")) {
       this.tools.register(this.subAgentDelegator.getDelegationTool());
