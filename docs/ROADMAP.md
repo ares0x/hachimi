@@ -66,3 +66,10 @@ Each phase must leave the project runnable and testable, and closes with a short
 - [x] **H2.7 — MCP Tool Alignment & Failure Isolation.** MCP tools share pipeline; bad MCP failures isolated without crashing loop.
 - [x] **H2.8 — Channel Approval Policies (`channelPolicy`).** Fallback handler (`deny` / `allow-safe` / `allowlist`) for headless channels.
 - [x] **H2.9 — System Local Time Context Injection.** Local date & time in `ContextBuilder` dynamic region + builtin `get_current_datetime` tool.
+
+## Phase I — Agent Capability Evaluation Framework (Evals) (Done)
+- [x] **I1.1 — Representative Eval Benchmarks.** 5 core capability domains: `tool_calling`, `multi_turn_reasoning`, `memory_retrieval`, `subagent_delegation`, `safety_jail`.
+- [x] **I1.2 — Tri-Tier Evaluator Graders.** `DeterministicGrader`, `StateGrader`, and `LLMJudgeGrader`.
+- [x] **I1.3 — Dual-Mode EvalRunner.** Supports Mock Mode (CI zero cost regression) and Live LLM Mode.
+- [x] **I1.4 — Metrics & Reporter.** `EvalReporter` formatted summary output with Pass Rate %, Avg Latency (ms), and Avg Tokens.
+

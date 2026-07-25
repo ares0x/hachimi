@@ -23,7 +23,8 @@
     "format": "biome format --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "smoke:mock": "vitest run tests/smoke/smoke.test.ts"
+    "smoke:mock": "vitest run tests/smoke/smoke.test.ts",
+    "eval": "vitest run packages/evals/src/evals.test.ts"
   },
   "keywords": [
     "ai-agent",
