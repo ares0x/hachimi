@@ -1,4 +1,5 @@
 // packages/core/src/sandbox/path-jail.ts
+import { homedir } from "node:os";
 import { isAbsolute, normalize, resolve } from "node:path";
 import { ToolRejectedError } from "@hachimi/shared";
 
@@ -28,7 +29,12 @@ export class PathJail {
       throw new ToolRejectedError("targetPath", "路径不能为空");
     }
 
-    const resolved = resolve(this.workspaceRoot, targetPath);
+    let p = targetPath.trim();
+    if (p.startsWith("~")) {
+      p = p.replace(/^~/, homedir());
+    }
+
+    const resolved = resolve(this.workspaceRoot, p);
     const normalizedWorkspace = normalize(this.workspaceRoot);
     const normalizedTarget = normalize(resolved);
 
