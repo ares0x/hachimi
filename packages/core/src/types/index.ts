@@ -84,7 +84,7 @@ export interface ToolDefinition {
   name: string;
   description: string;
   parameters: Record<string, unknown>; // JSON Schema
-  execute: (args: Record<string, unknown>, ctx: ToolContext) => Promise<string>;
+  execute: (args: Record<string, unknown>, ctx?: any) => Promise<string>;
   permission?: ToolPermission;
   /** Whether this tool needs human approval before execution */
   requiresApproval?: boolean;

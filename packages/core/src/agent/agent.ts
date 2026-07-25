@@ -63,7 +63,7 @@ export class Agent {
     this.skills = options.skills;
     this.contextBuilder = options.contextBuilder ?? new ContextBuilder();
     this.hooks = options.hooks;
-    this.maxToolRounds = options.maxToolRounds ?? 5;
+    this.maxToolRounds = options.maxToolRounds ?? 10;
     this.onToolApproval = options.onToolApproval;
     this.onToolStart = options.onToolStart;
     this.onToolEnd = options.onToolEnd;

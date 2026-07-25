@@ -32,7 +32,33 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // 2. 获取会话列表
+  // 2. 加载并渲染指定 Session 的历史消息
+  async function loadSessionMessages(sessionId) {
+    if (!sessionId) return;
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.session) return;
+
+      messagesContainer.innerHTML = "";
+
+      if (data.session.messages && data.session.messages.length > 0) {
+        data.session.messages.forEach((msg) => {
+          appendMessage(msg.role, msg.content);
+        });
+      } else {
+        appendMessage(
+          "assistant",
+          "你好！我是你的 Hachimi 个人 AI 助手。我可以帮你管理任务、记忆偏好并执行命令行工具。请问今天有什么可以帮你的？"
+        );
+      }
+    } catch (e) {
+      console.error("无法加载会话消息:", e);
+    }
+  }
+
+  // 3. 获取会话列表
   async function loadSessions() {
     try {
       const res = await fetch("/api/sessions");
@@ -40,7 +66,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await res.json();
 
       sessionList.innerHTML = "";
-      (data.sessions || []).forEach((sess) => {
+      const sessions = data.sessions || [];
+
+      if (!currentSessionId && sessions.length > 0) {
+        currentSessionId = sessions[0].id;
+      }
+
+      sessions.forEach((sess) => {
         const li = document.createElement("li");
         li.className = `session-item ${sess.id === currentSessionId ? "active" : ""}`;
         li.textContent = sess.title || sess.id;
@@ -49,15 +81,25 @@ document.addEventListener("DOMContentLoaded", () => {
           document.querySelectorAll(".session-item").forEach((el) => el.classList.remove("active"));
           li.classList.add("active");
           document.getElementById("current-session-title").textContent = sess.title || sess.id;
+          loadSessionMessages(sess.id);
         });
         sessionList.appendChild(li);
       });
+
+      if (currentSessionId) {
+        const activeSess = sessions.find((s) => s.id === currentSessionId);
+        if (activeSess) {
+          document.getElementById("current-session-title").textContent =
+            activeSess.title || activeSess.id;
+        }
+        loadSessionMessages(currentSessionId);
+      }
     } catch (e) {
       console.error("无法加载会话:", e);
     }
   }
 
-  // 3. 追加消息泡泡
+  // 4. 追加消息泡泡
   function appendMessage(role, text) {
     const msgDiv = document.createElement("div");
     msgDiv.className = `message ${role}`;
@@ -68,7 +110,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const bubble = document.createElement("div");
     bubble.className = "bubble glass-bubble";
-    bubble.textContent = text;
+    bubble.textContent = typeof text === "string" ? text : JSON.stringify(text);
 
     msgDiv.appendChild(avatar);
     msgDiv.appendChild(bubble);
@@ -78,7 +120,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return bubble;
   }
 
-  // 4. 发送对话请求 (支持 SSE 流式打字机)
+  // 5. 发送对话请求 (支持 SSE 流式打字机)
   async function sendMessage() {
     const prompt = promptInput.value.trim();
     if (!prompt) return;
@@ -140,12 +182,13 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       updateStatus();
+      loadSessions();
     } catch (err) {
       assistantBubble.textContent = `发送异常: ${err.message || String(err)}`;
     }
   }
 
-  // 5. C6 Mid-turn Steer 对话中途转向
+  // 6. C6 Mid-turn Steer 对话中途转向
   async function sendSteer() {
     const prompt = promptInput.value.trim();
     if (!prompt) return;
@@ -167,14 +210,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // 6. Phase D Portable Bundle 导出
+  // 7. Phase D Portable Bundle 导出
   async function exportBundle() {
     try {
       const res = await fetch("/api/export");
       const data = await res.json();
 
       if (data.success && data.bundle) {
-        const blob = new Blob([JSON.stringify(data.bundle, null, 2)], { type: "application/json" });
+        const blob = new Blob([JSON.stringify(data.bundle, null, 2)], {
+          type: "application/json",
+        });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -187,7 +232,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // 7. Phase D Portable Bundle 导入
+  // 8. Phase D Portable Bundle 导入
   async function importBundle(file) {
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -246,6 +291,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // 初始化加载
-  updateStatus();
-  loadSessions();
+  async function init() {
+    await updateStatus();
+    await loadSessions();
+  }
+
+  init();
 });

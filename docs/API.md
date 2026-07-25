@@ -19,29 +19,35 @@
 - **`createHarnessRuntime(options?)`**：工厂函数，创建新的 `HarnessRuntime` 实例。
 - **`getOrCreateHarnessRuntime(options?)`**：单例/工厂函数，获取或创建全局共享的 `HarnessRuntime` 实例。
 
-### 2. 组装根与会话 SDK (Composition Root & Session SDK)
+### 2. 子 Agent 派发与自演化 (Sub-Agent & Experience)
+- **`SubAgentDelegator`**：极简子 Agent 隔离派发器，支持 `async: true` 非阻塞后台派发与 `check_subagent_status` 检索。
+- **`TrajectoryCompressor`**：交互轨迹压缩器，提炼工具链与用户纠正模式。
+- **`SkillProposalManager`**：人在回路 (Human-in-the-Loop) 技能草案管理器，只有用户在 TUI/Web/REST 显式 Accept 后才写入 `~/.hachimi/skills/` 生效。
+- **`ProactiveScheduler`**：支持 Cron 表达式与定时间隔的主动提醒调度器。
+
+### 3. 组装根与会话 SDK (Composition Root & Session SDK)
 - **`createAppContext(options?)`**：底层 Composition Root，初始化配置、SQLite 存储、Memory、Tools、Skills、Hooks 与 Agent。
 - **`createAgentSession(options?)`**：高阶 SDK 函数，返回绑定特定 `sessionId` 的 `AgentSession` 实例。
 
-### 3. 核心 Agent 循环 (Agent & Providers)
+### 4. 核心 Agent 循环 (Agent & Providers)
 - **`Agent`**：Agent 主循环控制类，支持中途转向与工具调用。
 - **`createLLMFromConfig(config)`**：LLM Provider 工厂函数。
 - **`ProviderRegistry`**：多厂商 Preset LLM 传输层注册表。
 - **`MockLLMProvider`** / **`OpenAICompatibleProvider`** / **`AnthropicProviderTransport`**：基础 LLM 传输层。
 
-### 4. 扩展与插件引擎 (Extensions & Hooks)
+### 5. 扩展与插件引擎 (Extensions & Hooks)
 - **`HookRegistry`**：生命周期 Hook 注册表（`onSessionStart`, `onPreToolCall`, `onPostToolCall`）。
 - **`McpClientManager`**：MCP (Model Context Protocol) Stdio 客户端管理器。
 - **`SkillPackageLoader`**：外部 `~/.hachimi/skills/` 技能包扫描加载器。
 
-### 5. 记忆与便携式 Memory (Memory & Portable)
+### 6. 记忆与便携式 Memory (Memory & Portable)
 - **`MemoryManager`**：四层混合存储与向量检索记忆管理器。
 - **`exportBundle` / `importBundle` / `migrateBundleToLatest`**：便携记忆包导出、叠加合并导入与 Schema 自动迁移。
 
-### 6. 工具与沙箱 (Tools & Sandbox)
-- **`ToolRegistry`**：工具注册表。
-- **`registerBuiltinTools`**：注册内置计算器等基础工具。
-- **`ToolSandbox`**：工具执行超时与 Buffer 熔断隔离沙箱。
+### 7. 工具与沙箱 (Tools & Sandbox)
+- **`ToolRegistry`**：工具注册表与熔断器 (Circuit Breaker)。
+- **`ToolSandbox`**：工具执行 30s 统一超时、1MB Buffer 截断与敏感环境变量脱敏 (Env Scrubbing)。
+- **`PathJail`**：工作区路径狱越界防护。
 
-### 7. 数据契约与类型 (Data Contracts & Types)
-- **`RuntimeInput`** / **`RuntimeOutput`** / **`ChannelType`** / **`Message`** / **`Session`** / **`ToolDefinition`** / **`SkillDefinition`** 等。
+### 8. 数据契约与类型 (Data Contracts & Types)
+- **`RuntimeInput`** / **`RuntimeOutput`** / **`ChannelType`** / **`Message`** / **`Session`** / **`SubAgentTaskState`** / **`SkillDraft`** / **`TriggerTask`** 等。

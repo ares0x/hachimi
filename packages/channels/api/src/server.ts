@@ -7,6 +7,8 @@ import websocket from "@fastify/websocket";
 import {
   type AppContext,
   HarnessRuntime,
+  ProactiveScheduler,
+  SkillProposalManager,
   createAgentSession,
   getOrCreateHarnessRuntime,
 } from "@hachimi/core";
@@ -24,6 +26,8 @@ export interface HachimiApiServerOptions {
 export interface HachimiApiServer {
   runtime: HarnessRuntime;
   appContext: AppContext;
+  proposalManager: SkillProposalManager;
+  scheduler: ProactiveScheduler;
   fastify: FastifyInstance;
   listen(): Promise<string>;
   close(): Promise<void>;
@@ -36,6 +40,8 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
       options.appContext ? { providerOverride: options.appContext.config.llm.activeProvider } : {}
     );
   const appContext = runtime.context;
+  const proposalManager = new SkillProposalManager(appContext.config.paths.dataDir, runtime.skills);
+  const scheduler = new ProactiveScheduler(appContext.config.paths.dataDir);
 
   const secretKey = options.secretKey || process.env.HACHIMI_API_SECRET;
   const authRequired = Boolean(secretKey);
@@ -240,9 +246,88 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
     return { success: true, result };
   });
 
+  // Phase F5: GET /api/proposals & Accept / Reject
+  server.get("/api/proposals", async (request: FastifyRequest) => {
+    const status = (request.query as any)?.status as
+      | "pending"
+      | "approved"
+      | "rejected"
+      | undefined;
+    return { proposals: proposalManager.listProposals(status) };
+  });
+
+  server.post("/api/proposals/:id/accept", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const result = proposalManager.acceptProposal(id);
+    if (!result.success) {
+      reply.code(400).send(result);
+      return;
+    }
+    return result;
+  });
+
+  server.post("/api/proposals/:id/reject", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const result = proposalManager.rejectProposal(id);
+    if (!result.success) {
+      reply.code(400).send(result);
+      return;
+    }
+    return result;
+  });
+
+  // Phase F6: GET /api/triggers & POST /api/triggers & DELETE /api/triggers/:id
+  server.get("/api/triggers", async () => {
+    return { triggers: scheduler.listTasks() };
+  });
+
+  server.post("/api/triggers", async (request: FastifyRequest, reply: FastifyReply) => {
+    const body = (request.body || {}) as {
+      name?: string;
+      prompt?: string;
+      intervalMs?: number;
+      cronExpression?: string;
+      channel?: string;
+      delayMs?: number;
+    };
+    if (!body.name || !body.prompt) {
+      reply.code(400).send({ error: "Missing required parameters: name and prompt" });
+      return;
+    }
+    const created = scheduler.addTask({
+      name: body.name,
+      prompt: body.prompt,
+      intervalMs: body.intervalMs,
+      cronExpression: body.cronExpression,
+      channel: body.channel,
+      delayMs: body.delayMs,
+    });
+    return { success: true, trigger: created };
+  });
+
+  server.delete("/api/triggers/:id", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const removed = scheduler.removeTask(id);
+    if (!removed) {
+      reply.code(404).send({ error: `Trigger task '${id}' not found` });
+      return;
+    }
+    return { success: true, id };
+  });
+
   // 4. GET /api/sessions & POST /api/sessions
   server.get("/api/sessions", async () => {
     return { sessions: runtime.sessions.list() };
+  });
+
+  server.get("/api/sessions/:id", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const session = runtime.sessions.load(id);
+    if (!session) {
+      reply.code(404).send({ error: `Session '${id}' not found` });
+      return;
+    }
+    return { session };
   });
 
   server.post("/api/sessions", async (request: FastifyRequest) => {
@@ -309,6 +394,8 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
   return {
     runtime,
     appContext,
+    proposalManager,
+    scheduler,
     fastify: server,
     async listen() {
       const port = options.port || Number(process.env.HACHIMI_PORT || 3700);
@@ -319,9 +406,20 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
         port,
         host,
       });
+
+      // 启动定时触发器调度循环
+      scheduler.start(async (task) => {
+        log("info", `主动触发器触发运行: [${task.name}] "${task.prompt}"`);
+        await runtime.execute({
+          prompt: task.prompt,
+          channel: (task.channel as any) || "proactive-trigger",
+        });
+      });
+
       return address;
     },
     async close() {
+      scheduler.stop();
       await server.close();
     },
   };

@@ -1,5 +1,6 @@
 // packages/core/src/runtime/harness-runtime.ts
-import { log } from "@hachimi/shared";
+import { generateId, log } from "@hachimi/shared";
+import { SubAgentDelegator } from "../agent/sub-agent.js";
 import type { Agent } from "../agent/agent.js";
 import type { HookRegistry } from "../extensions/hooks.js";
 import type { McpClientManager } from "../extensions/mcp-client.js";
@@ -59,6 +60,7 @@ export class HarnessRuntime {
   public readonly hooks: HookRegistry;
   public readonly mcp: McpClientManager;
   public readonly skillLoader: SkillPackageLoader;
+  public readonly subAgentDelegator: SubAgentDelegator;
 
   constructor(options: CreateAppContextOptions | AppContext = {}) {
     if ("memory" in options && "agent" in options) {
@@ -75,6 +77,15 @@ export class HarnessRuntime {
     this.hooks = this.context.hooks;
     this.mcp = this.context.mcp;
     this.skillLoader = this.context.skillLoader;
+
+    // 自动注册极简子 Agent 派发与状态查询工具
+    this.subAgentDelegator = new SubAgentDelegator(this);
+    if (!this.tools.get("delegate_subagent")) {
+      this.tools.register(this.subAgentDelegator.getDelegationTool());
+    }
+    if (!this.tools.get("check_subagent_status")) {
+      this.tools.register(this.subAgentDelegator.getCheckStatusTool());
+    }
   }
 
   /**
@@ -99,7 +110,24 @@ export class HarnessRuntime {
       const history = sessionObj.messages || [];
       content = await this.agent.run(input.prompt, history, input.options);
 
-      // 4. 更新与保存 Session
+      // 4. 追加 User 与 Assistant 对话记录到 Session 中并持久化
+      sessionObj.messages.push({
+        id: generateId("msg_"),
+        role: "user",
+        content: input.prompt,
+        timestamp: startTime,
+        channel: input.channel,
+      });
+
+      sessionObj.messages.push({
+        id: generateId("msg_"),
+        role: "assistant",
+        content,
+        timestamp: Date.now(),
+        channel: input.channel,
+      });
+
+      // 5. 更新与保存 Session
       this.sessions.save(sessionObj);
     } catch (err: any) {
       isError = true;
