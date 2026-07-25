@@ -1,5 +1,6 @@
 // packages/evals/src/runner.ts
-import { type HarnessRuntime, createHarnessRuntime } from "@hachimi/core";
+import type { HarnessRuntime } from "@hachimi/core";
+import { createHarnessRuntime } from "@hachimi/core";
 import { generateId } from "@hachimi/shared";
 import { allEvalCases } from "./cases/index.js";
 import { DeterministicGrader, LLMJudgeGrader, StateGrader } from "./graders/index.js";
