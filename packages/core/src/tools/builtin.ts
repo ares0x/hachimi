@@ -1,4 +1,5 @@
 // packages/core/src/tools/builtin.ts
+import { existsSync, readFileSync } from "node:fs";
 import type { ToolRegistry } from "./registry.js";
 
 /**
@@ -68,6 +69,27 @@ export function registerBuiltinTools(tools: ToolRegistry) {
       });
 
       return `[当前本地时间]: ${localStr} (时区: ${timeZone})`;
+    },
+  });
+
+  tools.register({
+    name: "read_file",
+    description: "读取工作区内指定文件的文本内容",
+    permission: "safe",
+    parameters: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "需要读取的文件路径 (相对工作区)" },
+      },
+      required: ["path"],
+    },
+    async execute(args) {
+      const { path: filePath } = args as { path: string };
+      if (!existsSync(filePath)) {
+        return `[文件不存在] 无法找到文件: ${filePath}`;
+      }
+      const content = readFileSync(filePath, "utf-8");
+      return content.length > 4000 ? `${content.slice(0, 4000)}\n...[文件过长截断]` : content;
     },
   });
 }
