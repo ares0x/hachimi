@@ -157,7 +157,6 @@ async function main() {
   if (!forceCli) {
     const tuiApp = new HachimiTUIApp({ ctx });
     await tuiApp.start();
-    return;
   }
 
   enterFullscreenCanvas();
