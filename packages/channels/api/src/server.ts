@@ -12,7 +12,7 @@ import {
   createAgentSession,
   getOrCreateHarnessRuntime,
 } from "@hachimi/core";
-import { generateId, log } from "@hachimi/shared";
+import { DAEMON_DEFAULT_HOST, DAEMON_DEFAULT_PORT, generateId, log } from "@hachimi/shared";
 import fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 
 export interface HachimiApiServerOptions {
@@ -398,8 +398,8 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
     scheduler,
     fastify: server,
     async listen() {
-      const port = options.port || Number(process.env.HACHIMI_PORT || 3700);
-      const host = options.host || process.env.HACHIMI_HOST || "127.0.0.1";
+      const port = options.port || Number(process.env.HACHIMI_PORT || DAEMON_DEFAULT_PORT);
+      const host = options.host || process.env.HACHIMI_HOST || DAEMON_DEFAULT_HOST;
       const address = await server.listen({ port, host });
       log("info", `🚀 Hachimi Daemon Server running at ${address}`, {
         authRequired,

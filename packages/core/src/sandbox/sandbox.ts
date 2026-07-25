@@ -1,4 +1,13 @@
 // packages/core/src/sandbox/sandbox.ts
+import {
+  DEFAULT_MAX_BUFFER_BYTES,
+  DEFAULT_SENSITIVE_ENV_KEYS,
+  DEFAULT_TOOL_TIMEOUT_MS,
+  formatSandboxExceptionMessage,
+  formatSandboxPathJailMessage,
+  formatSandboxTimeoutMessage,
+  formatSandboxTruncationMessage,
+} from "@hachimi/shared";
 import { PathJail } from "./path-jail.js";
 
 export interface ISandboxOptions {
@@ -14,27 +23,14 @@ export interface ISandboxOptions {
   mode?: "process" | "docker";
 }
 
-const DEFAULT_SENSITIVE_ENV_KEYS = [
-  "DEEPSEEK_API_KEY",
-  "OPENAI_API_KEY",
-  "ANTHROPIC_API_KEY",
-  "TELEGRAM_BOT_TOKEN",
-  "HACHIMI_API_SECRET",
-  "AWS_SECRET_ACCESS_KEY",
-  "AWS_ACCESS_KEY_ID",
-  "DATABASE_URL",
-  "SECRET_KEY",
-  "PRIVATE_KEY",
-];
-
 export class ToolSandbox {
   private defaultTimeoutMs: number;
   private defaultMaxBuffer: number;
   public readonly pathJail: PathJail;
 
   constructor(options: ISandboxOptions = {}) {
-    this.defaultTimeoutMs = options.timeoutMs ?? 30000;
-    this.defaultMaxBuffer = options.maxBuffer ?? 1024 * 1024;
+    this.defaultTimeoutMs = options.timeoutMs ?? DEFAULT_TOOL_TIMEOUT_MS;
+    this.defaultMaxBuffer = options.maxBuffer ?? DEFAULT_MAX_BUFFER_BYTES;
     this.pathJail = new PathJail({ workspaceRoot: options.workspaceRoot });
   }
 
@@ -86,7 +82,7 @@ export class ToolSandbox {
             try {
               this.pathJail.assertPathInJail(val);
             } catch (err: any) {
-              return `[沙箱拦截] 工具 ${toolName} 路径安全校验失败: ${err?.message || String(err)}`;
+              return formatSandboxPathJailMessage(toolName, err?.message || String(err));
             }
           }
         }
@@ -103,7 +99,7 @@ export class ToolSandbox {
 
     const timeoutPromise = new Promise<string>((_, reject) => {
       timer = setTimeout(() => {
-        reject(new Error(`[沙箱熔断] 工具 ${toolName} 执行超时 (${timeoutMs}ms)`));
+        reject(new Error(formatSandboxTimeoutMessage(toolName, timeoutMs)));
       }, timeoutMs);
     });
 
@@ -113,13 +109,13 @@ export class ToolSandbox {
       // 输出流 Cap / 尺寸截断保护
       if (result && result.length > maxBuffer) {
         const truncated = result.slice(0, maxBuffer);
-        return `${truncated}\n\n[沙箱提示] 工具 ${toolName} 输出内容过长，已被自动截断 (最大限制 ${maxBuffer} 字节)`;
+        return `${truncated}\n\n${formatSandboxTruncationMessage(toolName, maxBuffer)}`;
       }
 
       return result;
     } catch (err: any) {
       const msg = err instanceof Error ? err.message : String(err);
-      return `[沙箱拦截] 工具 ${toolName} 执行异常: ${msg}`;
+      return formatSandboxExceptionMessage(toolName, msg);
     } finally {
       if (timer) {
         clearTimeout(timer);

@@ -1,4 +1,5 @@
 // packages/core/src/tools/registry.ts
+import { CIRCUIT_BREAKER_MAX_FAILURES, formatCircuitBreakerOpenMessage } from "@hachimi/shared";
 import type { HookRegistry } from "../extensions/hooks.js";
 import { ToolSandbox } from "../sandbox/sandbox.js";
 import type { ToolDefinition } from "../types/index.js";
@@ -19,7 +20,7 @@ export class ToolRegistry {
   private tools: Map<string, ToolDefinition> = new Map();
   private sandbox: ToolSandbox = new ToolSandbox();
   private failureCounts: Map<string, number> = new Map();
-  private maxConsecutiveFailures = 3;
+  private maxConsecutiveFailures = CIRCUIT_BREAKER_MAX_FAILURES;
 
   register(tool: ToolDefinition) {
     this.tools.set(tool.name, tool);
@@ -48,6 +49,12 @@ export class ToolRegistry {
     return this.failureCounts.get(name) || 0;
   }
 
+  /** 记录工具失败与判断熔断 */
+  private recordFailure(name: string) {
+    const current = this.getFailureCount(name);
+    this.failureCounts.set(name, current + 1);
+  }
+
   /**
    * 统一工具执行管道 (5 步标准化流程 H2.2 / H2.3 / H2.5)
    * 1. 检查是否存在与参数基本有效性
@@ -70,7 +77,7 @@ export class ToolRegistry {
     // 1. 熔断器检查 (H2.5)
     const currentFailures = this.getFailureCount(name);
     if (currentFailures >= this.maxConsecutiveFailures) {
-      return `[工具熔断] 工具 ${name} 已连续失败 ${currentFailures} 次，已被自动熔断暂限执行。`;
+      return formatCircuitBreakerOpenMessage(name, currentFailures);
     }
 
     // 2. 参数基本校验 (H2.2)
@@ -167,10 +174,5 @@ export class ToolRegistry {
     }
 
     return finalResult;
-  }
-
-  private recordFailure(name: string) {
-    const current = this.getFailureCount(name);
-    this.failureCounts.set(name, current + 1);
   }
 }

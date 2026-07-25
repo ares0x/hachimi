@@ -1,7 +1,8 @@
 // packages/core/src/context/builder.ts
-import type { MemoryEntry } from "../types/index.js";
+import { DEFAULT_TOKEN_BUDGET, MASTER_AGENT_SYSTEM_PROMPT } from "@hachimi/shared";
 import type { SkillRegistry } from "../skills/registry.js";
 import type { ToolRegistry } from "../tools/registry.js";
+import type { MemoryEntry } from "../types/index.js";
 import type { Message } from "../types/index.js";
 
 export interface ContextOptions {
@@ -35,9 +36,9 @@ export interface BuiltContext {
   };
 }
 
-const DEFAULT_IDENTITY = `你是 hachimi，一个个人 AI 助理。`;
+const DEFAULT_IDENTITY = MASTER_AGENT_SYSTEM_PROMPT;
 const DEFAULT_OPTIONS: Required<ContextOptions> = {
-  maxTokens: 8000,
+  maxTokens: DEFAULT_TOKEN_BUDGET,
   summaryThreshold: 20,
   mode: "normal",
   enableTokenTruncation: true,

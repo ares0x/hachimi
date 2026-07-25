@@ -1,5 +1,10 @@
 // packages/core/src/agent/agent.ts
-import { defaultTokenEstimator, generateId } from "@hachimi/shared";
+import {
+  DEFAULT_MAX_TOOL_ROUNDS,
+  defaultTokenEstimator,
+  formatUserRejectionMessage,
+  generateId,
+} from "@hachimi/shared";
 import { ContextBuilder } from "../context/builder.js";
 import type { HookRegistry } from "../extensions/hooks.js";
 import type { MemoryManager } from "../memory/manager.js";
@@ -63,7 +68,7 @@ export class Agent {
     this.skills = options.skills;
     this.contextBuilder = options.contextBuilder ?? new ContextBuilder();
     this.hooks = options.hooks;
-    this.maxToolRounds = options.maxToolRounds ?? 10;
+    this.maxToolRounds = options.maxToolRounds ?? DEFAULT_MAX_TOOL_ROUNDS;
     this.onToolApproval = options.onToolApproval;
     this.onToolStart = options.onToolStart;
     this.onToolEnd = options.onToolEnd;
@@ -291,7 +296,7 @@ export class Agent {
               hooks: options?.hooks || this.hooks,
               sessionId: options?.sessionId,
             })
-          : `[用户拦截] 工具 ${call.name} 的执行请求已被用户拒绝。`;
+          : formatUserRejectionMessage(call.name);
 
         const durationMs = Date.now() - startTime;
         if (this.onToolEnd) {

@@ -1,5 +1,12 @@
 // packages/core/src/agent/sub-agent.ts
-import { generateId, log } from "@hachimi/shared";
+import {
+  formatSubAgentAsyncDispatchedMessage,
+  formatSubAgentRecursionBlockedMessage,
+  formatSubAgentSuccessSummaryMessage,
+  formatSubAgentWorkerPrompt,
+  generateId,
+  log,
+} from "@hachimi/shared";
 import type { HarnessRuntime } from "../runtime/harness-runtime.js";
 import type { ToolDefinition } from "../types/index.js";
 
@@ -77,9 +84,10 @@ export class SubAgentDelegator {
       task: options.taskDescription,
     });
 
-    const prompt = options.contextHint
-      ? `【专职 Worker 子 Agent 独立隔离任务】\n你是一个专职子任务处理工 Agent。请聚焦于完成以下子任务并输出清晰结构化总结，不要继承主助理人设，禁止试图递归派发子任务。\n任务描述：${options.taskDescription}\n背景参考：${options.contextHint}`
-      : `【专职 Worker 子 Agent 独立隔离任务】\n你是一个专职子任务处理工 Agent。请聚焦于完成以下子任务并输出清晰结构化总结，不要继承主助理人设，禁止试图递归派发子任务。\n任务描述：${options.taskDescription}`;
+    const fullTaskDescription = options.contextHint
+      ? `${options.taskDescription}\n背景参考：${options.contextHint}`
+      : options.taskDescription;
+    const prompt = formatSubAgentWorkerPrompt(fullTaskDescription);
 
     const executeChildTask = async (): Promise<SubAgentResult> => {
       try {
@@ -185,7 +193,7 @@ export class SubAgentDelegator {
         const parentSessionId = ctx?.sessionId;
 
         if (parentSessionId?.startsWith("sub_sess_")) {
-          return "[系统安全拦截] 子 Agent 禁止再次递归派发子任务，以防止无限嵌套死锁与递归爆炸。";
+          return formatSubAgentRecursionBlockedMessage();
         }
 
         const result = await this.runSubAgent({
@@ -199,7 +207,7 @@ export class SubAgentDelegator {
           return result.summary;
         }
 
-        return `[子 Agent 运行完成 (Task ID: ${result.taskId})]\n处理结果总结：\n${result.summary}`;
+        return formatSubAgentSuccessSummaryMessage(result.taskId, result.summary);
       },
     };
   }

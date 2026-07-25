@@ -1,6 +1,11 @@
 // packages/config/src/index.ts
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import {
+  DAEMON_DEFAULT_PORT,
+  DEFAULT_MAX_TOOL_ROUNDS,
+  DEFAULT_TOKEN_BUDGET,
+} from "@hachimi/shared";
 
 export type LLMProviderName =
   | "mock"
@@ -91,10 +96,10 @@ export const DEFAULT_CONFIG: HachimiConfig = {
     sessionsDir: resolve("data", "sessions"),
   },
   agent: {
-    maxToolRounds: 5,
+    maxToolRounds: DEFAULT_MAX_TOOL_ROUNDS,
   },
   context: {
-    maxTokens: 12000,
+    maxTokens: DEFAULT_TOKEN_BUDGET,
     summaryThreshold: 10000,
     defaultMode: "normal",
     enableTokenTruncation: true,
@@ -105,7 +110,7 @@ export const DEFAULT_CONFIG: HachimiConfig = {
   },
   channels: {
     api: {
-      port: 3700,
+      port: DAEMON_DEFAULT_PORT,
     },
   },
 };
