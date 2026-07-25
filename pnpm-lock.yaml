@@ -29,9 +29,18 @@ importers:
       '@hachimi/channel-api':
         specifier: workspace:*
         version: link:../../packages/channels/api
+      '@hachimi/channel-telegram':
+        specifier: workspace:*
+        version: link:../../packages/channels/telegram
+      '@hachimi/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@hachimi/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@hachimi/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
     devDependencies:
       '@types/node':
         specifier: ^22.13.10
