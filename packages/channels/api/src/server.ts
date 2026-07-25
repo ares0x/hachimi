@@ -10,7 +10,7 @@ import {
   createAgentSession,
   getOrCreateHarnessRuntime,
 } from "@hachimi/core";
-import { log } from "@hachimi/shared";
+import { generateId, log } from "@hachimi/shared";
 import fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 
 export interface HachimiApiServerOptions {
@@ -53,6 +53,13 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
       prefix: "/",
     });
   }
+
+  // H1.6 链路追踪 x-request-id 中间件
+  server.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
+    const reqId = (request.headers["x-request-id"] as string) || generateId("req_");
+    (request as any).requestId = reqId;
+    reply.header("x-request-id", reqId);
+  });
 
   // C5 传输层 Token 鉴权中间件
   server.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
@@ -101,8 +108,9 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
     return runtime.getStatus();
   });
 
-  // 3. POST /api/chat (全部委派给 HarnessRuntime.execute)
+  // 3. POST /api/chat (全部委派给 HarnessRuntime.execute，带 Request ID 追踪)
   server.post("/api/chat", async (request: FastifyRequest, reply: FastifyReply) => {
+    const requestId = (request as any).requestId;
     const body = (request.body || {}) as {
       prompt?: string;
       sessionId?: string;
@@ -123,6 +131,7 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
       reply.raw.setHeader("Content-Type", "text/event-stream");
       reply.raw.setHeader("Cache-Control", "no-cache");
       reply.raw.setHeader("Connection", "keep-alive");
+      reply.raw.setHeader("x-request-id", requestId);
 
       try {
         const output = await runtime.execute({
@@ -130,6 +139,7 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
           sessionId: body.sessionId,
           channel: "web-sse",
           providerOverride: body.provider,
+          metadata: { requestId },
           options: {
             onChunk: (chunk) => {
               reply.raw.write(`data: ${JSON.stringify({ type: "chunk", chunk })}\n\n`);
@@ -142,6 +152,7 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
             type: "done",
             sessionId: output.sessionId,
             content: output.content,
+            requestId,
           })}\n\n`
         );
       } catch (err: any) {
@@ -149,6 +160,7 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
           `data: ${JSON.stringify({
             type: "error",
             error: err?.message || String(err),
+            requestId,
           })}\n\n`
         );
       } finally {
@@ -163,6 +175,7 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
         sessionId: body.sessionId,
         channel: "api-json",
         providerOverride: body.provider,
+        metadata: { requestId },
       });
 
       return {
@@ -170,12 +183,14 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
         sessionId: output.sessionId,
         content: output.content,
         durationMs: output.durationMs,
+        requestId,
       };
     } catch (err: any) {
       reply.code(500).send({
         success: false,
         sessionId: body.sessionId,
         error: err?.message || String(err),
+        requestId,
       });
     }
   });
@@ -248,6 +263,7 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
 
   // 6. GET /api/ws (WebSocket 通信全部委派给 HarnessRuntime)
   server.get("/api/ws", { websocket: true }, (socket, req) => {
+    const requestId = generateId("req_ws_");
     socket.on("message", async (rawMessage: any) => {
       try {
         const payload = JSON.parse(rawMessage.toString());
@@ -257,27 +273,35 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
             sessionId: payload.sessionId,
             channel: "ws",
             providerOverride: payload.provider,
+            metadata: { requestId },
             options: {
               onChunk: (chunk) => {
-                socket.send(JSON.stringify({ type: "chunk", chunk }));
+                socket.send(JSON.stringify({ type: "chunk", chunk, requestId }));
               },
             },
           });
 
           socket.send(
-            JSON.stringify({ type: "done", sessionId: output.sessionId, content: output.content })
+            JSON.stringify({
+              type: "done",
+              sessionId: output.sessionId,
+              content: output.content,
+              requestId,
+            })
           );
         } else if (payload.type === "steer" && payload.prompt) {
           const steered = runtime.steer(payload.prompt);
-          socket.send(JSON.stringify({ type: "steer_ack", success: steered }));
+          socket.send(JSON.stringify({ type: "steer_ack", success: steered, requestId }));
         } else if (payload.type === "followup" && payload.prompt) {
           runtime.followUp(payload.prompt);
-          socket.send(JSON.stringify({ type: "followup_ack", success: true }));
+          socket.send(JSON.stringify({ type: "followup_ack", success: true, requestId }));
         } else if (payload.type === "ping") {
-          socket.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
+          socket.send(JSON.stringify({ type: "pong", timestamp: Date.now(), requestId }));
         }
       } catch (err: any) {
-        socket.send(JSON.stringify({ type: "error", message: err?.message || String(err) }));
+        socket.send(
+          JSON.stringify({ type: "error", message: err?.message || String(err), requestId })
+        );
       }
     });
   });

@@ -1,20 +1,24 @@
 // packages/core/src/runtime/harness-runtime.ts
+import { log } from "@hachimi/shared";
 import type { Agent } from "../agent/agent.js";
 import type { HookRegistry } from "../extensions/hooks.js";
 import type { McpClientManager } from "../extensions/mcp-client.js";
 import type { SkillPackageLoader } from "../extensions/skill-package.js";
 import type { MemoryManager } from "../memory/manager.js";
 import { exportBundle } from "../portable/exporter.js";
-import type { ImportBundleOptions, ImportBundleResult, ExportBundleOptions } from "@hachimi/core";
 import { importBundle } from "../portable/importer.js";
-import type { HachimiBundleV1 } from "../portable/types.js";
+import type {
+  ExportBundleOptions,
+  HachimiBundleV1,
+  ImportBundleOptions,
+  ImportBundleResult,
+} from "../portable/types.js";
 import type { SessionManager } from "../session/manager.js";
 import type { SkillRegistry } from "../skills/registry.js";
 import type { ToolRegistry } from "../tools/registry.js";
+import type { ChannelType } from "../types/index.js";
 import type { AppContext, CreateAppContextOptions } from "./context.js";
 import { createAppContext } from "./context.js";
-
-import type { ChannelType } from "../types/index.js";
 
 export interface RuntimeInputOptions {
   onChunk?: (chunk: string) => void;
@@ -28,6 +32,7 @@ export interface RuntimeInput {
   channel?: ChannelType;
   providerOverride?: string;
   options?: RuntimeInputOptions;
+  metadata?: Record<string, unknown>;
 }
 
 export interface RuntimeOutput {
@@ -36,11 +41,13 @@ export interface RuntimeOutput {
   durationMs: number;
   channel?: string;
   statusRatio?: string;
+  isError?: boolean;
+  errorDetail?: string;
 }
 
 /**
  * 统一的核心 Harness 运行时 Orchestrator 主类 (HarnessRuntime)
- * 收拢 Agent 循环、上下文组装、Tool 执行、Memory 更新与插件 Hook 拦截
+ * 收拢 Agent 循环、上下文组装、Tool 执行、Memory 更新、插件 Hook 拦截与错误隔离边界 (H1.5)
  */
 export class HarnessRuntime {
   public readonly context: AppContext;
@@ -71,7 +78,7 @@ export class HarnessRuntime {
   }
 
   /**
-   * 核心入口：全渠道统一 Agent 执行点
+   * 核心入口：全渠道统一 Agent 执行点 (带 H1.5 错误隔离边界防护)
    */
   async execute(input: RuntimeInput): Promise<RuntimeOutput> {
     const startTime = Date.now();
@@ -86,12 +93,30 @@ export class HarnessRuntime {
     // 2. 触发 sessionStart Hook
     await this.hooks.runSessionStart({ sessionId });
 
-    // 3. 执行 Agent 核心对话循环
-    const history = sessionObj.messages || [];
-    const content = await this.agent.run(input.prompt, history, input.options);
+    let content = "";
+    let isError = false;
+    let errorDetail: string | undefined;
 
-    // 4. 更新与保存 Session
-    this.sessions.save(sessionObj);
+    try {
+      // 3. 执行 Agent 核心对话循环
+      const history = sessionObj.messages || [];
+      content = await this.agent.run(input.prompt, history, input.options);
+
+      // 4. 更新与保存 Session
+      this.sessions.save(sessionObj);
+    } catch (err: any) {
+      isError = true;
+      errorDetail = err?.message || String(err);
+      log("error", `❌ [HarnessRuntime Execution Error] SessionId: ${sessionId}`, {
+        channel: input.channel,
+        error: errorDetail,
+      });
+
+      content = `⚠️ [Agent 运行故障] ${errorDetail}。请检查模型配置与网络连通性。`;
+      if (input.options?.onChunk) {
+        input.options.onChunk(content);
+      }
+    }
 
     const durationMs = Date.now() - startTime;
     const status = this.getStatus();
@@ -100,8 +125,10 @@ export class HarnessRuntime {
       sessionId,
       content,
       durationMs,
-      channel: input.channel || "default",
+      channel: (input.channel as string) || "default",
       statusRatio: status.context?.ratio || "0%",
+      isError,
+      errorDetail,
     };
   }
 

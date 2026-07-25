@@ -46,20 +46,6 @@ export interface HachimiConfig {
   llm: {
     activeProvider: LLMProviderName;
     providers: Record<string, ProviderConfig>;
-    /** 向后兼容字段 */
-    provider?: LLMProviderName;
-    apiKey?: string;
-    model?: string;
-    baseURL?: string;
-    openaiApiKey?: string;
-    openaiModel?: string;
-    openaiBaseURL?: string;
-    deepseekApiKey?: string;
-    deepseekModel?: string;
-    deepseekBaseURL?: string;
-    anthropicApiKey?: string;
-    anthropicModel?: string;
-    anthropicBaseURL?: string;
   };
   paths: {
     dataDir: string;
@@ -71,140 +57,135 @@ export interface HachimiConfig {
   };
   context: ContextConfig;
   tui: {
+    theme: string;
     title: string;
   };
   channels?: ChannelsConfig;
 }
 
-/** 预置各主流 Provider 的专属环境变量级联默认配置 */
-function buildEnvDefaultProviders(): Record<string, ProviderConfig> {
-  return {
-    deepseek: {
-      apiKey: process.env.DEEPSEEK_API_KEY,
-      model: process.env.DEEPSEEK_MODEL || "deepseek-v4-pro",
-      baseURL: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
-    },
-    openai: {
-      apiKey: process.env.OPENAI_API_KEY,
-      model: process.env.OPENAI_MODEL || "gpt-5.6-sol",
-      baseURL: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
-    },
-    anthropic: {
-      apiKey: process.env.ANTHROPIC_API_KEY,
-      model: process.env.ANTHROPIC_MODEL || "claude-fable-5",
-      baseURL: process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com/v1",
-    },
-    claude: {
-      apiKey: process.env.ANTHROPIC_API_KEY,
-      model: process.env.ANTHROPIC_MODEL || "claude-fable-5",
-      baseURL: process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com/v1",
-    },
-    qwen: {
-      apiKey: process.env.DASHSCOPE_API_KEY || process.env.QWEN_API_KEY,
-      model: process.env.QWEN_MODEL || "qwen3.8-max",
-      baseURL: process.env.QWEN_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    },
-    moonshot: {
-      apiKey: process.env.MOONSHOT_API_KEY,
-      model: process.env.MOONSHOT_MODEL || "kimi-k3",
-      baseURL: process.env.MOONSHOT_BASE_URL || "https://api.moonshot.cn/v1",
-    },
-    mock: {
-      apiKey: "mock-key",
-      model: "mock-model",
-    },
-  };
-}
-
-const defaultConfig: HachimiConfig = {
+export const DEFAULT_CONFIG: HachimiConfig = {
   llm: {
-    activeProvider: (process.env.LLM_PROVIDER as LLMProviderName) || "mock",
-    providers: buildEnvDefaultProviders(),
+    activeProvider: "mock",
+    providers: {
+      mock: { apiKey: "mock-key", model: "mock-model" },
+      deepseek: {
+        apiKey: process.env.DEEPSEEK_API_KEY || "",
+        model: "deepseek-v4-flash",
+        baseURL: "https://api.deepseek.com",
+      },
+      openai: {
+        apiKey: process.env.OPENAI_API_KEY || "",
+        model: "gpt-5.6-luna",
+        baseURL: "https://api.openai.com/v1",
+      },
+      anthropic: {
+        apiKey: process.env.ANTHROPIC_API_KEY || "",
+        model: "claude-opus-4-8",
+        baseURL: "https://api.anthropic.com",
+      },
+    },
   },
   paths: {
-    dataDir: process.env.HACHIMI_DATA_DIR || resolve("data"),
-    memoryFile: process.env.HACHIMI_MEMORY_FILE || resolve("data/memory.json"),
-    sessionsDir: process.env.HACHIMI_SESSIONS_DIR || resolve("data/sessions"),
+    dataDir: resolve("data"),
+    memoryFile: resolve("data", "memory.json"),
+    sessionsDir: resolve("data", "sessions"),
   },
   agent: {
-    maxToolRounds: Number(process.env.HACHIMI_MAX_TOOL_ROUNDS || 5),
+    maxToolRounds: 5,
   },
   context: {
-    maxTokens: Number(process.env.HACHIMI_CONTEXT_MAX_TOKENS || 12000),
-    summaryThreshold: Number(process.env.HACHIMI_SUMMARY_THRESHOLD || 25),
-    defaultMode: (process.env.HACHIMI_CONTEXT_MODE as "fast" | "normal" | "thoughtful") || "normal",
-    enableTokenTruncation: process.env.HACHIMI_ENABLE_TOKEN_TRUNCATION !== "false",
+    maxTokens: 12000,
+    summaryThreshold: 10000,
+    defaultMode: "normal",
+    enableTokenTruncation: true,
   },
   tui: {
-    title: "hachimi",
+    theme: "amber",
+    title: "Hachimi Agent Terminal",
   },
   channels: {
-    telegram: {
-      botToken: process.env.TELEGRAM_BOT_TOKEN || "",
-      allowedUsers: process.env.TELEGRAM_ALLOWED_USERS
-        ? process.env.TELEGRAM_ALLOWED_USERS.split(",")
-            .map((s) => Number(s.trim()))
-            .filter(Boolean)
-        : [],
+    api: {
+      port: 3700,
     },
   },
 };
 
 /**
- * 加载配置（级联查找：内置默认值 < 环境变量 < config.json 覆盖）
+ * 加载配置（支持 config.json、环境变量及向后兼容补全）
  */
 export function loadConfig(configPath = "config.json"): HachimiConfig {
-  const cfg: HachimiConfig = structuredClone(defaultConfig);
+  let loaded: Partial<HachimiConfig> = {};
 
   if (existsSync(configPath)) {
     try {
-      const raw = JSON.parse(readFileSync(configPath, "utf-8"));
-      if (raw.llm) {
-        if (raw.llm.activeProvider) {
-          cfg.llm.activeProvider = raw.llm.activeProvider;
-        } else if (raw.llm.provider) {
-          cfg.llm.activeProvider = raw.llm.provider;
-        }
-
-        if (raw.llm.providers) {
-          for (const [pKey, pVal] of Object.entries(raw.llm.providers)) {
-            cfg.llm.providers[pKey] = {
-              ...cfg.llm.providers[pKey],
-              ...(pVal as ProviderConfig),
-            };
-          }
-        }
-      }
-
-      if (raw.paths) {
-        cfg.paths.dataDir = raw.paths.dataDir || cfg.paths.dataDir;
-        cfg.paths.memoryFile = resolve(cfg.paths.dataDir, "memory.json");
-        cfg.paths.sessionsDir = resolve(cfg.paths.dataDir, "sessions");
-      }
-      if (raw.agent) Object.assign(cfg.agent, raw.agent);
-      if (raw.context) Object.assign(cfg.context, raw.context);
-      if (raw.tui) Object.assign(cfg.tui, raw.tui);
-      if (raw.channels) {
-        cfg.channels = {
-          ...cfg.channels,
-          ...raw.channels,
-          telegram: {
-            ...cfg.channels?.telegram,
-            ...raw.channels?.telegram,
-          },
-        };
-      }
-    } catch (err) {
-      console.warn("[config] 读取 config.json 失败，使用默认配置", err);
+      const raw = readFileSync(configPath, "utf-8");
+      loaded = JSON.parse(raw);
+    } catch {
+      /* ignore read errors */
     }
   }
 
-  // 保证向后兼容属性的动态映射
-  cfg.llm.provider = cfg.llm.activeProvider;
-  const activeP = cfg.llm.providers[cfg.llm.activeProvider] || {};
-  cfg.llm.apiKey = activeP.apiKey;
-  cfg.llm.model = activeP.model;
-  cfg.llm.baseURL = activeP.baseURL;
+  const activeProvider = (
+    process.env.HACHIMI_PROVIDER_OVERRIDE ||
+    process.env.LLM_PROVIDER ||
+    loaded.llm?.activeProvider ||
+    (loaded.llm as any)?.provider ||
+    DEFAULT_CONFIG.llm.activeProvider
+  ).toLowerCase();
+
+  const cfg: HachimiConfig = {
+    ...DEFAULT_CONFIG,
+    ...loaded,
+    llm: {
+      ...DEFAULT_CONFIG.llm,
+      ...loaded.llm,
+      activeProvider,
+      providers: {
+        ...DEFAULT_CONFIG.llm.providers,
+        ...(loaded.llm?.providers || {}),
+      },
+    },
+    paths: {
+      dataDir: resolve(loaded.paths?.dataDir || DEFAULT_CONFIG.paths.dataDir),
+      memoryFile: resolve(loaded.paths?.dataDir || DEFAULT_CONFIG.paths.dataDir, "memory.json"),
+      sessionsDir: resolve(loaded.paths?.dataDir || DEFAULT_CONFIG.paths.dataDir, "sessions"),
+    },
+    context: {
+      ...DEFAULT_CONFIG.context,
+      ...(loaded.context || {}),
+    },
+    agent: {
+      ...DEFAULT_CONFIG.agent,
+      ...(loaded.agent || {}),
+    },
+    tui: {
+      ...DEFAULT_CONFIG.tui,
+      ...(loaded.tui || {}),
+    },
+    channels: {
+      ...DEFAULT_CONFIG.channels,
+      ...(loaded.channels || {}),
+    },
+  };
+
+  // 保证旧版平铺配置参数兼容落入 providers
+  const rawLlm = (loaded.llm || {}) as Record<string, any>;
+  if (rawLlm.deepseekApiKey) {
+    cfg.llm.providers.deepseek = {
+      ...cfg.llm.providers.deepseek,
+      apiKey: rawLlm.deepseekApiKey,
+      model: rawLlm.deepseekModel || cfg.llm.providers.deepseek?.model,
+      baseURL: rawLlm.deepseekBaseURL || cfg.llm.providers.deepseek?.baseURL,
+    };
+  }
+  if (rawLlm.openaiApiKey) {
+    cfg.llm.providers.openai = {
+      ...cfg.llm.providers.openai,
+      apiKey: rawLlm.openaiApiKey,
+      model: rawLlm.openaiModel || cfg.llm.providers.openai?.model,
+      baseURL: rawLlm.openaiBaseURL || cfg.llm.providers.openai?.baseURL,
+    };
+  }
 
   return cfg;
 }
