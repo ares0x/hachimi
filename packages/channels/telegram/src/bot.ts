@@ -18,28 +18,31 @@ export function createTelegramBot(config: TelegramChannelConfig): Bot {
   const runtime = config.runtime || getOrCreateHarnessRuntime();
   const bot = new Bot(config.token);
 
-  // 1. 全局错误捕获中间件
+  // 1. Global error handling middleware
   bot.catch((err) => {
-    log("error", `❌ [Telegram Error] Bot 捕获到网络或执行异常: ${err.message || String(err)}`);
+    log(
+      "error",
+      `❌ [Telegram Error] Bot caught network or execution exception: ${err.message || String(err)}`
+    );
   });
 
-  // 2. 消息日志记录中间件
+  // 2. Message logging middleware
   bot.use(async (ctx, next) => {
     if (ctx.message?.text) {
       log(
         "info",
-        `📩 [Telegram Receive] 来自 ${ctx.from?.first_name || "未知用户"} (ID: ${ctx.from?.id}): "${ctx.message.text}"`
+        `📩 [Telegram Receive] From ${ctx.from?.first_name || "Unknown"} (ID: ${ctx.from?.id}): "${ctx.message.text}"`
       );
     }
     await next();
   });
 
-  // 3. TELEGRAM_ALLOWED_USERS 用户 ID 白名单安全隔离中间件
+  // 3. TELEGRAM_ALLOWED_USERS user whitelist security middleware
   bot.use(async (ctx, next) => {
     const userId = ctx.from?.id;
     if (config.allowedUsers && config.allowedUsers.length > 0) {
       if (!userId || !config.allowedUsers.includes(userId)) {
-        log("warn", `⛔ [Telegram Security] 拒绝未授权的 Telegram 用户 ID: ${userId}`);
+        log("warn", `⛔ [Telegram Security] Rejected unauthorized Telegram user ID: ${userId}`);
         await ctx.reply(`❌ [权限拒绝] 您的 Telegram 账号 (ID: ${userId}) 未获得授权。`);
         return;
       }

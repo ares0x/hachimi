@@ -407,9 +407,9 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
         host,
       });
 
-      // 启动定时触发器调度循环
+      // Start proactive trigger scheduler loop
       scheduler.start(async (task) => {
-        log("info", `主动触发器触发运行: [${task.name}] "${task.prompt}"`);
+        log("info", `Proactive trigger fired: [${task.name}] "${task.prompt}"`);
         await runtime.execute({
           prompt: task.prompt,
           channel: (task.channel as any) || "proactive-trigger",
