@@ -72,8 +72,30 @@ export class ToolSandbox {
   async executeToolInSandbox(
     toolName: string,
     executeFn: () => Promise<string>,
-    options: ISandboxOptions = {}
+    options: ISandboxOptions & { args?: Record<string, unknown> } = {}
   ): Promise<string> {
+    // 1. PathJail 工作区越界与敏感文件访问拦截 (PathJail 物理断点硬化)
+    if (options.args) {
+      const pathArgKeys = ["path", "filepath", "targetfile", "file", "dir", "dest", "src"];
+      for (const [key, val] of Object.entries(options.args)) {
+        if (typeof val === "string") {
+          const isPathKey = pathArgKeys.some((k) => key.toLowerCase().includes(k));
+          const isPathValue = val.includes("/") || val.includes("\\") || val.startsWith("~");
+
+          if (isPathKey || isPathValue) {
+            try {
+              this.pathJail.assertPathInJail(val);
+            } catch (err: any) {
+              return `[沙箱拦截] 工具 ${toolName} 路径安全校验失败: ${err?.message || String(err)}`;
+            }
+          }
+        }
+      }
+    }
+
+    // 2. 环境变量脱敏生效 (Env Scrubbing)
+    const cleanEnv = ToolSandbox.scrubEnv(process.env, options.allowedEnvKeys);
+
     const timeoutMs = options.timeoutMs ?? this.defaultTimeoutMs;
     const maxBuffer = options.maxBuffer ?? this.defaultMaxBuffer;
 

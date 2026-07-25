@@ -59,8 +59,8 @@ export function renderWelcomeCard(status: any): string {
   lines.push(colorize(`┌${"─".repeat(width - 2)}┐`, theme.colors.border));
   lines.push(colorize(`│${" ".repeat(width - 2)}│`, theme.colors.border));
 
-  for (let i = 0; i < 6; i++) {
-    const logoLine = colorize(HACHIMI_ASCII_LOGO[i], theme.colors.primary);
+  for (let i = 0; i < 7; i++) {
+    const logoLine = colorize(HACHIMI_ASCII_LOGO[i] || "         ", theme.colors.primary);
     let rightContent = "";
 
     if (i === 0) rightContent = cardTitle;

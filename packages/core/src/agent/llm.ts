@@ -21,7 +21,22 @@ export class MockLLMProvider implements LLMProvider {
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
     const userContent = typeof lastUser?.content === "string" ? lastUser.content : "";
 
-    // 4. 计算器
+    // 4. 工具调用匹配 (计算器或通用调用工具语法)
+    const callMatch = userContent.match(/调用工具\s*([a-zA-Z0-9_\-]+)/);
+    if (callMatch) {
+      const toolName = callMatch[1];
+      return {
+        content: null,
+        tool_calls: [
+          {
+            id: generateId("call_"),
+            name: toolName,
+            arguments: {},
+          },
+        ],
+      };
+    }
+
     const hasCalculator = tools.some((t) => t.name === "calculator");
     const calcMatch = userContent.match(/(\d+)\s*([\+\-\*\/])\s*(\d+)/);
     if (hasCalculator && calcMatch) {

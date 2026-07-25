@@ -126,6 +126,7 @@ export class ToolRegistry {
     try {
       rawResult = await this.sandbox.executeToolInSandbox(name, () => tool.execute(args, execCtx), {
         timeoutMs: 30000,
+        args,
       });
 
       if (

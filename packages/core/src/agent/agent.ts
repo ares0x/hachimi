@@ -272,13 +272,16 @@ export class Agent {
         }
 
         let approved = true;
-        if (
-          this.onToolApproval &&
-          (permission === "needs_confirm" ||
-            permission === "dangerous" ||
-            toolDef?.requiresApproval)
-        ) {
-          approved = await this.onToolApproval(call.name, call.arguments, permission);
+        const requiresApproval =
+          permission === "needs_confirm" || permission === "dangerous" || toolDef?.requiresApproval;
+
+        if (requiresApproval) {
+          if (this.onToolApproval) {
+            approved = await this.onToolApproval(call.name, call.arguments, permission);
+          } else {
+            // 安全绝杀：未提供审批回调且工具需要确认或属于高危权限时，默认强制拒绝执行！
+            approved = false;
+          }
         }
 
         const result = approved
