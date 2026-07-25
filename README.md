@@ -106,20 +106,22 @@ pnpm test
 hachimi/
 ├── apps/
 │   ├── tui/                 # TUI 终端界面通道 (Terminal UI Channel)
-│   └── server/              # Daemon 守护进程服务 (Fastify REST/SSE/WS Server)
+│   └── server/              # Master Daemon 联合启动服务 (Fastify REST/SSE/WS/Web + Telegram)
 ├── packages/
-│   ├── core/                # Agent / Memory v2 / Session / Skills / Tools / Portable / Extensions / Sandbox
+│   ├── core/                # HarnessRuntime 核心统一引擎 (共享 Agent / Memory / Sessions / Tools / MCP)
+│   │   ├── src/runtime/     # HarnessRuntime Orchestrator 主类与 getOrCreateHarnessRuntime 工厂
 │   │   ├── src/agent/       # Agent 核心循环与 steer/followUp
 │   │   ├── src/extensions/  # CapabilitySource, HookRegistry, McpClient, SkillPackage
 │   │   ├── src/portable/    # Portable Memory 导出、合并导入与 Migration
-│   │   ├── src/runtime/     # AppContext 组装根与 createAgentSession SDK
 │   │   └── src/sandbox/     # ToolSandbox 超时熔断与 Buffer Cap
 │   ├── config/              # 统一配置与多厂商 Preset 模型管理
 │   ├── storage/             # SQLiteStore 与 FileStore 双存储驱动
 │   ├── shared/              # generateId, logger, utils
-│   └── channels/
-│       ├── cli/             # 嵌入式非交互 CLI 单轮通道与数据包导入导出工具
-│       └── api/             # HTTP REST, SSE 流式打字机, WebSocket 传输层 API 模块
+│   └── channels/            # 适配层通道 (Thin Channel Adapters: 输入解析 -> runtime.execute -> 输出渲染)
+│       ├── cli/             # 嵌入式非交互 CLI 通道
+│       ├── api/             # HTTP REST, SSE 流式打字机, WebSocket 传输层与 Web UI 托管
+│       ├── web/             # 极简黑金玻璃拟态 Web 客户端界面 (Port 3700)
+│       └── telegram/        # Telegram Bot 网关通道 (基于 grammy + 授权白名单)
 ├── data/                    # 本地持久化数据与 SQLite 数据库 (gitignore)
 ├── docs/                    # 完整设计文档、ROADMAP、TASK 与阶段归档
 └── package.json
@@ -136,7 +138,7 @@ hachimi/
 | **Phase C** | 多厂商 Provider、CLI 嵌入模式、Daemon 守护进程 (`apps/server`)、Auth 鉴权、Mid-turn Steering、Tool 沙箱 | **已完成 (Done)** |
 | **Phase D** | 带 Schema 版本的可移植记忆、SHA-256 Checksum、一键导出/导入、增量合并去重、Schema 自动迁移 | **已完成 (Done)** |
 | **Phase E** | 统一能力源 `CapabilitySource`、`~/.hachimi/skills/` 外部技能包、声明式 Hooks、MCP Client | **已完成 (Done)** |
-| **Phase F** | 多终端 Client (Desktop / Telegram 机器人 / Web) + Tier 2 技能自演进 | 下一步 (Next) |
+| **Phase F** | 多终端 Channel (F2: Telegram Bot 网关, F3: Web UI 极简面板) + 统一 HarnessRuntime 架构演进 | **已完成 (Done)** |
 | **Phase G** | 复杂沙箱硬化、多客户端权限隔离与安全性审核 | 规划中 |
 
 ---

@@ -19,6 +19,7 @@ import { MemoryManager } from "../memory/manager.js";
 import { SessionManager } from "../session/manager.js";
 import { summarySkill, writingSkill } from "../skills/builtin/index.js";
 import { SkillRegistry } from "../skills/registry.js";
+import { registerBuiltinTools } from "../tools/builtin.js";
 import { ToolRegistry } from "../tools/registry.js";
 
 export interface AppContext {
@@ -35,42 +36,6 @@ export interface AppContext {
   getConfig(): HachimiConfig;
   setActiveProvider(provider: string, pConfig?: Partial<ProviderConfig>): void;
   getStatus(): Record<string, any>;
-}
-
-function registerBuiltinTools(tools: ToolRegistry) {
-  tools.register({
-    name: "calculator",
-    description: "执行简单的加减乘除计算",
-    permission: "safe",
-    parameters: {
-      type: "object",
-      properties: {
-        a: { type: "number" },
-        b: { type: "number" },
-        operator: { type: "string", enum: ["+", "-", "*", "/"] },
-      },
-      required: ["a", "b", "operator"],
-    },
-    async execute(args) {
-      const { a, b, operator } = args as {
-        a: number;
-        b: number;
-        operator: string;
-      };
-      switch (operator) {
-        case "+":
-          return String(a + b);
-        case "-":
-          return String(a - b);
-        case "*":
-          return String(a * b);
-        case "/":
-          return String(a / b);
-        default:
-          return "不支持的运算符";
-      }
-    },
-  });
 }
 
 export interface CreateAppContextOptions {

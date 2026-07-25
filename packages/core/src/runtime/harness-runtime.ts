@@ -14,6 +14,8 @@ import type { ToolRegistry } from "../tools/registry.js";
 import type { AppContext, CreateAppContextOptions } from "./context.js";
 import { createAppContext } from "./context.js";
 
+import type { ChannelType } from "../types/index.js";
+
 export interface RuntimeInputOptions {
   onChunk?: (chunk: string) => void;
   onToolStart?: (name: string, args: Record<string, unknown>) => void;
@@ -23,7 +25,7 @@ export interface RuntimeInputOptions {
 export interface RuntimeInput {
   prompt: string;
   sessionId?: string;
-  channel?: "cli" | "tui" | "api" | "telegram" | "web" | string;
+  channel?: ChannelType;
   providerOverride?: string;
   options?: RuntimeInputOptions;
 }

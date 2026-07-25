@@ -14,7 +14,7 @@ async function main() {
 
   // 1. 启动 HTTP REST / SSE / WebSocket / Web UI 守护进程
   const address = await apiServer.listen();
-  console.log(`🌐 极简 Web 客户端已在此链接开放访问: ${address}`);
+  log("info", `🌐 极简 Web 客户端已在此链接开放访问: ${address}`);
 
   // 2. 读取配置，自动并发拉起 Telegram Bot Gateway (共享同一个 HarnessRuntime)
   const cfg = loadConfig();
@@ -46,7 +46,7 @@ async function main() {
 
   // 优雅退出
   process.on("SIGINT", async () => {
-    console.log("\n正在安全关闭 Hachimi Daemon Server 与各 Gateway 通道...");
+    log("info", "正在安全关闭 Hachimi Daemon Server 与各 Gateway 通道...");
     if (telegramBot) {
       try {
         await telegramBot.stop();
@@ -60,6 +60,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("❌ Fatal Daemon Server Error:", err);
+  log("error", "❌ Fatal Daemon Server Error:", err);
   process.exit(1);
 });

@@ -1,8 +1,8 @@
-// packages/core/src/portable/types.ts
+import type { MemoryLayer } from "../types/index.js";
 
 export interface HachimiBundleMemoryItem {
   id: string;
-  layer: "working" | "session" | "long_term" | "archival";
+  layer: MemoryLayer | (string & {});
   content: string;
   importance: number;
   timestamp?: number;

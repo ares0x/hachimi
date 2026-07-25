@@ -39,6 +39,7 @@ export interface ChannelsConfig {
     port?: number;
     secretKey?: string;
   };
+  [key: string]: unknown;
 }
 
 export interface HachimiConfig {
