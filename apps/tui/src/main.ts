@@ -1,6 +1,6 @@
 // apps/tui/src/main.ts
 /**
- * Hachimi TUI 沉浸式终端应用入口
+ * Hachimi TUI Immersive Terminal Application Entrypoint
  */
 import { createAppContext } from "./app-context.js";
 import { HachimiTUIApp } from "./ui/app.js";

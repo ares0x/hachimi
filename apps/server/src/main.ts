@@ -6,17 +6,17 @@ import { createHarnessRuntime } from "@hachimi/core";
 import { log } from "@hachimi/shared";
 
 async function main() {
-  // 核心解耦：全局仅初始化一个唯一的 HarnessRuntime 实例
+  // Core decoupling: Global single HarnessRuntime instance initialization
   const runtime = createHarnessRuntime();
-  log("info", "🚀 统一 HarnessRuntime 引擎实例已成功建立");
+  log("info", "🚀 Unified HarnessRuntime engine instance successfully initialized");
 
   const apiServer = createHachimiApiServer({ runtime });
 
-  // 1. 启动 HTTP REST / SSE / WebSocket / Web UI 守护进程
+  // 1. Start HTTP REST / SSE / WebSocket / Web UI daemon process
   const address = await apiServer.listen();
-  log("info", `🌐 极简 Web 客户端已在此链接开放访问: ${address}`);
+  log("info", `🌐 Web client accessible at: ${address}`);
 
-  // 2. 读取配置，自动并发拉起 Telegram Bot Gateway (共享同一个 HarnessRuntime)
+  // 2. Read config, auto start Telegram Bot Gateway sharing the same HarnessRuntime
   const cfg = loadConfig();
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN || cfg.channels?.telegram?.botToken || "";
   const allowedUsers =
@@ -31,22 +31,22 @@ async function main() {
 
   if (telegramToken) {
     telegramBot = createTelegramBot({ token: telegramToken, allowedUsers, runtime });
-    log("info", "🚀 正在自动启动 Telegram Bot 通道网关...");
+    log("info", "🚀 Launching Telegram Bot Channel Gateway...");
     telegramBot.start({
       onStart: (botInfo: any) => {
-        log("info", `✅ Telegram Bot @${botInfo.username} 已成功上线并开始监听！`);
+        log("info", `✅ Telegram Bot @${botInfo.username} online and listening!`);
       },
     });
   } else {
     log(
       "info",
-      "💡 提示：未检测到 Telegram Bot 配置。随时可在 config.json 中写入 channels.telegram 启动 Telegram 连通。"
+      "💡 Info: No Telegram Bot token configured. Add `channels.telegram` to config.json anytime to enable Telegram gateway."
     );
   }
 
-  // 优雅退出
+  // Graceful shutdown
   process.on("SIGINT", async () => {
-    log("info", "正在安全关闭 Hachimi Daemon Server 与各 Gateway 通道...");
+    log("info", "Safely shutting down Hachimi Daemon Server and Channel Gateways...");
     if (telegramBot) {
       try {
         await telegramBot.stop();
