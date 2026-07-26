@@ -66,7 +66,7 @@ export class SQLiteStore implements JsonFileStore, JsonDirStore, StorageBackend 
 
   exists(key: string): boolean {
     const stmt = this.db.prepare("SELECT 1 FROM kv_store WHERE key = ?");
-    return !stmt.get(key);
+    return Boolean(stmt.get(key));
   }
 
   // JsonDirStore 接口实现

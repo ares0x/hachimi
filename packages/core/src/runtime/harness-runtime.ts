@@ -141,6 +141,25 @@ export class HarnessRuntime {
       if (input.options?.onChunk) {
         input.options.onChunk(content);
       }
+
+      // 故障发生时同样保存包含错误提示的 Session 记录
+      sessionObj.messages.push({
+        id: generateId("msg_"),
+        role: "user",
+        content: input.prompt,
+        timestamp: startTime,
+        channel: input.channel,
+      });
+
+      sessionObj.messages.push({
+        id: generateId("msg_"),
+        role: "assistant",
+        content,
+        timestamp: Date.now(),
+        channel: input.channel,
+      });
+
+      this.sessions.save(sessionObj);
     }
 
     const durationMs = Date.now() - startTime;
