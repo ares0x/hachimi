@@ -24,7 +24,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "smoke:mock": "vitest run tests/smoke/smoke.test.ts",
-    "eval": "vitest run packages/evals/src/evals.test.ts"
+    "eval": "vitest run packages/evals/src/evals.test.ts",
+    "clear:sessions": "tsx scripts/clear-sessions.ts",
+    "clear:memories": "tsx scripts/clear-memories.ts"
   },
   "keywords": [
     "ai-agent",

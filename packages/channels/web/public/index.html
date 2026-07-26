@@ -3,147 +3,219 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hachimi Personal AI Assistant — Surface Client</title>
+  <title>Hachimi AI Assistant — Shell Workspace</title>
   <link rel="stylesheet" href="./style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="app-container">
-    <!-- 1. 侧边栏 (Sidebar) -->
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-main">
-          <div class="logo-mark">H</div>
-          <div class="brand-text">
-            <h2>Hachimi</h2>
-          </div>
-        </div>
-        <button id="btn-theme-toggle" class="theme-toggle-btn" title="Toggle Light/Dark Theme">
-          <span id="theme-icon">☀️</span> <span id="theme-text">Light</span>
+  <!-- Hachimi Shell Layout v1 -->
+  <div class="shell-wrapper" style="display: flex; flex-direction: column; height: 100vh; width: 100vw; overflow: hidden; background: var(--background);">
+    
+    <!-- 1. Chrome / Top One-Line Health Bar (§2.4) -->
+    <header class="top-chrome" style="height: 36px; flex-shrink: 0; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-size: 12px; color: var(--muted-foreground); user-select: none;">
+      <div class="chrome-status" style="display: flex; align-items: center; gap: 8px; font-family: var(--font-mono);">
+        <span class="pulse-dot success" id="status-pulse"></span>
+        <span id="chrome-summary">Connected · deepseek · 0% context · 0 memories · PathJail on</span>
+      </div>
+      <div class="chrome-actions" style="display: flex; align-items: center; gap: 8px;">
+        <span class="badge badge-success" id="auth-status" style="font-size: 11px; padding: 1px 6px;">C5 Auth</span>
+        <button id="btn-theme-toggle" class="btn btn-ghost" style="height: 26px; padding: 0 6px; font-size: 11px;" title="Toggle Light/Dark Theme">
+          <span id="theme-text">☀️ Light</span>
+        </button>
+        <button id="btn-open-settings" class="btn btn-ghost" style="height: 26px; padding: 0 6px; font-size: 11px;" title="Open Settings (⌘,)">
+          ⚙️ Settings
         </button>
       </div>
+    </header>
 
-      <!-- 运行时状态面板 -->
-      <div class="status-card">
-        <div class="card-title">
-          <span class="pulse-dot"></span>
-          Runtime Status
-        </div>
-        <div class="status-metric">
-          <span class="label">Provider</span>
-          <span class="value" id="status-provider">deepseek</span>
-        </div>
-        <div class="status-metric">
-          <span class="label">Token Usage</span>
-          <span class="value" id="status-tokens">0 / 12000 (0%)</span>
-        </div>
-        <div class="status-metric">
-          <span class="label">Memories</span>
-          <span class="value" id="status-memories">0 items</span>
-        </div>
-      </div>
+    <!-- App Container (Rail + Main + Inspector) -->
+    <div class="app-container" style="height: calc(100vh - 36px);">
+      <!-- Responsive Backdrops -->
+      <button class="sidebar-backdrop" id="sidebar-backdrop" aria-label="Close Sidebar"></button>
+      <button class="context-backdrop" id="context-backdrop" aria-label="Close Inspector"></button>
 
-      <!-- 可移植记忆 (Portable Bundle) -->
-      <div class="status-card">
-        <div class="card-title">📦 Portable Memory</div>
-        <div style="display: flex; gap: 8px; margin-top: 8px;">
-          <button id="btn-export" class="btn btn-secondary" style="flex: 1;">Export</button>
-          <label for="input-import" class="btn btn-secondary" style="flex: 1; text-align: center;">Import</label>
-          <input type="file" id="input-import" accept=".json" style="display: none;">
-        </div>
-      </div>
-
-      <!-- 历史会话列表 -->
-      <div class="sessions-section">
-        <div class="section-header">
-          <span>Sessions</span>
-          <button id="btn-new-session" class="btn-icon" title="New Session">+</button>
-        </div>
-        <ul id="session-list" class="session-list">
-          <li class="session-item active">Current Session</li>
-        </ul>
-      </div>
-    </aside>
-
-    <!-- 2. 主对话视窗 (Center Chat Viewport) -->
-    <main class="chat-viewport">
-      <header class="chat-header">
-        <div>
-          <h3 id="current-session-title">Main Workspace</h3>
-          <p class="subtitle">Daemon API Server running on port 3700</p>
-        </div>
-        <div>
-          <span class="badge badge-success" id="auth-status">C5 Auth Verified</span>
-        </div>
-      </header>
-
-      <!-- 消息列表视窗 (Document Flow) -->
-      <div class="messages-container" id="messages-container">
-        <!-- Assistant Message (Document Flow) -->
-        <div class="message-wrapper assistant">
-          <div class="assistant-identity">
-            <div class="assistant-avatar">H</div>
-            <span>Hachimi</span>
-          </div>
-          <div class="document-flow">
-            Hello! I am your Hachimi personal AI assistant. I can help manage your daily tasks, retrieve memory preferences, and execute system tools safely. How can I assist you today?
-          </div>
-        </div>
-      </div>
-
-      <!-- 输入框区域 (Composer) -->
-      <div class="input-area">
-        <div class="input-wrapper">
-          <textarea id="prompt-input" placeholder="Type a message or mid-turn steering command..." rows="2"></textarea>
-          <div class="composer-footer">
-            <div class="composer-hints">
-              <span>⌘Enter to send</span>
-            </div>
-            <div class="action-buttons">
-              <button id="btn-steer" class="btn btn-warn" title="Mid-turn steering">⚡ Steer</button>
-              <button id="btn-send" class="btn btn-primary">Send</button>
+      <!-- 2. Rail (Left 240-280px: Navigation Only per §2.3) -->
+      <aside class="sidebar" id="app-sidebar">
+        <div class="brand">
+          <div class="brand-main">
+            <div class="logo-mark">H</div>
+            <div class="brand-text">
+              <h2>Hachimi</h2>
             </div>
           </div>
+          <button id="btn-new-session" class="btn btn-primary btn-sm" title="New Session (⌘N)">
+            + New
+          </button>
         </div>
-      </div>
-    </main>
 
-    <!-- 3. 上下文 Inspector 面板 (Right Context Column per §9.1) -->
-    <aside class="context-panel">
-      <div class="context-section">
-        <div class="card-title">Session Metadata</div>
-        <div class="meta-row">
-          <span class="key">Session ID</span>
-          <span class="val" id="inspector-session-id">main</span>
+        <!-- Sessions Work List -->
+        <div class="sessions-section">
+          <div class="section-header">
+            <span>Sessions</span>
+          </div>
+          <ul id="session-list" class="session-list">
+            <li class="session-item active">
+              <span class="session-title">Current Session</span>
+              <span class="session-meta">Just now</span>
+            </li>
+          </ul>
         </div>
-        <div class="meta-row">
-          <span class="key">Mode</span>
-          <span class="val">normal</span>
+
+        <!-- Bottom Entrances -->
+        <div class="sidebar-footer" style="border-top: 1px solid var(--border); padding-top: 12px; display: flex; flex-direction: column; gap: 4px;">
+          <button id="btn-nav-memory" class="btn btn-ghost" style="justify-content: flex-start; width: 100%;">
+            🧠 Memory Browser
+          </button>
+          <button id="btn-nav-settings" class="btn btn-ghost" style="justify-content: flex-start; width: 100%;">
+            ⚙️ Settings & Portable
+          </button>
         </div>
-        <div class="meta-row">
-          <span class="key">Theme Token</span>
-          <span class="val">ink-teal</span>
+      </aside>
+
+      <!-- 3. Main (Center Workspace & Composer per §2.6) -->
+      <main class="chat-viewport">
+        <header class="chat-header">
+          <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+            <button id="nav-toggle" class="btn-icon nav-toggle" title="Toggle Navigation (⌘B)">
+              <svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
+            <div class="chat-header-main">
+              <h3 id="current-session-title">Main Workspace</h3>
+              <p class="subtitle" id="current-session-subtitle">deepseek-v4-flash · Single Brain Runtime</p>
+            </div>
+          </div>
+
+          <div class="chat-header-actions">
+            <button id="inspector-toggle" class="btn btn-secondary btn-sm" title="Toggle Inspector (⌘\)">
+              <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.75;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="15" y1="3" x2="15" y2="21"></line></svg>
+              <span>Inspector</span>
+            </button>
+          </div>
+        </header>
+
+        <!-- Messages Viewport -->
+        <div class="messages-container" id="messages-container">
+          <!-- First Screen Empty State per §2.6 -->
+          <div class="empty-state" id="empty-state">
+            <div class="assistant-avatar" style="width: 40px; height: 40px; font-size: 18px; margin: 0 auto 12px;">H</div>
+            <div class="empty-state-title">Hello, I am Hachimi</div>
+            <div class="empty-state-desc">Your personal AI assistant harness. Select a session or try a suggested action below:</div>
+            
+            <div class="suggestion-chips" style="display: flex; gap: 8px; justify-content: center; margin-top: 16px; flex-wrap: wrap;">
+              <button class="btn btn-secondary chip-btn" data-prompt="请总结今日工作与活动要点">📊 总结今日工作</button>
+              <button class="btn btn-secondary chip-btn" data-prompt="你还记得我有哪些喜好与偏好设置吗？">🧠 检索长效记忆</button>
+              <button class="btn btn-secondary chip-btn" id="chip-export-bundle">📦 导出 Bundle</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Composer Area per §2.6 -->
+        <div class="input-area">
+          <div class="input-wrapper">
+            <textarea id="prompt-input" placeholder="Ask Hachimi or type steering instructions..." rows="2"></textarea>
+            <div class="composer-footer">
+              <div class="composer-hints">
+                <span>⌘Enter to send</span>
+              </div>
+              <div class="action-buttons">
+                <button id="btn-steer" class="btn btn-warn" title="Inject mid-turn steering prompt">⚡ Steer</button>
+                <button id="btn-send" class="btn btn-primary">Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- 4. Inspector Panel (Right 300-340px: Demand-based per §2.7) -->
+      <aside class="context-panel" id="context-panel" style="display: none;">
+        <!-- Inspector Tabs Header -->
+        <div class="inspector-tabs" style="display: flex; border-bottom: 1px solid var(--border); margin-bottom: 12px; gap: 4px;">
+          <button class="btn btn-ghost tab-btn active" data-tab="turn" style="height: 28px; padding: 0 8px; font-size: 12px;">Turn</button>
+          <button class="btn btn-ghost tab-btn" data-tab="memory" style="height: 28px; padding: 0 8px; font-size: 12px;">Memory</button>
+          <button class="btn btn-ghost tab-btn" data-tab="sources" style="height: 28px; padding: 0 8px; font-size: 12px;">Sources</button>
+          <button class="btn btn-ghost tab-btn" data-tab="changes" style="height: 28px; padding: 0 8px; font-size: 12px;">Changes</button>
+        </div>
+
+        <!-- Tab 1: Turn Context -->
+        <div class="tab-content" id="tab-content-turn">
+          <div class="context-section">
+            <div class="card-title">Current Turn Meta</div>
+            <div class="meta-row">
+              <span class="key">Session ID</span>
+              <span class="val" id="inspector-session-id">main</span>
+            </div>
+            <div class="meta-row">
+              <span class="key">Channel</span>
+              <span class="val">web-sse</span>
+            </div>
+            <div class="meta-row">
+              <span class="key">Last Latency</span>
+              <span class="val" id="inspector-latency">--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Memory Hits -->
+        <div class="tab-content" id="tab-content-memory" style="display: none;">
+          <div class="context-section">
+            <div class="card-title">Retrieved Facts</div>
+            <div id="inspector-memory-list" style="font-size: 12px; color: var(--muted-foreground);">
+              No memory hits in current turn.
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Sources -->
+        <div class="tab-content" id="tab-content-sources" style="display: none;">
+          <div class="context-section">
+            <div class="card-title">Evidence & Sources</div>
+            <div style="font-size: 12px; color: var(--muted-foreground);">No external web sources fetched.</div>
+          </div>
+        </div>
+
+        <!-- Tab 4: Changes / Diffs -->
+        <div class="tab-content" id="tab-content-changes" style="display: none;">
+          <div class="context-section">
+            <div class="card-title">File Changes</div>
+            <div style="font-size: 12px; color: var(--muted-foreground);">No file modifications recorded.</div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- 5. Settings Modal Dialog per §2.8 -->
+    <dialog id="settings-dialog" class="status-card" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(480px, 90vw); border: 1px solid var(--border-strong); background: var(--surface-elevated); padding: 20px; z-index: 100; border-radius: var(--radius-lg); box-shadow: var(--shadow-md);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 16px; font-weight: 600;">Hachimi Settings & Runtime</h3>
+        <button id="btn-close-settings" class="btn-icon">✕</button>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">LLM Provider</label>
+        <span class="form-help" id="settings-provider-val">deepseek</span>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">Portable Memory Bundle</label>
+        <div style="display: flex; gap: 8px; margin-top: 4px;">
+          <button id="btn-settings-export" class="btn btn-secondary" style="flex: 1;">Export Bundle</button>
+          <label for="input-settings-import" class="btn btn-secondary" style="flex: 1; text-align: center;">Import Bundle</label>
+          <input type="file" id="input-settings-import" accept=".json" style="display: none;">
         </div>
       </div>
 
-      <div class="context-section">
-        <div class="card-title">System Invariants</div>
-        <div class="meta-row">
-          <span class="key">PathJail</span>
-          <span class="val">Active</span>
-        </div>
-        <div class="meta-row">
-          <span class="key">Circuit Breaker</span>
-          <span class="val">Active (3)</span>
-        </div>
-        <div class="meta-row">
-          <span class="key">Token Limit</span>
-          <span class="val">12000</span>
+      <div class="form-field" style="margin-bottom: 0;">
+        <label class="form-label">Runtime Safety</label>
+        <div style="font-size: 12px; color: var(--muted-foreground); margin-top: 4px;">
+          PathJail workspace protection is ACTIVE. Circuit breaker limit: 3.
         </div>
       </div>
-    </aside>
+    </dialog>
+
+    <!-- Toast Viewport -->
+    <div class="toast-viewport" id="toast-viewport"></div>
   </div>
 
   <script src="./app.js"></script>

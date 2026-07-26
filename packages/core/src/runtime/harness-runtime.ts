@@ -127,7 +127,19 @@ export class HarnessRuntime {
         channel: input.channel,
       });
 
-      // 5. 更新与保存 Session
+      // 5. 自动根据首条意图更新 Session 标题（避免纯时间戳标题刷屏）
+      const cleanPrompt = input.prompt.replace(/\s+/g, " ").trim();
+      const titleStr = sessionObj.title || "";
+      if (
+        cleanPrompt &&
+        (titleStr.startsWith("会话 ") ||
+          titleStr.startsWith("Session ") ||
+          sessionObj.messages.length <= 2)
+      ) {
+        sessionObj.title = cleanPrompt.length > 24 ? `${cleanPrompt.slice(0, 24)}...` : cleanPrompt;
+      }
+
+      // 6. 更新与保存 Session
       this.sessions.save(sessionObj);
     } catch (err: any) {
       isError = true;
