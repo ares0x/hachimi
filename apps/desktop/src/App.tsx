@@ -12,6 +12,8 @@ import {
   fetchSessions,
   fetchSession,
   createSession,
+  renameSession,
+  deleteSession,
   streamChatPrompt,
   sendSteerPrompt,
   exportBundle as apiExportBundle,
@@ -25,7 +27,7 @@ export function App() {
   const { theme, toggle } = useTheme();
   const [mode, setMode] = useState<Mode>("chat");
   const [sessions, setSessions] = useState<SessionItemData[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState<string>("main");
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [activity, setActivity] = useState<ActivityStep[]>([]);
   const [input, setInput] = useState("");
@@ -36,7 +38,7 @@ export function App() {
   const [contextOpen, setContextOpen] = useState(false);
   const [tokens, setTokens] = useState(0);
   const [memoryCount, setMemoryCount] = useState(0);
-  const [currentSessionTitle, setCurrentSessionTitle] = useState("Main Workspace");
+  const [currentSessionTitle, setCurrentSessionTitle] = useState("新会话");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll on new messages
@@ -55,24 +57,24 @@ export function App() {
     }
   }, []);
 
-  const refreshSessions = useCallback(async () => {
+  const refreshSessions = useCallback(async (autoSelectLatest = false) => {
     const list = await fetchSessions();
-    if (list && list.length > 0) {
-      setSessions(
-        list.map((s) => ({
-          id: s.id,
-          title: s.title,
-          updatedAt: s.updatedAt,
-          mode: (s.mode as Mode) || "chat",
-          runs: s.runs || 0,
-        }))
-      );
-      if (!activeSessionId || activeSessionId === "main") {
-        setActiveSessionId(list[0].id);
-        setCurrentSessionTitle(list[0].title || list[0].id);
+    if (list) {
+      const items = list.map((s) => ({
+        id: s.id,
+        title: s.title,
+        updatedAt: s.updatedAt,
+        mode: (s.mode as Mode) || "chat",
+        runs: s.runs || 0,
+      }));
+      setSessions(items);
+
+      if (autoSelectLatest && items.length > 0) {
+        setActiveSessionId(items[0].id);
+        setCurrentSessionTitle(items[0].title || items[0].id);
       }
     }
-  }, [activeSessionId]);
+  }, []);
 
   const loadCurrentSessionMessages = useCallback(async (id: string) => {
     if (!id) return;
@@ -96,12 +98,15 @@ export function App() {
 
   useEffect(() => {
     refreshStatus();
-    refreshSessions();
+    refreshSessions(true);
   }, [refreshStatus, refreshSessions]);
 
   useEffect(() => {
     if (activeSessionId) {
       loadCurrentSessionMessages(activeSessionId);
+    } else {
+      setMessages([]);
+      setCurrentSessionTitle("新会话");
     }
   }, [activeSessionId, loadCurrentSessionMessages]);
 
@@ -110,11 +115,43 @@ export function App() {
     setSidebarOpen(false);
   };
 
-  const handleNewSession = async () => {
-    const sess = await createSession();
-    if (sess) {
-      await refreshSessions();
-      setActiveSessionId(sess.id);
+  const handleNewSession = () => {
+    setActiveSessionId(null);
+    setMessages([]);
+    setCurrentSessionTitle("新会话");
+  };
+
+  const handleRenameSession = async (id: string, newTitle: string) => {
+    await renameSession(id, newTitle);
+    await refreshSessions();
+    if (activeSessionId === id) {
+      setCurrentSessionTitle(newTitle);
+    }
+  };
+
+  const handleDeleteSession = async (id: string) => {
+    await deleteSession(id);
+    const list = await fetchSessions();
+    if (list) {
+      const items = list.map((s) => ({
+        id: s.id,
+        title: s.title,
+        updatedAt: s.updatedAt,
+        mode: (s.mode as Mode) || "chat",
+        runs: s.runs || 0,
+      }));
+      setSessions(items);
+
+      if (activeSessionId === id) {
+        if (items.length > 0) {
+          setActiveSessionId(items[0].id);
+          setCurrentSessionTitle(items[0].title || items[0].id);
+        } else {
+          setActiveSessionId(null);
+          setMessages([]);
+          setCurrentSessionTitle("新会话");
+        }
+      }
     }
   };
 
@@ -122,6 +159,22 @@ export function App() {
     if (!promptText.trim() || running) return;
     setRunning(true);
     setInput("");
+
+    let sessionIdToUse = activeSessionId;
+
+    // Lazy Session Allocation
+    if (!sessionIdToUse) {
+      const title = promptText.trim().slice(0, 18);
+      const sess = await createSession(title);
+      if (!sess) {
+        setRunning(false);
+        return;
+      }
+      sessionIdToUse = sess.id;
+      setActiveSessionId(sess.id);
+      setCurrentSessionTitle(sess.title || title);
+      await refreshSessions();
+    }
 
     const userMsgId = `u_${Date.now()}`;
     const assistantMsgId = `a_${Date.now()}`;
@@ -138,9 +191,11 @@ export function App() {
       { id: `act_exec_${Date.now()}`, label: "Agent Tool Execution", status: "running" },
     ]);
 
+    const targetSessionId = sessionIdToUse!;
+
     await streamChatPrompt(
       promptText,
-      activeSessionId,
+      targetSessionId,
       (chunk) => {
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantMsgId ? { ...m, text: m.text + chunk } : m))
@@ -224,6 +279,8 @@ export function App() {
           sessions={sessions}
           activeSessionId={activeSessionId}
           onSelectSession={handleSelectSession}
+          onRenameSession={handleRenameSession}
+          onDeleteSession={handleDeleteSession}
           mode={mode}
           onSelectMode={setMode}
           onNewSession={handleNewSession}

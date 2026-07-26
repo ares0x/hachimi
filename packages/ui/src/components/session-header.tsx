@@ -23,7 +23,7 @@ export function SessionHeader({
   onToggleSidebar: () => void;
 }) {
   return (
-    <header className="grid h-14 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background px-4">
+    <header className="grid h-[68px] shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background px-4 pt-4">
       <div className="flex min-w-0 items-center gap-2">
         <button
           type="button"

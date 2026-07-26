@@ -8,7 +8,12 @@ import {
   Settings,
   Brain,
   Package,
+  Pencil,
+  Trash2,
+  Check,
+  X,
 } from "lucide-react";
+import { useState } from "react";
 import { MODE_LABEL, type Mode, type Session } from "../lib/agent-demo";
 import { cn, formatRelativeTime } from "../lib/utils";
 import { Mark, SectionLabel, StatusDot } from "./primitives";
@@ -33,6 +38,8 @@ export function Sidebar({
   sessions,
   activeSessionId,
   onSelectSession,
+  onRenameSession,
+  onDeleteSession,
   mode,
   onSelectMode,
   onNewSession,
@@ -42,8 +49,10 @@ export function Sidebar({
   memoryCount,
 }: {
   sessions: Session[];
-  activeSessionId: string;
+  activeSessionId: string | null;
   onSelectSession: (id: string) => void;
+  onRenameSession?: (id: string, title: string) => void;
+  onDeleteSession?: (id: string) => void;
   mode: Mode;
   onSelectMode: (m: Mode) => void;
   onNewSession: () => void;
@@ -52,27 +61,44 @@ export function Sidebar({
   running: boolean;
   memoryCount: number;
 }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+
+  const handleStartEdit = (e: React.MouseEvent, s: Session) => {
+    e.stopPropagation();
+    setEditingId(s.id);
+    setEditTitle(s.title);
+  };
+
+  const handleSaveEdit = (e: React.MouseEvent | React.FormEvent, id: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (editTitle.trim() && onRenameSession) {
+      onRenameSession(id, editTitle.trim());
+    }
+    setEditingId(null);
+  };
+
+  const handleCancelEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingId(null);
+  };
+
+  const handleDelete = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (onDeleteSession) {
+      onDeleteSession(id);
+    }
+  };
+
   return (
     <aside className="flex h-full w-full flex-col border-r border-border bg-surface">
-      <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
-        <Mark size={24} />
+      <div className="flex items-center gap-2.5 px-4 pt-9 pb-3">
+        <Mark size={22} />
         <span className="wordmark text-[15px] font-semibold text-foreground">Hachimi</span>
       </div>
 
-      {/* Compact assistant status — not a character stage */}
-      <div className="mx-3 mb-3 rounded-md border border-border bg-surface-elevated px-3 py-2">
-        <div className="flex items-center gap-2">
-          <StatusDot status={running ? "running" : "done"} />
-          <span className="font-mono text-xs text-muted-foreground">
-            {running ? "running" : "ready"} · {memoryCount} memories
-          </span>
-        </div>
-        <div className="mt-1 font-mono text-[11px] text-muted-foreground">
-          single brain · 3 tools · PathJail on
-        </div>
-      </div>
-
-      <div className="px-3">
+      <div className="px-3 mt-1">
         <button
           type="button"
           onClick={onNewSession}
@@ -96,12 +122,12 @@ export function Sidebar({
                   className={cn(
                     "flex h-8 w-full items-center gap-2 rounded-md px-2 text-[13px] transition-colors",
                     active
-                      ? "nav-rail bg-surface-active text-foreground"
+                      ? "nav-rail bg-surface-active font-medium text-foreground"
                       : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
                   )}
                 >
-                  <Icon className={cn("size-4", active ? MODE_TINT[id] : "")} />
-                  <span className="min-w-0 flex-1 truncate text-left">{MODE_LABEL[id]}</span>
+                  <Icon className={cn("size-4", MODE_TINT[id])} />
+                  <span className="flex-1 text-left">{MODE_LABEL[id]}</span>
                   <span className="font-mono text-[11px] text-muted-foreground">{hint}</span>
                 </button>
               </li>
@@ -115,32 +141,84 @@ export function Sidebar({
         <ul className="scroll-quiet mt-1.5 min-h-0 flex-1 space-y-0.5 overflow-y-auto pb-2">
           {sessions.map((s) => {
             const active = s.id === activeSessionId;
+            const isEditing = editingId === s.id;
+
             return (
               <li key={s.id}>
-                <button
-                  type="button"
-                  onClick={() => onSelectSession(s.id)}
-                  className={cn(
-                    "w-full rounded-md px-2 py-2 text-left transition-colors",
-                    active ? "nav-rail bg-surface-active" : "hover:bg-surface-hover"
-                  )}
-                >
+                {isEditing ? (
+                  <form
+                    onSubmit={(e) => handleSaveEdit(e, s.id)}
+                    className="flex items-center gap-1 rounded-md border border-primary bg-surface p-1.5"
+                  >
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="w-full min-w-0 bg-transparent px-1 text-[13px] text-foreground focus:outline-none"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => handleSaveEdit(e, s.id)}
+                      className="grid size-6 shrink-0 place-items-center rounded text-primary hover:bg-surface-hover"
+                    >
+                      <Check className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="grid size-6 shrink-0 place-items-center rounded text-muted-foreground hover:bg-surface-hover"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </form>
+                ) : (
                   <div
+                    onClick={() => onSelectSession(s.id)}
                     className={cn(
-                      "truncate text-[13px]",
-                      active ? "text-foreground" : "text-muted-foreground"
+                      "group relative flex w-full cursor-pointer items-center justify-between rounded-md px-2 py-2 transition-colors",
+                      active ? "nav-rail bg-surface-active" : "hover:bg-surface-hover"
                     )}
                   >
-                    {s.title}
+                    <div className="min-w-0 flex-1 pr-1.5">
+                      <div
+                        className={cn(
+                          "truncate text-[13px]",
+                          active ? "font-medium text-foreground" : "text-muted-foreground group-hover:text-foreground"
+                        )}
+                      >
+                        {s.title}
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+                        <span className={MODE_TINT[s.mode || "chat"]}>{s.mode || "chat"}</span>
+                        <span>·</span>
+                        <span>{s.runs || 0} runs</span>
+                        <span>·</span>
+                        <span>{s.time || formatRelativeTime(s.updatedAt || 0)}</span>
+                      </div>
+                    </div>
+
+                    {/* Actions on hover */}
+                    <div className="hidden shrink-0 items-center gap-1 group-hover:flex">
+                      <button
+                        type="button"
+                        onClick={(e) => handleStartEdit(e, s)}
+                        className="grid size-6 place-items-center rounded text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+                        title="重命名会话"
+                      >
+                        <Pencil className="size-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDelete(e, s.id)}
+                        className="grid size-6 place-items-center rounded text-muted-foreground transition-colors hover:bg-surface-hover hover:text-destructive"
+                        title="删除会话"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="mt-0.5 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-                    <span className={MODE_TINT[s.mode || "chat"]}>{s.mode || "chat"}</span>
-                    <span>·</span>
-                    <span>{s.runs || 0} runs</span>
-                    <span>·</span>
-                    <span>{s.time || formatRelativeTime(s.updatedAt || 0)}</span>
-                  </div>
-                </button>
+                )}
               </li>
             );
           })}

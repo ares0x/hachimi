@@ -69,6 +69,25 @@ export class SessionManager {
       .sort((a, b) => b.updatedAt - a.updatedAt);
   }
 
+  /** 重命名指定会话 */
+  rename(id: string, title: string): Session | null {
+    const session = this.load(id);
+    if (!session) return null;
+    session.title = title;
+    this.save(session);
+    return session;
+  }
+
+  /** 删除指定会话 */
+  delete(id: string): boolean {
+    const filePath = this.fileOf(id);
+    this.store.remove(filePath);
+    if (this.current?.id === id) {
+      this.current = null;
+    }
+    return true;
+  }
+
   /** 追加消息并保存 */
   appendMessage(message: Message) {
     const session = this.getOrCreate();

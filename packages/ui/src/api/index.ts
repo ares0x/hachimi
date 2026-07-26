@@ -72,6 +72,32 @@ export async function createSession(title?: string): Promise<any | null> {
   }
 }
 
+export async function renameSession(id: string, title: string): Promise<any | null> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/sessions/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { session?: any };
+    return data.session || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteSession(id: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/sessions/${id}`, {
+      method: "DELETE",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function sendSteerPrompt(prompt: string): Promise<boolean> {
   try {
     const res = await fetch(`${getApiBase()}/api/chat/steer`, {

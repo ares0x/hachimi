@@ -350,6 +350,27 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
     return { session: created };
   });
 
+  server.patch("/api/sessions/:id", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const body = (request.body || {}) as { title: string };
+    if (!body.title?.trim()) {
+      reply.code(400).send({ error: "Title is required" });
+      return;
+    }
+    const updated = runtime.sessions.rename(id, body.title.trim());
+    if (!updated) {
+      reply.code(404).send({ error: `Session '${id}' not found` });
+      return;
+    }
+    return { session: updated };
+  });
+
+  server.delete("/api/sessions/:id", async (request: FastifyRequest) => {
+    const { id } = request.params as { id: string };
+    runtime.sessions.delete(id);
+    return { success: true, id };
+  });
+
   // 5. GET /api/memory
   server.get("/api/memory", async (request: FastifyRequest) => {
     const query = ((request.query as any)?.query || "").trim();
