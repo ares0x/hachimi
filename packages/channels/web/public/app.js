@@ -1,4 +1,4 @@
-// packages/channels/web/public/app.js
+// packages/channels/web/public/app.js - Hachimi Design System v1.1.0 Interactive Client
 
 document.addEventListener("DOMContentLoaded", () => {
   const promptInput = document.getElementById("prompt-input");
@@ -7,12 +7,38 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnExport = document.getElementById("btn-export");
   const inputImport = document.getElementById("input-import");
   const btnNewSession = document.getElementById("btn-new-session");
+  const btnThemeToggle = document.getElementById("btn-theme-toggle");
+  const themeIcon = document.getElementById("theme-icon");
+  const themeText = document.getElementById("theme-text");
   const messagesContainer = document.getElementById("messages-container");
   const sessionList = document.getElementById("session-list");
+  const inspectorSessionId = document.getElementById("inspector-session-id");
 
   let currentSessionId = null;
 
-  // 1. 获取守护进程与 Agent 状态
+  // 1. Theme Toggle (Light default, Dark alternate) per §3.2 & §3.3
+  let currentTheme = localStorage.getItem("hachimi-theme") || "light";
+  document.documentElement.setAttribute("data-theme", currentTheme);
+  updateThemeButtonUI();
+
+  btnThemeToggle.addEventListener("click", () => {
+    currentTheme = currentTheme === "light" ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", currentTheme);
+    localStorage.setItem("hachimi-theme", currentTheme);
+    updateThemeButtonUI();
+  });
+
+  function updateThemeButtonUI() {
+    if (currentTheme === "dark") {
+      themeIcon.textContent = "🌙";
+      themeText.textContent = "Dark";
+    } else {
+      themeIcon.textContent = "☀️";
+      themeText.textContent = "Light";
+    }
+  }
+
+  // 2. Fetch Daemon & Agent Runtime Status
   async function updateStatus() {
     try {
       const res = await fetch("/api/status");
@@ -20,19 +46,22 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await res.json();
 
       document.getElementById("status-provider").textContent = data.llm?.provider || "mock";
-      document.getElementById("status-tokens").textContent =
-        `${data.context?.estimatedTokens || 0} / ${data.context?.maxTokens || 12000} (${data.context?.ratio || "0%"})`;
-      document.getElementById("status-memories").textContent = `${data.memory?.totalCount || 0} 条`;
+      document.getElementById("status-tokens").textContent = `${
+        data.context?.estimatedTokens || 0
+      } / ${data.context?.maxTokens || 12000} (${data.context?.ratio || "0%"})`;
+      document.getElementById("status-memories").textContent =
+        `${data.memory?.totalCount || 0} items`;
 
       if (data.session && !currentSessionId) {
         currentSessionId = data.session.id;
+        if (inspectorSessionId) inspectorSessionId.textContent = currentSessionId;
       }
     } catch (e) {
-      console.error("无法获取状态:", e);
+      console.error("Unable to fetch status:", e);
     }
   }
 
-  // 2. 加载并渲染指定 Session 的历史消息
+  // 3. Load & Render Historical Session Messages
   async function loadSessionMessages(sessionId) {
     if (!sessionId) return;
     try {
@@ -50,15 +79,15 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         appendMessage(
           "assistant",
-          "你好！我是你的 Hachimi 个人 AI 助手。我可以帮你管理任务、记忆偏好并执行命令行工具。请问今天有什么可以帮你的？"
+          "Hello! I am your Hachimi personal AI assistant. I can help manage your daily tasks, retrieve memory preferences, and execute system tools safely. How can I assist you today?"
         );
       }
     } catch (e) {
-      console.error("无法加载会话消息:", e);
+      console.error("Unable to load session messages:", e);
     }
   }
 
-  // 3. 获取会话列表
+  // 4. Fetch Sessions List
   async function loadSessions() {
     try {
       const res = await fetch("/api/sessions");
@@ -70,6 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (!currentSessionId && sessions.length > 0) {
         currentSessionId = sessions[0].id;
+        if (inspectorSessionId) inspectorSessionId.textContent = currentSessionId;
       }
 
       sessions.forEach((sess) => {
@@ -78,6 +108,7 @@ document.addEventListener("DOMContentLoaded", () => {
         li.textContent = sess.title || sess.id;
         li.addEventListener("click", () => {
           currentSessionId = sess.id;
+          if (inspectorSessionId) inspectorSessionId.textContent = currentSessionId;
           document.querySelectorAll(".session-item").forEach((el) => el.classList.remove("active"));
           li.classList.add("active");
           document.getElementById("current-session-title").textContent = sess.title || sess.id;
@@ -95,32 +126,44 @@ document.addEventListener("DOMContentLoaded", () => {
         loadSessionMessages(currentSessionId);
       }
     } catch (e) {
-      console.error("无法加载会话:", e);
+      console.error("Unable to load sessions:", e);
     }
   }
 
-  // 4. 追加消息泡泡
+  // 5. Append Message following Design System §8.7
   function appendMessage(role, text) {
-    const msgDiv = document.createElement("div");
-    msgDiv.className = `message ${role}`;
+    const wrapper = document.createElement("div");
+    wrapper.className = `message-wrapper ${role}`;
 
-    const avatar = document.createElement("div");
-    avatar.className = "avatar";
-    avatar.textContent = role === "user" ? "👤" : "🍯";
+    let contentEl;
 
-    const bubble = document.createElement("div");
-    bubble.className = "bubble glass-bubble";
-    bubble.textContent = typeof text === "string" ? text : JSON.stringify(text);
+    if (role === "user") {
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = typeof text === "string" ? text : JSON.stringify(text);
+      wrapper.appendChild(bubble);
+      contentEl = bubble;
+    } else {
+      const identity = document.createElement("div");
+      identity.className = "assistant-identity";
+      identity.innerHTML = `<div class="assistant-avatar">H</div><span>Hachimi</span>`;
 
-    msgDiv.appendChild(avatar);
-    msgDiv.appendChild(bubble);
-    messagesContainer.appendChild(msgDiv);
+      const flow = document.createElement("div");
+      flow.className = "document-flow";
+      flow.textContent = typeof text === "string" ? text : JSON.stringify(text);
+
+      wrapper.appendChild(identity);
+      wrapper.appendChild(flow);
+      contentEl = flow;
+    }
+
+    messagesContainer.appendChild(wrapper);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
-    return bubble;
+    return contentEl;
   }
 
-  // 5. 发送对话请求 (支持 SSE 流式打字机)
+  // 6. Send Chat Prompt (SSE Streaming)
   async function sendMessage() {
     const prompt = promptInput.value.trim();
     if (!prompt) return;
@@ -128,7 +171,7 @@ document.addEventListener("DOMContentLoaded", () => {
     appendMessage("user", prompt);
     promptInput.value = "";
 
-    const assistantBubble = appendMessage("assistant", "正在思考中...");
+    const assistantContentEl = appendMessage("assistant", "Thinking...");
 
     try {
       const response = await fetch("/api/chat", {
@@ -145,11 +188,11 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       if (!response.ok) {
-        assistantBubble.textContent = "请求失败，守护进程返回错误。";
+        assistantContentEl.textContent = "Request failed. Daemon returned an error.";
         return;
       }
 
-      assistantBubble.textContent = "";
+      assistantContentEl.textContent = "";
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -168,10 +211,10 @@ document.addEventListener("DOMContentLoaded", () => {
             try {
               const data = JSON.parse(line.slice(6));
               if (data.type === "chunk") {
-                assistantBubble.textContent += data.chunk;
+                assistantContentEl.textContent += data.chunk;
               } else if (data.type === "done") {
-                if (data.content && !assistantBubble.textContent) {
-                  assistantBubble.textContent = data.content;
+                if (data.content && !assistantContentEl.textContent) {
+                  assistantContentEl.textContent = data.content;
                 }
               }
             } catch (e) {
@@ -184,11 +227,11 @@ document.addEventListener("DOMContentLoaded", () => {
       updateStatus();
       loadSessions();
     } catch (err) {
-      assistantBubble.textContent = `发送异常: ${err.message || String(err)}`;
+      assistantContentEl.textContent = `Send exception: ${err.message || String(err)}`;
     }
   }
 
-  // 6. C6 Mid-turn Steer 对话中途转向
+  // 7. Mid-turn Steering
   async function sendSteer() {
     const prompt = promptInput.value.trim();
     if (!prompt) return;
@@ -202,15 +245,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await res.json();
       appendMessage(
         "assistant",
-        `[⚡ Steer 中途转向响应]: ${data.success ? "成功注入转向指令" : "Agent 当前未在运行中"}`
+        `[⚡ Steer Response]: ${data.success ? "Successfully injected steering prompt" : "Agent currently idle"}`
       );
       promptInput.value = "";
     } catch (err) {
-      alert(`Steer 错误: ${err.message}`);
+      alert(`Steer Error: ${err.message}`);
     }
   }
 
-  // 7. Phase D Portable Bundle 导出
+  // 8. Portable Bundle Export
   async function exportBundle() {
     try {
       const res = await fetch("/api/export");
@@ -228,11 +271,11 @@ document.addEventListener("DOMContentLoaded", () => {
         URL.revokeObjectURL(url);
       }
     } catch (err) {
-      alert(`导出失败: ${err.message}`);
+      alert(`Export error: ${err.message}`);
     }
   }
 
-  // 8. Phase D Portable Bundle 导入
+  // 9. Portable Bundle Import
   async function importBundle(file) {
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -245,20 +288,22 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         const data = await res.json();
         if (data.success) {
-          alert(`数据包导入成功！跳过重复记忆: ${data.result?.skippedMemoriesCount || 0} 条`);
+          alert(
+            `Bundle imported successfully! Skipped memories: ${data.result?.skippedMemoriesCount || 0}`
+          );
           updateStatus();
           loadSessions();
         } else {
-          alert(`数据包导入失败`);
+          alert(`Bundle import failed`);
         }
       } catch (err) {
-        alert(`读取文件失败: ${err.message}`);
+        alert(`Failed to read file: ${err.message}`);
       }
     };
     reader.readAsText(file);
   }
 
-  // 绑定事件
+  // Bind Event Listeners
   btnSend.addEventListener("click", sendMessage);
   btnSteer.addEventListener("click", sendSteer);
   btnExport.addEventListener("click", exportBundle);
@@ -269,14 +314,14 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   promptInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       sendMessage();
     }
   });
 
   btnNewSession.addEventListener("click", async () => {
-    const title = prompt("请输入新会话标题:", `会话 ${new Date().toLocaleTimeString()}`);
+    const title = prompt("Enter new session title:", `Session ${new Date().toLocaleTimeString()}`);
     if (!title) return;
     const res = await fetch("/api/sessions", {
       method: "POST",
@@ -286,11 +331,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const data = await res.json();
     if (data.session) {
       currentSessionId = data.session.id;
+      if (inspectorSessionId) inspectorSessionId.textContent = currentSessionId;
       loadSessions();
     }
   });
 
-  // 初始化加载
+  // Initialization
   async function init() {
     await updateStatus();
     await loadSessions();

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hachimi AI Assistant - Dashboard & Surface Client</title>
+  <title>Hachimi Personal AI Assistant — Surface Client</title>
   <link rel="stylesheet" href="./style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,91 +11,139 @@
 </head>
 <body>
   <div class="app-container">
-    <!-- 侧边栏：状态与会话管理 -->
+    <!-- 1. 侧边栏 (Sidebar) -->
     <aside class="sidebar">
       <div class="brand">
-        <div class="logo">🍯</div>
-        <div class="brand-text">
-          <h2>Hachimi</h2>
-          <span class="version-tag" id="status-version">v0.1.0</span>
+        <div class="brand-main">
+          <div class="logo-mark">H</div>
+          <div class="brand-text">
+            <h2>Hachimi</h2>
+          </div>
         </div>
+        <button id="btn-theme-toggle" class="theme-toggle-btn" title="Toggle Light/Dark Theme">
+          <span id="theme-icon">☀️</span> <span id="theme-text">Light</span>
+        </button>
       </div>
 
       <!-- 运行时状态面板 -->
-      <div class="status-card glass-panel">
+      <div class="status-card">
         <div class="card-title">
           <span class="pulse-dot"></span>
-          运行时状态
+          Runtime Status
         </div>
         <div class="status-metric">
-          <span class="label">模型 Provider</span>
+          <span class="label">Provider</span>
           <span class="value" id="status-provider">deepseek</span>
         </div>
         <div class="status-metric">
-          <span class="label">Token 使用率</span>
+          <span class="label">Token Usage</span>
           <span class="value" id="status-tokens">0 / 12000 (0%)</span>
         </div>
         <div class="status-metric">
-          <span class="label">记忆条目</span>
-          <span class="value" id="status-memories">0 条</span>
+          <span class="label">Memories</span>
+          <span class="value" id="status-memories">0 items</span>
         </div>
       </div>
 
-      <!-- 数据包导出导入（Phase D Portable Memory） -->
-      <div class="portable-section glass-panel">
-        <div class="card-title">📦 可移植记忆 (Portable)</div>
-        <div class="button-group">
-          <button id="btn-export" class="btn btn-secondary">导出数据包</button>
-          <label for="input-import" class="btn btn-secondary">导入数据包</label>
+      <!-- 可移植记忆 (Portable Bundle) -->
+      <div class="status-card">
+        <div class="card-title">📦 Portable Memory</div>
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+          <button id="btn-export" class="btn btn-secondary" style="flex: 1;">Export</button>
+          <label for="input-import" class="btn btn-secondary" style="flex: 1; text-align: center;">Import</label>
           <input type="file" id="input-import" accept=".json" style="display: none;">
         </div>
       </div>
 
-      <!-- 会话历史列表 -->
+      <!-- 历史会话列表 -->
       <div class="sessions-section">
         <div class="section-header">
-          <span>历史会话</span>
-          <button id="btn-new-session" class="btn-icon" title="新建会话">+</button>
+          <span>Sessions</span>
+          <button id="btn-new-session" class="btn-icon" title="New Session">+</button>
         </div>
         <ul id="session-list" class="session-list">
-          <li class="session-item active">当前会话</li>
+          <li class="session-item active">Current Session</li>
         </ul>
       </div>
     </aside>
 
-    <!-- 主界面：聊天窗口与打字机 -->
+    <!-- 2. 主对话视窗 (Center Chat Viewport) -->
     <main class="chat-viewport">
-      <header class="chat-header glass-panel">
-        <div class="header-info">
-          <h3 id="current-session-title">主对话窗口</h3>
-          <p class="subtitle">Daemon API 守护进程驱动中 (Port 3700)</p>
+      <header class="chat-header">
+        <div>
+          <h3 id="current-session-title">Main Workspace</h3>
+          <p class="subtitle">Daemon API Server running on port 3700</p>
         </div>
-        <div class="header-actions">
-          <span class="badge badge-success" id="auth-status">C5 Auth 免鉴权</span>
+        <div>
+          <span class="badge badge-success" id="auth-status">C5 Auth Verified</span>
         </div>
       </header>
 
-      <!-- 消息列表视窗 -->
+      <!-- 消息列表视窗 (Document Flow) -->
       <div class="messages-container" id="messages-container">
-        <div class="message assistant">
-          <div class="avatar">🍯</div>
-          <div class="bubble glass-bubble">
-            你好！我是你的 Hachimi 个人 AI 助理。我可以帮你管理任务、记忆偏好并执行命令行工具。请问今天有什么可以帮你的？
+        <!-- Assistant Message (Document Flow) -->
+        <div class="message-wrapper assistant">
+          <div class="assistant-identity">
+            <div class="assistant-avatar">H</div>
+            <span>Hachimi</span>
+          </div>
+          <div class="document-flow">
+            Hello! I am your Hachimi personal AI assistant. I can help manage your daily tasks, retrieve memory preferences, and execute system tools safely. How can I assist you today?
           </div>
         </div>
       </div>
 
-      <!-- 输入框视窗 -->
-      <div class="input-area glass-panel">
+      <!-- 输入框区域 (Composer) -->
+      <div class="input-area">
         <div class="input-wrapper">
-          <textarea id="prompt-input" placeholder="给 Hachimi 发送消息或中途修正指令..." rows="2"></textarea>
-          <div class="action-buttons">
-            <button id="btn-steer" class="btn btn-warn" title="中途转向修正">⚡ Steer</button>
-            <button id="btn-send" class="btn btn-primary">发送 (Send)</button>
+          <textarea id="prompt-input" placeholder="Type a message or mid-turn steering command..." rows="2"></textarea>
+          <div class="composer-footer">
+            <div class="composer-hints">
+              <span>⌘Enter to send</span>
+            </div>
+            <div class="action-buttons">
+              <button id="btn-steer" class="btn btn-warn" title="Mid-turn steering">⚡ Steer</button>
+              <button id="btn-send" class="btn btn-primary">Send</button>
+            </div>
           </div>
         </div>
       </div>
     </main>
+
+    <!-- 3. 上下文 Inspector 面板 (Right Context Column per §9.1) -->
+    <aside class="context-panel">
+      <div class="context-section">
+        <div class="card-title">Session Metadata</div>
+        <div class="meta-row">
+          <span class="key">Session ID</span>
+          <span class="val" id="inspector-session-id">main</span>
+        </div>
+        <div class="meta-row">
+          <span class="key">Mode</span>
+          <span class="val">normal</span>
+        </div>
+        <div class="meta-row">
+          <span class="key">Theme Token</span>
+          <span class="val">ink-teal</span>
+        </div>
+      </div>
+
+      <div class="context-section">
+        <div class="card-title">System Invariants</div>
+        <div class="meta-row">
+          <span class="key">PathJail</span>
+          <span class="val">Active</span>
+        </div>
+        <div class="meta-row">
+          <span class="key">Circuit Breaker</span>
+          <span class="val">Active (3)</span>
+        </div>
+        <div class="meta-row">
+          <span class="key">Token Limit</span>
+          <span class="val">12000</span>
+        </div>
+      </div>
+    </aside>
   </div>
 
   <script src="./app.js"></script>
