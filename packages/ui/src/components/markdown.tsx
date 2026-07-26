@@ -54,7 +54,8 @@ function parseTableRow(line: string): string[] {
 }
 
 export function Markdown({ text, className }: { text: string; className?: string }) {
-  const lines = text.split("\n");
+  const normalizedText = (text || "").replace(/\\n/g, "\n");
+  const lines = normalizedText.split("\n");
   const blocks: React.ReactNode[] = [];
   let list: { ordered: boolean; items: string[] } | null = null;
   let table: string[] | null = null;
@@ -245,7 +246,7 @@ export function Markdown({ text, className }: { text: string; className?: string
   flushTable();
 
   return (
-    <div className={cn("text-[14px] leading-[1.7] [&>*:first-child]:mt-0", className)}>
+    <div className={cn("text-[14px] leading-[1.75] whitespace-pre-wrap break-words [&>*:first-child]:mt-0", className)}>
       {blocks}
     </div>
   );
