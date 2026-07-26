@@ -1,4 +1,6 @@
 // packages/storage/src/sqlite-store.ts
+import { existsSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { log } from "@hachimi/shared";
 import Database from "better-sqlite3";
 import type { JsonDirStore, JsonFileStore, StorageBackend } from "./types.js";
@@ -9,6 +11,10 @@ export class SQLiteStore implements JsonFileStore, JsonDirStore, StorageBackend 
 
   constructor(dbPath: string) {
     this.dbPath = dbPath;
+    const parentDir = dirname(dbPath);
+    if (!existsSync(parentDir)) {
+      mkdirSync(parentDir, { recursive: true });
+    }
     this.db = new (Database as any)(dbPath);
     this.initTables();
     log("info", `SQLite 存储已初始化: ${dbPath}`);
@@ -101,6 +107,18 @@ export class SQLiteStore implements JsonFileStore, JsonDirStore, StorageBackend 
   remove(key: string): void {
     const stmt = this.db.prepare("DELETE FROM kv_store WHERE key = ?");
     stmt.run(key);
+  }
+
+  removeAllLike(pattern: string): number {
+    const stmt = this.db.prepare("DELETE FROM kv_store WHERE key LIKE ?");
+    const res = stmt.run(`%${pattern}%`);
+    return res.changes;
+  }
+
+  clearMemoriesTable(): number {
+    const stmt = this.db.prepare("DELETE FROM memories");
+    const res = stmt.run();
+    return res.changes;
   }
 
   close() {

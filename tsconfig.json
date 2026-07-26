@@ -28,9 +28,11 @@
       "@hachimi/channel-cli": ["./packages/channels/cli/src/index.ts"],
       "@hachimi/channel-cli/*": ["./packages/channels/cli/src/*"],
       "@hachimi/channel-telegram": ["./packages/channels/telegram/src/index.ts"],
-      "@hachimi/channel-telegram/*": ["./packages/channels/telegram/src/*"]
+      "@hachimi/channel-telegram/*": ["./packages/channels/telegram/src/*"],
+      "@hachimi/ui": ["./packages/ui/src/index.ts"],
+      "@hachimi/ui/*": ["./packages/ui/src/*"]
     }
   },
   "include": ["packages/**/*", "apps/**/*"],
-  "exclude": ["node_modules", "dist", "**/dist"]
+  "exclude": ["node_modules", "dist", "**/dist", "apps/web", "apps/desktop", "packages/ui", "demo"]
 }

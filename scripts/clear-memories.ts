@@ -10,23 +10,19 @@ function clearMemories() {
 
   let count = 0;
 
-  // 1. Clear SQLite memories table and kv_store memory entry
+  // 1. Delete all memories from SQLite memories table and kv_store memory keys
   if (existsSync(dbPath)) {
     try {
       const store = new SQLiteStore(dbPath);
-      const memoryKeys = store.list("data/memory");
-      for (const k of memoryKeys) {
-        store.remove(`data/memory/${k}`);
-        count++;
-      }
-      store.remove("data/memory.json");
+      count += store.clearMemoriesTable();
+      count += store.removeAllLike("memory");
       store.close();
     } catch (err: any) {
       console.warn("⚠️ [SQLite Cleanup] Memory deletion error:", err?.message || err);
     }
   }
 
-  // 2. Clear File System data/memory.json
+  // 2. Delete data/memory.json file if present
   if (existsSync(memoryFile)) {
     try {
       unlinkSync(memoryFile);

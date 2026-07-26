@@ -138,6 +138,11 @@ export function loadConfig(configPath = "config.json"): HachimiConfig {
     DEFAULT_CONFIG.llm.activeProvider
   ).toLowerCase();
 
+  const effectiveDataDir =
+    process.env.VITEST || process.env.NODE_ENV === "test"
+      ? "data-test"
+      : loaded.paths?.dataDir || "data";
+
   const cfg: HachimiConfig = {
     ...DEFAULT_CONFIG,
     ...loaded,
@@ -151,9 +156,9 @@ export function loadConfig(configPath = "config.json"): HachimiConfig {
       },
     },
     paths: {
-      dataDir: resolve(loaded.paths?.dataDir || DEFAULT_CONFIG.paths.dataDir),
-      memoryFile: resolve(loaded.paths?.dataDir || DEFAULT_CONFIG.paths.dataDir, "memory.json"),
-      sessionsDir: resolve(loaded.paths?.dataDir || DEFAULT_CONFIG.paths.dataDir, "sessions"),
+      dataDir: resolve(effectiveDataDir),
+      memoryFile: resolve(effectiveDataDir, "memory.json"),
+      sessionsDir: resolve(effectiveDataDir, "sessions"),
     },
     context: {
       ...DEFAULT_CONFIG.context,

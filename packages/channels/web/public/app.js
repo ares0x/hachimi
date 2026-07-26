@@ -1,4 +1,4 @@
-// packages/channels/web/public/app.js - Hachimi Shell Layout v1 Client
+// packages/channels/web/public/app.js - Hachimi Shell Layout v1 Client (Demo Aligned)
 
 document.addEventListener("DOMContentLoaded", () => {
   const promptInput = document.getElementById("prompt-input");
@@ -9,9 +9,24 @@ document.addEventListener("DOMContentLoaded", () => {
   const themeText = document.getElementById("theme-text");
   const messagesContainer = document.getElementById("messages-container");
   const sessionList = document.getElementById("session-list");
-  const emptyState = document.getElementById("empty-state");
+  const emptyStateLanding = document.getElementById("empty-state-landing");
+  const emptyStateSession = document.getElementById("empty-state-session");
   const inspectorSessionId = document.getElementById("inspector-session-id");
   const toastViewport = document.getElementById("toast-viewport");
+
+  // Permission Dock (HITL per hachimi-demo & DESIGN_SYSTEM §8.10)
+  const permissionDock = document.getElementById("permission-dock");
+  const dockTitle = document.getElementById("dock-title");
+  const dockDesc = document.getElementById("dock-desc");
+  const btnDockApprove = document.getElementById("btn-dock-approve");
+  const btnDockAlways = document.getElementById("btn-dock-always");
+  const btnDockDeny = document.getElementById("btn-dock-deny");
+  let pendingApprovalCallback = null;
+
+  // Command Palette (⌘K)
+  const btnOpenPalette = document.getElementById("btn-open-palette");
+  const paletteDialog = document.getElementById("command-palette-dialog");
+  const paletteSearch = document.getElementById("palette-search");
 
   // Inspector & Settings
   const inspectorToggle = document.getElementById("inspector-toggle");
@@ -19,8 +34,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const settingsDialog = document.getElementById("settings-dialog");
   const btnOpenSettings = document.getElementById("btn-open-settings");
   const btnCloseSettings = document.getElementById("btn-close-settings");
-  const btnNavSettings = document.getElementById("btn-nav-settings");
   const btnNavMemory = document.getElementById("btn-nav-memory");
+  const btnNavBundle = document.getElementById("btn-nav-bundle");
   const btnSettingsExport = document.getElementById("btn-settings-export");
   const inputSettingsImport = document.getElementById("input-settings-import");
   const chipExportBundle = document.getElementById("chip-export-bundle");
@@ -72,18 +87,45 @@ document.addEventListener("DOMContentLoaded", () => {
   document.documentElement.setAttribute("data-theme", currentTheme);
   updateThemeButtonUI();
 
-  btnThemeToggle.addEventListener("click", () => {
+  btnThemeToggle.addEventListener("click", toggleTheme);
+
+  function toggleTheme() {
     currentTheme = currentTheme === "light" ? "dark" : "light";
     document.documentElement.setAttribute("data-theme", currentTheme);
     localStorage.setItem("hachimi-theme", currentTheme);
     updateThemeButtonUI();
-  });
-
-  function updateThemeButtonUI() {
-    themeText.textContent = currentTheme === "dark" ? "🌙 Dark" : "☀️ Light";
   }
 
-  // 4. Inspector Toggle & Tabs (§2.7)
+  function updateThemeButtonUI() {
+    if (themeText) themeText.textContent = currentTheme === "dark" ? "🌙 Dark" : "☀️ Light";
+  }
+
+  // 4. Command Palette (⌘K)
+  function togglePalette() {
+    if (paletteDialog) {
+      if (paletteDialog.open) {
+        paletteDialog.close();
+      } else {
+        paletteDialog.showModal();
+        if (paletteSearch) paletteSearch.focus();
+      }
+    }
+  }
+
+  if (btnOpenPalette) btnOpenPalette.addEventListener("click", togglePalette);
+
+  document.querySelectorAll(".palette-item").forEach((item) => {
+    item.addEventListener("click", () => {
+      const action = item.getAttribute("data-action");
+      if (paletteDialog) paletteDialog.close();
+
+      if (action === "new-session") createNewSession();
+      else if (action === "export-bundle") exportBundle();
+      else if (action === "toggle-theme") toggleTheme();
+    });
+  });
+
+  // 5. Inspector Toggle & Tabs (§2.7)
   let inspectorOpen = false;
   function toggleInspector() {
     inspectorOpen = !inspectorOpen;
@@ -109,7 +151,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // 5. Settings Modal (§2.8)
+  // 6. Settings Modal (§2.8)
   function openSettings() {
     if (settingsDialog && typeof settingsDialog.showModal === "function") {
       settingsDialog.showModal();
@@ -127,7 +169,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (btnOpenSettings) btnOpenSettings.addEventListener("click", openSettings);
-  if (btnNavSettings) btnNavSettings.addEventListener("click", openSettings);
   if (btnCloseSettings) btnCloseSettings.addEventListener("click", closeSettings);
 
   if (btnNavMemory) {
@@ -136,7 +177,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 6. Responsive Drawers
+  if (btnNavBundle) {
+    btnNavBundle.addEventListener("click", exportBundle);
+  }
+
+  // 7. Responsive Drawers
   if (navToggle) {
     navToggle.addEventListener("click", () => {
       document.body.classList.toggle("sidebar-open");
@@ -157,7 +202,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Keyboard Shortcuts (⌘K, ⌘\, ⌘,) per Design System §15
   document.addEventListener("keydown", (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "\\") {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      togglePalette();
+    } else if ((e.metaKey || e.ctrlKey) && e.key === "\\") {
       e.preventDefault();
       toggleInspector();
     } else if ((e.metaKey || e.ctrlKey) && e.key === ",") {
@@ -172,7 +220,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // 7. Update Status & Chrome Health Bar (§2.4)
+  // 8. Update Status & Chrome Health Bar & Budget Progress
   async function updateStatus() {
     try {
       const res = await fetch("/api/status");
@@ -180,12 +228,23 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await res.json();
 
       const provider = data.llm?.provider || "deepseek";
-      const ratio = data.context?.ratio || "0%";
       const memories = data.memory?.totalCount || 0;
+      const tokensUsed = data.context?.tokens || 0;
+      const maxTokens = data.context?.maxTokens || 12000;
+      const tokenDisplay = tokensUsed > 0 ? `${tokensUsed} / 12k tokens` : "Ready · 0 / 12k tokens";
 
-      const summaryText = `Connected · ${provider} · ${ratio} context · ${memories} memories · PathJail on`;
+      const summaryText = `Connected · ${provider} · ${tokenDisplay} · ${memories} memories · PathJail on`;
       const chromeSummary = document.getElementById("chrome-summary");
       if (chromeSummary) chromeSummary.textContent = summaryText;
+
+      const budgetTokenVal = document.getElementById("budget-token-val");
+      if (budgetTokenVal) budgetTokenVal.textContent = `${tokensUsed} / 12k`;
+
+      const budgetProgressBar = document.getElementById("budget-progress-bar");
+      if (budgetProgressBar) {
+        const pct = Math.min(100, Math.round((tokensUsed / maxTokens) * 100));
+        budgetProgressBar.style.width = `${pct}%`;
+      }
 
       const settingsProviderVal = document.getElementById("settings-provider-val");
       if (settingsProviderVal) settingsProviderVal.textContent = provider;
@@ -199,7 +258,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // 8. Load & Render Historical Session Messages
+  // 9. Load & Render Historical Session Messages
   async function loadSessionMessages(sessionId) {
     if (!sessionId) return;
     try {
@@ -211,14 +270,16 @@ document.addEventListener("DOMContentLoaded", () => {
       messagesContainer.innerHTML = "";
 
       if (data.session.messages && data.session.messages.length > 0) {
-        if (emptyState) emptyState.style.display = "none";
+        if (emptyStateLanding) emptyStateLanding.style.display = "none";
+        if (emptyStateSession) emptyStateSession.style.display = "none";
         data.session.messages.forEach((msg) => {
           appendMessage(msg.role, msg.content);
         });
       } else {
-        if (emptyState) {
-          messagesContainer.appendChild(emptyState);
-          emptyState.style.display = "block";
+        if (emptyStateLanding) emptyStateLanding.style.display = "none";
+        if (emptyStateSession) {
+          messagesContainer.appendChild(emptyStateSession);
+          emptyStateSession.style.display = "block";
         }
       }
     } catch (e) {
@@ -226,7 +287,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // 9. Fetch Sessions List (Titled Work Items per §2.5)
+  // 10. Fetch Sessions List (Titled Work Items)
   async function loadSessions() {
     try {
       const res = await fetch("/api/sessions");
@@ -281,10 +342,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // 10. Append Message (Document Flow)
+  // 11. Append Message (with hachimi-demo HoverActions)
   function appendMessage(role, text) {
-    if (emptyState && emptyState.parentNode === messagesContainer) {
-      emptyState.style.display = "none";
+    if (emptyStateLanding && emptyStateLanding.parentNode === messagesContainer) {
+      emptyStateLanding.style.display = "none";
+    }
+    if (emptyStateSession && emptyStateSession.parentNode === messagesContainer) {
+      emptyStateSession.style.display = "none";
     }
 
     const wrapper = document.createElement("div");
@@ -311,8 +375,32 @@ document.addEventListener("DOMContentLoaded", () => {
       p.textContent = str;
       flow.appendChild(p);
 
+      // Hover Actions per hachimi-demo (Copy, Quote, Remember)
+      const hoverActions = document.createElement("div");
+      hoverActions.className = "hover-actions";
+      hoverActions.innerHTML = `
+        <button class="btn btn-ghost btn-xs" title="Copy text">📋 Copy</button>
+        <button class="btn btn-ghost btn-xs" title="Quote in composer">💬 Quote</button>
+        <button class="btn btn-ghost btn-xs" title="Store in long-term memory">🧠 Remember</button>
+      `;
+
+      hoverActions.children[0].onclick = () => {
+        navigator.clipboard.writeText(str);
+        showToast("Text copied to clipboard", "success");
+      };
+
+      hoverActions.children[1].onclick = () => {
+        promptInput.value = `> ${str.slice(0, 80)}...\n\n`;
+        promptInput.focus();
+      };
+
+      hoverActions.children[2].onclick = () => {
+        showToast("Memory proposal queued", "info");
+      };
+
       wrapper.appendChild(identity);
       wrapper.appendChild(flow);
+      wrapper.appendChild(hoverActions);
       contentEl = p;
     }
 
@@ -322,7 +410,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return contentEl;
   }
 
-  // 11. Send Prompt
+  // 12. Send Prompt
   async function sendMessage(overridePrompt) {
     const prompt = (overridePrompt || promptInput.value).trim();
     if (!prompt) return;
@@ -373,6 +461,11 @@ document.addEventListener("DOMContentLoaded", () => {
               const data = JSON.parse(line.slice(6));
               if (data.type === "chunk") {
                 assistantContentEl.textContent += data.chunk;
+              } else if (data.type === "confirm_required") {
+                // HITL Permission Dock
+                showPermissionDock(data.toolName, data.args, (approved) => {
+                  /* handle approval */
+                });
               } else if (data.type === "done") {
                 if (data.content && !assistantContentEl.textContent) {
                   assistantContentEl.textContent = data.content;
@@ -401,7 +494,10 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".chip-btn").forEach((chip) => {
     chip.addEventListener("click", () => {
       const promptAttr = chip.getAttribute("data-prompt");
-      if (promptAttr) sendMessage(promptAttr);
+      if (promptAttr) {
+        promptInput.value = promptAttr;
+        sendMessage(promptAttr);
+      }
     });
   });
 
@@ -409,7 +505,44 @@ document.addEventListener("DOMContentLoaded", () => {
     chipExportBundle.addEventListener("click", exportBundle);
   }
 
-  // 12. Steering
+  // 13. Permission Dock Handler (HITL)
+  function showPermissionDock(toolName, args, callback) {
+    if (!permissionDock) return;
+    if (dockTitle) dockTitle.textContent = `需要授权：${toolName || "工具执行确认"}`;
+    if (dockDesc)
+      dockDesc.textContent = `Hachimi 请求调用敏感工具 ${toolName || ""}。此操作可能对工作区进行修改。`;
+    permissionDock.style.display = "block";
+    pendingApprovalCallback = callback;
+  }
+
+  function hidePermissionDock() {
+    if (permissionDock) permissionDock.style.display = "none";
+    pendingApprovalCallback = null;
+  }
+
+  if (btnDockApprove) {
+    btnDockApprove.addEventListener("click", () => {
+      if (pendingApprovalCallback) pendingApprovalCallback("allow_once");
+      hidePermissionDock();
+      showToast("授权已批准 (允许一次)", "success");
+    });
+  }
+  if (btnDockAlways) {
+    btnDockAlways.addEventListener("click", () => {
+      if (pendingApprovalCallback) pendingApprovalCallback("allow_session");
+      hidePermissionDock();
+      showToast("授权已批准 (本会话始终允许)", "success");
+    });
+  }
+  if (btnDockDeny) {
+    btnDockDeny.addEventListener("click", () => {
+      if (pendingApprovalCallback) pendingApprovalCallback("deny");
+      hidePermissionDock();
+      showToast("授权已被用户拒绝", "info");
+    });
+  }
+
+  // 14. Steering (P1: Steer correction injection)
   async function sendSteer() {
     const prompt = promptInput.value.trim();
     if (!prompt) return;
@@ -423,10 +556,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await res.json();
       appendMessage(
         "assistant",
-        `[⚡ Steer Response]: ${data.success ? "Successfully injected steering prompt" : "Agent currently idle"}`
+        `[⚡ 纠偏响应]: ${data.success ? "成功在当前回合注入纠偏指令" : "Agent 当前未处于执行中"}`
       );
       showToast(
-        data.success ? "Steering prompt injected" : "Agent is idle",
+        data.success ? "纠偏指令已注入" : "Agent 当前空闲",
         data.success ? "success" : "info"
       );
       promptInput.value = "";
@@ -435,7 +568,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // 13. Bundle Export / Import
+  // 15. Bundle Export / Import
   async function exportBundle() {
     try {
       const res = await fetch("/api/export");
@@ -451,7 +584,7 @@ document.addEventListener("DOMContentLoaded", () => {
         a.download = `hachimi_bundle_${Date.now()}.json`;
         a.click();
         URL.revokeObjectURL(url);
-        showToast("Portable Memory Bundle exported!", "success");
+        showToast("Portable Memory Bundle 成功导出！", "success");
       }
     } catch (err) {
       showToast(`Export error: ${err.message}`, "danger");
@@ -471,13 +604,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const data = await res.json();
         if (data.success) {
           showToast(
-            `Bundle imported! Skipped memories: ${data.result?.skippedMemoriesCount || 0}`,
+            `Bundle 导入成功！跳过重复记忆: ${data.result?.skippedMemoriesCount || 0}`,
             "success"
           );
           updateStatus();
           loadSessions();
         } else {
-          showToast("Bundle import failed", "danger");
+          showToast("Bundle 导入失败", "danger");
         }
       } catch (err) {
         showToast(`Failed to read file: ${err.message}`, "danger");
@@ -495,7 +628,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 14. Create New Session
+  // 16. Create New Session
   async function createNewSession() {
     const title = prompt("Enter new session title:", "New Workspace Session");
     if (!title) return;

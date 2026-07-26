@@ -51,14 +51,28 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
   server.register(cors, { origin: true });
   server.register(websocket);
 
-  // F3: 托管 Web UI 静态资源
+  // F3: 托管 Web UI 静态资源 (优先 apps/web/dist 正式应用)
+  const webDistDir = resolve(process.cwd(), "apps", "web", "dist");
   const webPublicDir = resolve(process.cwd(), "packages", "channels", "web", "public");
-  if (existsSync(webPublicDir)) {
+  const staticRoot = existsSync(webDistDir) ? webDistDir : webPublicDir;
+
+  if (existsSync(staticRoot)) {
     server.register(fastifyStatic, {
-      root: webPublicDir,
+      root: staticRoot,
       prefix: "/",
     });
   }
+
+  // SPA Fallback: 非 API 请求路由回退到 index.html
+  server.setNotFoundHandler((request, reply) => {
+    if (!request.url.startsWith("/api") && !request.url.startsWith("/health")) {
+      const indexPath = resolve(staticRoot, "index.html");
+      if (existsSync(indexPath)) {
+        return reply.sendFile("index.html", staticRoot);
+      }
+    }
+    return reply.status(404).send({ error: "Not Found", path: request.url });
+  });
 
   // H1.6 链路追踪 x-request-id 中间件
   server.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {

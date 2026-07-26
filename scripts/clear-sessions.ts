@@ -10,22 +10,19 @@ function clearSessions() {
 
   let count = 0;
 
-  // 1. Clear SQLite kv_store sessions
+  // 1. Delete all session keys from SQLite kv_store
   if (existsSync(dbPath)) {
     try {
       const store = new SQLiteStore(dbPath);
-      const sessionKeys = store.list("data/sessions");
-      for (const k of sessionKeys) {
-        store.remove(`data/sessions/${k}`);
-        count++;
-      }
+      count += store.removeAllLike("session");
+      count += store.removeAllLike("sess_");
       store.close();
     } catch (err: any) {
       console.warn("⚠️ [SQLite Cleanup] Session deletion error:", err?.message || err);
     }
   }
 
-  // 2. Clear File System data/sessions/
+  // 2. Delete all session json files from data/sessions/
   if (existsSync(sessionsDir)) {
     try {
       const files = readdirSync(sessionsDir);

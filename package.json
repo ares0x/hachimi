@@ -16,6 +16,8 @@
     "dev:tui": "tsx apps/tui/src/main.ts",
     "dev:cli": "tsx packages/channels/cli/src/cli.ts",
     "dev:server": "tsx apps/server/src/main.ts",
+    "dev:web": "pnpm --filter @hachimi/web dev",
+    "dev:desktop": "pnpm --filter @hachimi/desktop dev",
     "dev:telegram": "tsx packages/channels/telegram/src/bot.ts",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",

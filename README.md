@@ -1,6 +1,14 @@
-# Hachimi (哈基米)
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="resources/hachimi-logo-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="resources/hachimi-logo-light.png">
+    <img alt="Hachimi Logo" src="resources/hachimi-logo-light.png" width="560">
+  </picture>
+</p>
 
-面向 TypeScript & Node.js 的**本地优先、多终端协同、具备渐进式自我演化能力的个人 AI 助理 Harness 框架**。
+<h1 align="center">Hachimi (哈基米)</h1>
+
+<p align="center">面向 TypeScript & Node.js 的<b>本地优先、多终端协同、具备渐进式自我演化能力的个人 AI 助理 Harness 框架</b>。</p>
 
 配合教程：[build-personal-ai-assistant](https://github.com/ares0x/build-personal-ai-assistant)
 在线阅读：[https://ares0x.github.io/build-personal-ai-assistant/](https://ares0x.github.io/build-personal-ai-assistant/)
