@@ -5,7 +5,7 @@
   "type": "module",
   "main": "./dist-electron/main.js",
   "scripts": {
-    "dev": "electron .",
+    "dev": "pnpm build && electron .",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
