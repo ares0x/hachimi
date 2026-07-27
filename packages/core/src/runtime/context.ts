@@ -21,6 +21,9 @@ import { summarySkill, writingSkill } from "../skills/builtin/index.js";
 import { SkillRegistry } from "../skills/registry.js";
 import { registerBuiltinTools } from "../tools/builtin.js";
 import { ToolRegistry } from "../tools/registry.js";
+import { FileEventStore } from "../events/file-event-store.js";
+import type { IEventStore } from "../events/event-store.js";
+import { WorkManager } from "../work/work-manager.js";
 
 export interface AppContext {
   config: HachimiConfig;
@@ -33,6 +36,10 @@ export interface AppContext {
   hooks: HookRegistry;
   mcp: McpClientManager;
   skillLoader: SkillPackageLoader;
+  /** W0: Append-only event store (truth source) */
+  events: IEventStore;
+  /** W1: Work manager */
+  works: WorkManager;
   getConfig(): HachimiConfig;
   setActiveProvider(provider: string, pConfig?: Partial<ProviderConfig>): void;
   getStatus(): Record<string, any>;
@@ -80,6 +87,12 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
   const hooks = new HookRegistry();
   const mcp = new McpClientManager();
   const skillLoader = new SkillPackageLoader();
+
+  // W0: 初始化 append-only 事件存储
+  const events: IEventStore = new FileEventStore(config.paths.dataDir);
+
+  // W1: 初始化 Work 管理器
+  const works = new WorkManager(config.paths.dataDir, events);
 
   skills.register(writingSkill);
   skills.register(summarySkill);
@@ -148,6 +161,8 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
     hooks,
     mcp,
     skillLoader,
+    events,
+    works,
     getConfig() {
       return config;
     },

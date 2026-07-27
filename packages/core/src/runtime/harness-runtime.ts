@@ -1,4 +1,3 @@
-// packages/core/src/runtime/harness-runtime.ts
 import { generateId, log } from "@hachimi/shared";
 import { SubAgentDelegator } from "../agent/sub-agent.js";
 import type { Agent } from "../agent/agent.js";
@@ -20,6 +19,8 @@ import type { ToolRegistry } from "../tools/registry.js";
 import type { ChannelType } from "../types/index.js";
 import type { AppContext, CreateAppContextOptions } from "./context.js";
 import { createAppContext } from "./context.js";
+import type { IEventStore } from "../events/event-store.js";
+import type { WorkManager } from "../work/work-manager.js";
 
 export interface RuntimeInputOptions {
   onChunk?: (chunk: string) => void;
@@ -61,6 +62,10 @@ export class HarnessRuntime {
   public readonly mcp: McpClientManager;
   public readonly skillLoader: SkillPackageLoader;
   public readonly subAgentDelegator: SubAgentDelegator;
+  /** W0: Append-only event store */
+  public readonly events: IEventStore;
+  /** W1: Work manager */
+  public readonly works: WorkManager;
 
   constructor(options: CreateAppContextOptions | AppContext = {}) {
     if ("memory" in options && "agent" in options) {
@@ -77,6 +82,8 @@ export class HarnessRuntime {
     this.hooks = this.context.hooks;
     this.mcp = this.context.mcp;
     this.skillLoader = this.context.skillLoader;
+    this.events = this.context.events;
+    this.works = this.context.works;
 
     // Automatically register sub-agent delegation and status check tools
     this.subAgentDelegator = new SubAgentDelegator(this);
@@ -90,6 +97,7 @@ export class HarnessRuntime {
 
   /**
    * 核心入口：全渠道统一 Agent 执行点 (带 H1.5 错误隔离边界防护)
+   * W0: 在各关键节点写入 RuntimeEvent
    */
   async execute(input: RuntimeInput): Promise<RuntimeOutput> {
     const startTime = Date.now();
@@ -97,6 +105,42 @@ export class HarnessRuntime {
     // 1. Session 加载或获取
     const sessionObj = this.sessions.getOrCreate(input.sessionId);
     const sessionId = sessionObj.id;
+
+    // W0: 写入 session_started 事件（若首次）
+    const isFirstRun = sessionObj.messages.length === 0;
+    if (isFirstRun) {
+      await this.events.append({
+        id: generateId("evt_"),
+        sessionId,
+        type: "session_started",
+        timestamp: new Date().toISOString(),
+        payload: { title: sessionObj.title, channel: input.channel as string },
+      });
+
+      // W1: 若是首次运行且无对应 Work，自动创建 Work
+      const existingWork = this.works.get(sessionId);
+      if (!existingWork) {
+        this.works.create({
+          intent: input.prompt,
+          sessionId,
+          kind: "primary",
+        });
+      }
+    }
+
+    // W0: 写入 user_message 事件
+    const userMsgEventId = generateId("evt_");
+    await this.events.append({
+      id: userMsgEventId,
+      sessionId,
+      type: "user_message",
+      timestamp: new Date().toISOString(),
+      payload: {
+        content: input.prompt,
+        channel: input.channel as string,
+        messageId: generateId("msg_"),
+      },
+    });
 
     // 2. 触发 sessionStart Hook
     await this.hooks.runSessionStart({ sessionId });
@@ -139,6 +183,28 @@ export class HarnessRuntime {
         sessionObj.title = cleanPrompt.length > 24 ? `${cleanPrompt.slice(0, 24)}...` : cleanPrompt;
       }
 
+      // W0: 写入 assistant_message 事件
+      const durationMs = Date.now() - startTime;
+      await this.events.append({
+        id: generateId("evt_"),
+        sessionId,
+        type: "assistant_message",
+        timestamp: new Date().toISOString(),
+        payload: {
+          content,
+          durationMs,
+        },
+      });
+
+      // W0: 写入 run_finished 事件
+      await this.events.append({
+        id: generateId("evt_"),
+        sessionId,
+        type: "run_finished",
+        timestamp: new Date().toISOString(),
+        payload: { durationMs, success: true },
+      });
+
       // 6. 更新与保存 Session
       this.sessions.save(sessionObj);
     } catch (err: any) {
@@ -153,6 +219,19 @@ export class HarnessRuntime {
       if (input.options?.onChunk) {
         input.options.onChunk(content);
       }
+
+      // W0: 写入 error 事件
+      await this.events.append({
+        id: generateId("evt_"),
+        sessionId,
+        type: "error",
+        timestamp: new Date().toISOString(),
+        payload: {
+          message: errorDetail ?? "unknown error",
+          stack: err?.stack,
+          phase: "agent.run",
+        },
+      }).catch(() => {}); // 错误写入失败不级联
 
       // 故障发生时同样保存包含错误提示的 Session 记录
       sessionObj.messages.push({

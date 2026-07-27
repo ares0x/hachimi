@@ -371,6 +371,153 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
     return { success: true, id };
   });
 
+  // ─── W0: Events API ──────────────────────────────────────────────────────────
+
+  // GET /api/sessions/:id/events — 分页事件列表
+  server.get("/api/sessions/:id/events", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const query = request.query as { limit?: string; cursor?: string; type?: string };
+    const limit = Math.min(Number(query.limit || 50), 200);
+    const cursor = query.cursor;
+    const types = query.type
+      ? (query.type.split(",") as import("@hachimi/core").RuntimeEventType[])
+      : undefined;
+
+    const hasEvents = await runtime.events.hasEvents(id);
+    if (!hasEvents) {
+      const session = runtime.sessions.load(id);
+      if (!session) {
+        reply.code(404).send({ error: `Session '${id}' not found` });
+        return;
+      }
+    }
+
+    const result = await runtime.events.list(id, { limit, cursor, types });
+    return result;
+  });
+
+  // ─── W1: Works API ───────────────────────────────────────────────────────────
+
+  // GET /api/works — 列出 Works（默认 primary，支持 status 过滤）
+  server.get("/api/works", async (request: FastifyRequest) => {
+    const query = request.query as { kind?: string; status?: string; limit?: string };
+    const kind = (query.kind as "primary" | "worker") || "primary";
+    const status = query.status as import("@hachimi/core").WorkStatus | undefined;
+    const limit = Number(query.limit || 50);
+    const works = runtime.works.list({ kind, status: status ? [status] : undefined, limit });
+    return { works };
+  });
+
+  // POST /api/works — 用 intent 创建 Work
+  server.post("/api/works", async (request: FastifyRequest, reply: FastifyReply) => {
+    const body = (request.body || {}) as { intent?: string; goal?: string; sessionId?: string };
+    if (!body.intent?.trim()) {
+      reply.code(400).send({ error: "Missing required parameter: intent" });
+      return;
+    }
+    const work = runtime.works.create({
+      intent: body.intent.trim(),
+      goal: body.goal,
+      sessionId: body.sessionId,
+      kind: "primary",
+    });
+    return { work };
+  });
+
+  // GET /api/works/:id — Work 详情
+  server.get("/api/works/:id", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const work = runtime.works.get(id);
+    if (!work) {
+      reply.code(404).send({ error: `Work '${id}' not found` });
+      return;
+    }
+    return { work };
+  });
+
+  // PATCH /api/works/:id — 更新 Work（status / title / goal）
+  server.patch("/api/works/:id", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const body = (request.body || {}) as {
+      title?: string;
+      status?: import("@hachimi/core").WorkStatus;
+      goal?: string;
+    };
+    const updated = runtime.works.update(id, {
+      ...(body.title ? { title: body.title } : {}),
+      ...(body.status ? { status: body.status } : {}),
+      ...(body.goal ? { goal: body.goal } : {}),
+    });
+    if (!updated) {
+      reply.code(404).send({ error: `Work '${id}' not found` });
+      return;
+    }
+    return { work: updated };
+  });
+
+  // GET /api/works/:id/activities — Activity 分页列表（投影自事件）
+  server.get("/api/works/:id/activities", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const query = request.query as { limit?: string; cursor?: string };
+    const limit = Number(query.limit || 50);
+    const cursor = query.cursor;
+
+    const work = runtime.works.get(id);
+    if (!work) {
+      reply.code(404).send({ error: `Work '${id}' not found` });
+      return;
+    }
+
+    const result = await runtime.works.listActivities(id, { limit, cursor });
+    return result;
+  });
+
+  // POST /api/works/:id/steer — 对当前 Work 的意图干预
+  server.post("/api/works/:id/steer", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const body = (request.body || {}) as { prompt?: string };
+    const prompt = (body.prompt || "").trim();
+    if (!prompt) {
+      reply.code(400).send({ error: "Missing required parameter: prompt" });
+      return;
+    }
+
+    const work = runtime.works.get(id);
+    if (!work) {
+      reply.code(404).send({ error: `Work '${id}' not found` });
+      return;
+    }
+
+    const steered = runtime.steer(prompt);
+
+    // W0: 写入 steer 事件
+    if (work.sessionIds[0]) {
+      await runtime.events.append({
+        id: generateId("evt_"),
+        sessionId: work.sessionIds[0],
+        type: "steer",
+        timestamp: new Date().toISOString(),
+        payload: { prompt },
+      });
+    }
+
+    return { success: steered, prompt, workId: id };
+  });
+
+  // GET /api/works/:id/children — 子任务列表
+  server.get("/api/works/:id/children", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const work = runtime.works.get(id);
+    if (!work) {
+      reply.code(404).send({ error: `Work '${id}' not found` });
+      return;
+    }
+    const children = runtime.works.listChildren(id);
+    return { children };
+  });
+
+
+
   // 5. GET /api/memory
   server.get("/api/memory", async (request: FastifyRequest) => {
     const query = ((request.query as any)?.query || "").trim();

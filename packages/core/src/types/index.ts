@@ -169,3 +169,9 @@ export interface Session {
   updatedAt: number;
   metadata?: Record<string, unknown>;
 }
+
+// W0: RuntimeEvent 事件真相源类型
+export * from "./event.js";
+
+// W1: Work 数据模型类型
+export * from "./work.js";

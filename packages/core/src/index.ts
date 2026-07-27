@@ -30,3 +30,12 @@ export { TrajectoryCompressor, SkillProposalManager } from "./skills/experience-
 export type { SkillDraft, TrajectoryTurn } from "./skills/experience-extractor.js";
 export { ProactiveScheduler } from "./triggers/scheduler.js";
 export type { TriggerTask } from "./triggers/scheduler.js";
+
+// W0: RuntimeEvent 事件存储
+export type { IEventStore, EventListOptions, EventListResult } from "./events/event-store.js";
+export { FileEventStore } from "./events/file-event-store.js";
+
+// W1: Work 数据模型与 WorkManager
+export { WorkManager } from "./work/work-manager.js";
+export type { CreateWorkOptions, ListWorksOptions } from "./work/work-manager.js";
+

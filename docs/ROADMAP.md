@@ -73,3 +73,20 @@ Each phase must leave the project runnable and testable, and closes with a short
 - [x] **I1.3 — Dual-Mode EvalRunner.** Supports Mock Mode (CI zero cost regression) and Live LLM Mode.
 - [x] **I1.4 — Metrics & Reporter.** `EvalReporter` formatted summary output with Pass Rate %, Avg Latency (ms), and Avg Tokens.
 
+## Web/Desktop MVP (Done)
+- [x] **MVP.1 — Web SPA.** Vite+React web client with session management, streaming chat, Markdown rendering (tables, HR).
+- [x] **MVP.2 — Desktop Shell.** Electron wrapper with native title bar and window icon.
+- [x] **MVP.3 — Brand Assets.** Logo/mark integrated into web favicon, desktop icon, sidebar, and README.
+
+## Phase W — Runtime Native → Work-first → 可恢复、可策略、可演化 (Active)
+
+> See [`docs/TASK.md`](./TASK.md) for detailed task breakdown and [`docs/MOVE.md`](./MOVE.md) / [`docs/PHASE.md`](./PHASE.md) for design rationale.
+
+- [ ] **W0 — Execution Truth Source & Recoverability (P0).** `RuntimeEvent` type system, append-only JSONL event store, session recovery after process restart, `GET /api/sessions/:id/events`.
+- [ ] **W1 — Work as First-Class Citizen (P0).** `Work` data model (title/goal/status/plan), auto title generation, Plan steps, Activity projection from events, full Works REST API, CLI subcommands, worker-kind filtering.
+- [ ] **W2 — Policy Engine & Production Defaults (P0).** `surface × toolClass` permission matrix, explicit approve/deny API, auto API secret generation, CORS whitelist, dual-client steer safety, audit query.
+- [ ] **W3 — Work-first UI Minimal Set (P1).** Rail replaces Session list, idle intent chips, Goal/Plan/Activity three-layer main area, Composer anchored to current Work, User/Dev split Inspector, Settings subset.
+- [ ] **W4 — Evolution Loop F5 (P1).** `TrajectoryCompressor` from completed Work events, `SkillProposalManager` with human-confirm gate, learned skills written to registry.
+- [ ] **W5 — Context Governance & Eval Hardening (P1).** tool_result size cap + summary, optional compaction, 3 new eval cases (`work_recovery`, `permission_deny`, `plan_then_act`), `ARCHITECTURE.md` update.
+- [ ] **W6 — Connectors (Optional P2).** `IConnector` interface, local ICS / Google Calendar read-only tool, capability surface in Inspector.
+
