@@ -1,6 +1,6 @@
+import { Check, CircleDashed, Clock, ShieldAlert, TriangleAlert } from "lucide-react";
 import type { RunStatus } from "../lib/agent-demo";
 import { cn } from "../lib/utils";
-import { Check, CircleDashed, Clock, ShieldAlert, TriangleAlert } from "lucide-react";
 
 /** Hachimi logo mark: official brand avatar asset. */
 export function Mark({ size = 24, className }: { size?: number; className?: string }) {

@@ -15,8 +15,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { AssistantMessageEvent, RuntimeEvent, UserMessageEvent } from "../../types/event.js";
 import { FileEventStore } from "../file-event-store.js";
-import type { RuntimeEvent, UserMessageEvent, AssistantMessageEvent } from "../../types/event.js";
 
 function makeUserEvent(sessionId: string, content: string): UserMessageEvent {
   return {

@@ -1,7 +1,9 @@
+import { Activity, Brain, ExternalLink, Gauge, Link2, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { ExternalLink, Trash2, Activity, Link2, Brain, Gauge } from "lucide-react";
 import type { ActivityStep, MemoryItem, Source } from "../lib/agent-demo";
+
 export type { ActivityStep } from "../lib/agent-demo";
+
 import { cn } from "../lib/utils";
 import { Meta, SectionLabel, StatusBadge, StatusDot } from "./primitives";
 
@@ -77,23 +79,27 @@ export function ContextPanel({
               ))}
             </ol>
 
-            <div className="mt-4 rounded-lg border border-border bg-surface-elevated p-3">
+            <div className="mt-4 rounded-lg border border-border/60 bg-surface-elevated p-3">
               <div className="flex items-center gap-2">
                 <Gauge className="size-3.5 text-muted-foreground" />
-                <SectionLabel className="px-0">Budget</SectionLabel>
+                <SectionLabel className="px-0">Runtime & Sandbox</SectionLabel>
               </div>
-              <dl className="mt-2 space-y-1.5 font-mono text-xs">
+              <dl className="mt-2 space-y-1.5 font-mono text-[11px]">
                 <div className="flex justify-between text-muted-foreground">
                   <dt>tokens</dt>
                   <dd className="text-foreground">{tokens.toLocaleString()} / 12k</dd>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
-                  <dt>run cost</dt>
+                  <dt>est. cost</dt>
                   <dd className="text-foreground">{cost}</dd>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
-                  <dt>trust</dt>
-                  <dd className="text-warning">ask on write</dd>
+                  <dt>storage</dt>
+                  <dd className="text-emerald-600 dark:text-emerald-400">SQLite DB</dd>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <dt>sandbox</dt>
+                  <dd className="text-emerald-600 dark:text-emerald-400">PathJail Enabled</dd>
                 </div>
               </dl>
               <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-surface-hover">

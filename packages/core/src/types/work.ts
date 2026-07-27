@@ -23,18 +23,18 @@ export interface PlanStep {
 // ─── Work Status ─────────────────────────────────────────────────────────────
 
 export type WorkStatus =
-  | "active"    // 正在执行
-  | "waiting"   // 等待用户输入或审批
-  | "blocked"   // 策略拒绝或错误需人处理
+  | "active" // 正在执行
+  | "waiting" // 等待用户输入或审批
+  | "blocked" // 策略拒绝或错误需人处理
   | "completed" // 正常结束
-  | "failed"    // 失败结束
+  | "failed" // 失败结束
   | "archived"; // 用户归档
 
 // ─── Work Kind ───────────────────────────────────────────────────────────────
 
 export type WorkKind =
-  | "primary"   // 用户直接发起的主 Work
-  | "worker";   // 子 Agent 派发的 Worker 任务（默认不展示在 Rail）
+  | "primary" // 用户直接发起的主 Work
+  | "worker"; // 子 Agent 派发的 Worker 任务（默认不展示在 Rail）
 
 // ─── Work ────────────────────────────────────────────────────────────────────
 

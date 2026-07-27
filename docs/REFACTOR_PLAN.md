@@ -9,13 +9,7 @@
 
 ## Why now, specifically
 
-`apps/server` is still an empty package stub. The moment it becomes real
-(Phase C4/D1), it will need everything `apps/tui` currently reaches for via
-`../../../packages/core/src/...` — `SessionManager`, `SkillRegistry`,
-`ProviderRegistry`, the builtin skills. If the public export surface isn't
-fixed first, the daemon either repeats the same deep-import shortcut or the
-two apps diverge on how they construct a runtime. This is the concrete reason
-to do this cleanup before Phase D, not after.
+`apps/server` was previously a stub but is now a fully implemented Fastify Daemon server serving HTTP/REST, SSE streaming, Work API, and Web UI. All `@hachimi/core` public exports are clean.
 
 ## Confirmed issues, in fix order
 

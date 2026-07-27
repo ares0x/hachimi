@@ -1,6 +1,6 @@
+import { ThemeProvider } from "@hachimi/ui";
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { ThemeProvider } from "@hachimi/ui";
 import { App } from "./App";
 import "./styles.css";
 

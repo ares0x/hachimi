@@ -7,7 +7,7 @@ import { cn } from "../lib/utils";
  */
 function inline(text: string, key: string) {
   const nodes: React.ReactNode[] = [];
-  const re = /(\*\*[^*]+\*\*|`[^`]+`|\[\d+\])/g;
+  const re = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\)|\[\d+\])/g;
   let last = 0;
   let match: RegExpExecArray | null;
   let i = 0;
@@ -29,12 +29,27 @@ function inline(text: string, key: string) {
           {token.slice(1, -1)}
         </code>
       );
-    } else {
-      nodes.push(
-        <sup key={`${key}-r${i}`} className="ml-0.5 font-mono text-[11px] text-muted-foreground">
-          {token}
-        </sup>
-      );
+    } else if (token.startsWith("[")) {
+      const linkMatch = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (linkMatch) {
+        nodes.push(
+          <a
+            key={`${key}-a${i}`}
+            href={linkMatch[2]}
+            target="_blank"
+            rel="noreferrer"
+            className="text-primary hover:underline font-medium"
+          >
+            {linkMatch[1]}
+          </a>
+        );
+      } else {
+        nodes.push(
+          <sup key={`${key}-r${i}`} className="ml-0.5 font-mono text-[11px] text-muted-foreground">
+            {token}
+          </sup>
+        );
+      }
     }
     last = match.index + token.length;
     i++;
@@ -90,9 +105,7 @@ export function Markdown({ text, className }: { text: string; className?: string
     if (rows.length === 0) return;
 
     // Check if row 1 is delimiter (|---|---|)
-    const hasDelimiter =
-      rows.length > 1 &&
-      rows[1].every((cell) => /^[:\s-]{3,}$/.test(cell));
+    const hasDelimiter = rows.length > 1 && rows[1].every((cell) => /^[:\s-]{3,}$/.test(cell));
 
     const header = rows[0];
     const bodyRows = hasDelimiter ? rows.slice(2) : rows.slice(1);
@@ -118,10 +131,7 @@ export function Markdown({ text, className }: { text: string; className?: string
           {bodyRows.length > 0 && (
             <tbody className="divide-y divide-border/60 text-foreground">
               {bodyRows.map((row, rIdx) => (
-                <tr
-                  key={rIdx}
-                  className="transition-colors hover:bg-surface-hover/40"
-                >
+                <tr key={rIdx} className="transition-colors hover:bg-surface-hover/40">
                   {row.map((cell, cIdx) => (
                     <td
                       key={cIdx}
@@ -205,21 +215,37 @@ export function Markdown({ text, className }: { text: string; className?: string
 
     flushList();
 
-    if (line.startsWith("### ")) {
-      blocks.push(
-        <h4 key={idx} className="mt-4 mb-2 text-[15px] font-semibold text-foreground">
-          {inline(line.slice(4), `h${idx}`)}
-        </h4>
-      );
-      return;
-    }
+    // Support all heading levels (# through ######)
+    const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const content = headingMatch[2];
 
-    if (line.startsWith("## ")) {
-      blocks.push(
-        <h3 key={idx} className="mt-4 mb-2 text-base font-semibold text-foreground">
-          {inline(line.slice(3), `h${idx}`)}
-        </h3>
-      );
+      if (level === 1) {
+        blocks.push(
+          <h2 key={idx} className="mt-5 mb-2.5 text-lg font-bold text-foreground">
+            {inline(content, `h${idx}`)}
+          </h2>
+        );
+      } else if (level === 2) {
+        blocks.push(
+          <h3 key={idx} className="mt-4 mb-2 text-base font-semibold text-foreground">
+            {inline(content, `h${idx}`)}
+          </h3>
+        );
+      } else if (level === 3) {
+        blocks.push(
+          <h4 key={idx} className="mt-4 mb-2 text-[15px] font-semibold text-foreground">
+            {inline(content, `h${idx}`)}
+          </h4>
+        );
+      } else {
+        blocks.push(
+          <h5 key={idx} className="mt-3.5 mb-1.5 text-[14px] font-semibold text-foreground">
+            {inline(content, `h${idx}`)}
+          </h5>
+        );
+      }
       return;
     }
 
@@ -246,7 +272,12 @@ export function Markdown({ text, className }: { text: string; className?: string
   flushTable();
 
   return (
-    <div className={cn("text-[14px] leading-[1.75] whitespace-pre-wrap break-words [&>*:first-child]:mt-0", className)}>
+    <div
+      className={cn(
+        "text-[14px] leading-[1.75] whitespace-pre-wrap break-words [&>*:first-child]:mt-0",
+        className
+      )}
+    >
       {blocks}
     </div>
   );

@@ -1,14 +1,14 @@
 import {
-  readFileSync,
-  writeFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
   unlinkSync,
+  writeFileSync,
 } from "node:fs";
 import { dirname } from "node:path";
-import type { JsonFileStore, JsonDirStore } from "./types.js";
 import { log } from "@hachimi/shared";
+import type { JsonDirStore, JsonFileStore } from "./types.js";
 
 export class FileJsonStore implements JsonFileStore {
   read<T>(path: string, fallback: T): T {

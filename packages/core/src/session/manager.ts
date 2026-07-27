@@ -1,8 +1,8 @@
 import { join } from "node:path";
 import { generateId } from "@hachimi/shared";
-import type { Session, Message } from "../types/index.js";
 import type { JsonDirStore } from "@hachimi/storage";
 import { FileDirStore } from "@hachimi/storage";
+import type { Message, Session } from "../types/index.js";
 
 export class SessionManager {
   private dir: string;

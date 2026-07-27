@@ -207,7 +207,7 @@ export function saveConfig(cfg: HachimiConfig, configPath = "config.json"): void
   try {
     const cleanProviders: Record<string, ProviderConfig> = {};
     for (const [pKey, pVal] of Object.entries(cfg.llm.providers)) {
-      if (pKey === cfg.llm.activeProvider || Boolean(pVal.apiKey)) {
+      if (pKey === cfg.llm.activeProvider || pVal.apiKey) {
         const cleanP: ProviderConfig = {};
         if (pVal.apiKey) cleanP.apiKey = pVal.apiKey;
         if (pVal.model) cleanP.model = pVal.model;

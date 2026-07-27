@@ -23,12 +23,16 @@
       "@hachimi/config/*": ["./packages/config/src/*"],
       "@hachimi/storage": ["./packages/storage/src/index.ts"],
       "@hachimi/storage/*": ["./packages/storage/src/*"],
+      "@hachimi/evals": ["./packages/evals/src/index.ts"],
+      "@hachimi/evals/*": ["./packages/evals/src/*"],
       "@hachimi/channel-api": ["./packages/channels/api/src/index.ts"],
       "@hachimi/channel-api/*": ["./packages/channels/api/src/*"],
       "@hachimi/channel-cli": ["./packages/channels/cli/src/index.ts"],
       "@hachimi/channel-cli/*": ["./packages/channels/cli/src/*"],
       "@hachimi/channel-telegram": ["./packages/channels/telegram/src/index.ts"],
       "@hachimi/channel-telegram/*": ["./packages/channels/telegram/src/*"],
+      "@hachimi/channel-web": ["./packages/channels/web/src/index.ts"],
+      "@hachimi/channel-web/*": ["./packages/channels/web/src/*"],
       "@hachimi/ui": ["./packages/ui/src/index.ts"],
       "@hachimi/ui/*": ["./packages/ui/src/*"]
     }

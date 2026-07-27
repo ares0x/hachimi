@@ -1,7 +1,7 @@
 // packages/channels/telegram/src/bot.ts
 import { createInterface } from "node:readline/promises";
 import { loadConfig, saveConfig } from "@hachimi/config";
-import { HarnessRuntime, getOrCreateHarnessRuntime } from "@hachimi/core";
+import { getOrCreateHarnessRuntime, type HarnessRuntime } from "@hachimi/core";
 import { log } from "@hachimi/shared";
 import { Bot } from "grammy";
 

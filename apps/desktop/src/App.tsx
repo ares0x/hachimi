@@ -1,27 +1,27 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Sidebar,
-  SessionHeader,
-  MessageStream,
+  type ActivityStep,
+  exportBundle as apiExportBundle,
+  CommandPalette,
   Composer,
   ContextPanel,
-  PermissionDock,
-  CommandPalette,
-  useTheme,
-  fetchStatus,
-  fetchSessions,
-  fetchSession,
   createSession,
-  renameSession,
   deleteSession,
-  streamChatPrompt,
-  sendSteerPrompt,
-  exportBundle as apiExportBundle,
-  type SessionItemData,
+  fetchSession,
+  fetchSessions,
+  fetchStatus,
   type MessageData,
-  type ActivityStep,
+  MessageStream,
   type Mode,
+  PermissionDock,
+  renameSession,
+  SessionHeader,
+  type SessionItemData,
+  Sidebar,
+  sendSteerPrompt,
+  streamChatPrompt,
+  useTheme,
 } from "@hachimi/ui";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export function App() {
   const { theme, toggle } = useTheme();
@@ -35,11 +35,42 @@ export function App() {
   const [awaitingApproval, setAwaitingApproval] = useState<any | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("hachimi_sidebar_collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
   const [contextOpen, setContextOpen] = useState(false);
   const [tokens, setTokens] = useState(0);
   const [memoryCount, setMemoryCount] = useState(0);
   const [currentSessionTitle, setCurrentSessionTitle] = useState("新会话");
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const toggleSidebarCollapse = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("hachimi_sidebar_collapsed", String(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
+
+  // Keyboard shortcut Cmd+B / Ctrl+B for sidebar collapse toggle (Design System §15)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === "b" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        toggleSidebarCollapse();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [toggleSidebarCollapse]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -187,7 +218,11 @@ export function App() {
 
     setActivity((prev) => [
       ...prev,
-      { id: `act_${Date.now()}`, label: `User Turn: ${promptText.slice(0, 24)}...`, status: "done" },
+      {
+        id: `act_${Date.now()}`,
+        label: `User Turn: ${promptText.slice(0, 24)}...`,
+        status: "done",
+      },
       { id: `act_exec_${Date.now()}`, label: "Agent Tool Execution", status: "running" },
     ]);
 
@@ -271,9 +306,9 @@ export function App() {
 
       {/* Left Rail Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-40 w-[264px] transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed inset-y-0 left-0 z-40 transition-[width,transform] duration-200 ease-out lg:static lg:z-auto lg:translate-x-0 ${
+          sidebarCollapsed ? "w-14" : "w-[264px]"
+        } ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <Sidebar
           sessions={sessions}
@@ -288,6 +323,8 @@ export function App() {
           onExportBundle={handleExportBundle}
           running={running}
           memoryCount={memoryCount}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={toggleSidebarCollapse}
         />
       </div>
 
@@ -301,7 +338,7 @@ export function App() {
           onToggleTheme={toggle}
           contextOpen={contextOpen}
           onToggleContext={() => setContextOpen((o) => !o)}
-          onToggleSidebar={() => setSidebarOpen((o) => !o)}
+          onToggleSidebar={toggleSidebarCollapse}
         />
 
         <div ref={scrollRef} className="scroll-quiet min-h-0 flex-1 overflow-y-auto">
@@ -330,7 +367,10 @@ export function App() {
               </ul>
             </div>
           ) : (
-            <MessageStream messages={messages} onQuote={(q) => setInput(`> ${q.slice(0, 80)}...\n\n`)} />
+            <MessageStream
+              messages={messages}
+              onQuote={(q) => setInput(`> ${q.slice(0, 80)}...\n\n`)}
+            />
           )}
         </div>
 

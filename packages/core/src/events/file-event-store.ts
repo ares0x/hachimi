@@ -94,8 +94,7 @@ export class FileEventStore implements IEventStore {
     }
 
     const page = all.slice(startIndex, startIndex + limit);
-    const nextCursor =
-      startIndex + limit < all.length ? page[page.length - 1]?.id : undefined;
+    const nextCursor = startIndex + limit < all.length ? page[page.length - 1]?.id : undefined;
 
     return { events: page, nextCursor, total };
   }

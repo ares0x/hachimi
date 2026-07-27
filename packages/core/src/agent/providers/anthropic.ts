@@ -1,9 +1,9 @@
 import type {
-  Message,
-  ToolDefinition,
   LLMResponse,
+  Message,
   ProviderTransport,
   ProviderTransportConfig,
+  ToolDefinition,
 } from "../../types/index.js";
 
 export interface AnthropicConfig extends ProviderTransportConfig {

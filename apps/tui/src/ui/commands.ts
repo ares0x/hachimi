@@ -1,6 +1,6 @@
 // apps/tui/src/ui/commands.ts
 import type { AppContext } from "../app-context.js";
-import { THEMES, setActiveTheme, getActiveTheme } from "./theme.js";
+import { getActiveTheme, setActiveTheme, THEMES } from "./theme.js";
 
 export interface CommandResult {
   action:

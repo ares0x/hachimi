@@ -7,12 +7,12 @@
  * 存储路径：{dataDir}/works/{workId}.json
  */
 
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { generateId } from "@hachimi/shared";
 import { FileDirStore } from "@hachimi/storage";
-import type { Activity } from "../types/event.js";
 import type { IEventStore } from "../events/event-store.js";
+import type { Activity } from "../types/event.js";
 import type {
   PlanStep,
   PlanStepStatus,
@@ -136,9 +136,7 @@ export class WorkManager {
     });
 
     // 按最近更新排序
-    filtered.sort(
-      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    );
+    filtered.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
     return filtered.slice(offset, offset + limit).map((w) => ({
       id: w.id,
@@ -168,6 +166,16 @@ export class WorkManager {
   /** 更新 Work 状态 */
   setStatus(workId: string, status: WorkStatus): Work | null {
     return this.update(workId, { status });
+  }
+
+  /** 删除 Work（及其数据文件） */
+  delete(workId: string): boolean {
+    const file = this.filePath(workId);
+    if (existsSync(file)) {
+      unlinkSync(file);
+      return true;
+    }
+    return false;
   }
 
   // ─── Plan ───────────────────────────────────────────────────────────────────
@@ -244,7 +252,10 @@ export class WorkManager {
    * - steer → type:"steer"
    * - error → type:"error"
    */
-  private projectToActivities(events: import("../types/event.js").RuntimeEvent[], sessionId: string): Activity[] {
+  private projectToActivities(
+    events: import("../types/event.js").RuntimeEvent[],
+    sessionId: string
+  ): Activity[] {
     const activities: Activity[] = [];
     const pendingToolCalls = new Map<string, import("../types/event.js").ToolCallEvent>();
 

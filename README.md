@@ -147,7 +147,9 @@ hachimi/
 | **Phase D** | 带 Schema 版本的可移植记忆、SHA-256 Checksum、一键导出/导入、增量合并去重、Schema 自动迁移 | **已完成 (Done)** |
 | **Phase E** | 统一能力源 `CapabilitySource`、`~/.hachimi/skills/` 外部技能包、声明式 Hooks、MCP Client | **已完成 (Done)** |
 | **Phase F** | 多终端 Channel (F2: Telegram Bot 网关, F3: Web UI 极简面板) + 统一 HarnessRuntime 架构演进 | **已完成 (Done)** |
-| **Phase G** | 复杂沙箱硬化、多客户端权限隔离与安全性审核 | 规划中 |
+| **Phase W** | Work-First 个人助理内核重构（W0 事件落盘、W1 Work 模型、W2 权限策略、W3 Work 界面、W5.1 截断） | **推进中 (Active)** |
+
+目前项目已包含 **38 个测试文件、86 项单元测试** (`pnpm test` 全绿通行)。
 
 ---
 

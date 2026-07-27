@@ -18,6 +18,15 @@ export interface AgentRunOptions {
   onToolEnd?: (name: string, result: string, durationMs: number, success: boolean) => void;
   hooks?: HookRegistry;
   sessionId?: string;
+  /**
+   * Per-call 交互式审批 handler（如 API server 的 SSE confirm_required + /api/tools/approve）。
+   * 优先于构造时的 this.onToolApproval，使交互式审批在非 TUI 表面真正生效。
+   */
+  onToolApproval?: (
+    toolName: string,
+    args: Record<string, unknown>,
+    permission: string
+  ) => Promise<boolean>;
 }
 
 export interface AgentOptions {
@@ -52,6 +61,11 @@ export class Agent {
   private running = false;
   private pendingSteerPrompt: string | null = null;
   private followUpQueue: string[] = [];
+  /** 拒绝熔断：per-tool 拒绝计数 + 总拒绝计数（每轮 run 重置），防止用户拒绝后死循环重试 */
+  private rejectionCounts: Map<string, number> = new Map();
+  private totalRejections = 0;
+  private readonly maxRejectionsPerTool = 2;
+  private readonly maxTotalRejections = 3;
 
   private onToolApproval?: (
     toolName: string,
@@ -132,6 +146,8 @@ export class Agent {
     options?: AgentRunOptions
   ): Promise<string> {
     this.running = true;
+    this.rejectionCounts.clear();
+    this.totalRejections = 0;
     try {
       return await this.executeRun(userInput, history, options);
     } finally {
@@ -256,6 +272,11 @@ export class Agent {
         return finalContent;
       }
 
+      console.log(
+        `[Agent ToolLoop Round ${rounds}] ToolCalls:`,
+        response.tool_calls.map((c) => `${c.name}(${JSON.stringify(c.arguments)})`)
+      );
+
       // 有工具调用
       messages.push({
         id: generateId("msg_"),
@@ -279,24 +300,60 @@ export class Agent {
         let approved = true;
         const requiresApproval =
           permission === "needs_confirm" || permission === "dangerous" || toolDef?.requiresApproval;
+        const approvalHandler = options?.onToolApproval ?? this.onToolApproval;
 
         if (requiresApproval) {
-          if (this.onToolApproval) {
-            approved = await this.onToolApproval(call.name, call.arguments, permission);
+          // 拒绝熔断：同一工具被拒达到上限后短路，防止 agent 死循环重试
+          const priorRejections = this.rejectionCounts.get(call.name) || 0;
+          if (priorRejections >= this.maxRejectionsPerTool) {
+            this.totalRejections++;
+            const stopMsg = `[已停止] 工具 ${call.name} 已被拒绝 ${priorRejections} 次，请停止重试并向用户说明，或改用其他方式。`;
+            messages.push({
+              id: generateId("msg_"),
+              role: "tool",
+              content: stopMsg,
+              tool_call_id: call.id,
+              name: call.name,
+              timestamp: Date.now(),
+            });
+            if (options?.onToolEnd) {
+              options.onToolEnd(call.name, stopMsg, 0, false);
+            }
+            if (this.totalRejections >= this.maxTotalRejections) {
+              const halt = "\n\n⚠️ [多次工具被拒，已停止本轮执行]";
+              if (options?.onChunk) options.onChunk(halt);
+              return halt;
+            }
+            continue;
+          }
+
+          // 优先使用 per-call 交互式审批 handler（如 API server 的 SSE confirm_required），
+          // 回退到构造时的 this.onToolApproval（默认 policy 兜底，用于非交互表面）
+          if (approvalHandler) {
+            approved = await approvalHandler(call.name, call.arguments, permission);
           } else {
             // 安全绝杀：未提供审批回调且工具需要确认或属于高危权限时，默认强制拒绝执行！
             approved = false;
+          }
+          if (!approved) {
+            this.rejectionCounts.set(call.name, priorRejections + 1);
+            this.totalRejections++;
           }
         }
 
         const result = approved
           ? await this.tools.execute(call.name, call.arguments, {
               confirm: approved,
-              onToolApproval: this.onToolApproval,
+              onToolApproval: approvalHandler,
               hooks: options?.hooks || this.hooks,
               sessionId: options?.sessionId,
             })
           : formatUserRejectionMessage(call.name);
+
+        console.log(
+          `[Agent ToolLoop Round ${rounds}] Tool '${call.name}' result:`,
+          result.slice(0, 150)
+        );
 
         const durationMs = Date.now() - startTime;
         if (this.onToolEnd) {
@@ -316,7 +373,11 @@ export class Agent {
       }
     }
 
-    return "达到最大工具调用轮次，已停止执行。";
+    const stopMsg = "\n\n⚠️ [达到最大工具调用轮次，已停止执行]";
+    if (options?.onChunk) {
+      options.onChunk(stopMsg);
+    }
+    return stopMsg;
   }
 
   getMemory(): MemoryManager {

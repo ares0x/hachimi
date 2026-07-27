@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { loadConfig, getActiveProviderConfig } from "./index.js";
+import { describe, expect, it } from "vitest";
+import { getActiveProviderConfig, loadConfig } from "./index.js";
 
 describe("Provider-isolated HachimiConfig", () => {
   it("isolates provider configurations per provider ID", () => {

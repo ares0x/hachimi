@@ -1,16 +1,16 @@
 // apps/tui/src/ui/view.ts
 import * as readline from "node:readline";
-import {
-  getActiveTheme,
-  colorize,
-  getDisplayWidth,
-  padDisplayWidth,
-  bold,
-  dim,
-  renderBadge,
-} from "./theme.js";
 import { SLASH_COMMANDS } from "./commands.js";
 import { renderSelectorModalBox, type SelectorItem } from "./modal.js";
+import {
+  bold,
+  colorize,
+  dim,
+  getActiveTheme,
+  getDisplayWidth,
+  padDisplayWidth,
+  renderBadge,
+} from "./theme.js";
 
 const HACHIMI_ASCII_LOGO = [
   "   /\\_/\\   ",

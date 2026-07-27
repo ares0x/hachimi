@@ -1,6 +1,7 @@
 import { generateId, log } from "@hachimi/shared";
-import { SubAgentDelegator } from "../agent/sub-agent.js";
 import type { Agent } from "../agent/agent.js";
+import { SubAgentDelegator } from "../agent/sub-agent.js";
+import type { IEventStore } from "../events/event-store.js";
 import type { HookRegistry } from "../extensions/hooks.js";
 import type { McpClientManager } from "../extensions/mcp-client.js";
 import type { SkillPackageLoader } from "../extensions/skill-package.js";
@@ -17,15 +18,19 @@ import type { SessionManager } from "../session/manager.js";
 import type { SkillRegistry } from "../skills/registry.js";
 import type { ToolRegistry } from "../tools/registry.js";
 import type { ChannelType } from "../types/index.js";
+import type { WorkManager } from "../work/work-manager.js";
 import type { AppContext, CreateAppContextOptions } from "./context.js";
 import { createAppContext } from "./context.js";
-import type { IEventStore } from "../events/event-store.js";
-import type { WorkManager } from "../work/work-manager.js";
 
 export interface RuntimeInputOptions {
   onChunk?: (chunk: string) => void;
   onToolStart?: (name: string, args: Record<string, unknown>) => void;
   onToolEnd?: (name: string, result: string, durationMs: number, success: boolean) => void;
+  onToolApproval?: (
+    toolName: string,
+    args: Record<string, unknown>,
+    permission?: string
+  ) => Promise<boolean>;
 }
 
 export interface RuntimeInput {
@@ -221,17 +226,19 @@ export class HarnessRuntime {
       }
 
       // W0: 写入 error 事件
-      await this.events.append({
-        id: generateId("evt_"),
-        sessionId,
-        type: "error",
-        timestamp: new Date().toISOString(),
-        payload: {
-          message: errorDetail ?? "unknown error",
-          stack: err?.stack,
-          phase: "agent.run",
-        },
-      }).catch(() => {}); // 错误写入失败不级联
+      await this.events
+        .append({
+          id: generateId("evt_"),
+          sessionId,
+          type: "error",
+          timestamp: new Date().toISOString(),
+          payload: {
+            message: errorDetail ?? "unknown error",
+            stack: err?.stack,
+            phase: "agent.run",
+          },
+        })
+        .catch(() => {}); // 错误写入失败不级联
 
       // 故障发生时同样保存包含错误提示的 Session 记录
       sessionObj.messages.push({

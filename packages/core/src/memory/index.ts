@@ -1,2 +1,2 @@
-export * from "./types.js";
 export { MemoryManager } from "./manager.js";
+export * from "./types.js";

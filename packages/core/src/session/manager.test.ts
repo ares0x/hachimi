@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdirSync, rmSync, existsSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { SessionManager } from "./manager.js";
-import { FileDirStore } from "@hachimi/storage";
 import { generateId } from "@hachimi/shared";
+import { FileDirStore } from "@hachimi/storage";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { SessionManager } from "./manager.js";
 
 const dir = join(process.cwd(), "data-test-sessions");
 

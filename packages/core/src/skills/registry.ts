@@ -1,5 +1,5 @@
 // packages/core/src/skills/registry.ts
-import type { SkillDefinition, SkillContent, ToolDefinition } from "../types/index.js";
+import type { SkillContent, SkillDefinition, ToolDefinition } from "../types/index.js";
 
 export class SkillRegistry {
   private skills = new Map<string, SkillDefinition>();

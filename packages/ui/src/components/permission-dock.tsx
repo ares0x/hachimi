@@ -39,9 +39,14 @@ export function PermissionDock({
               需要授权：{toolName || "写入文件"}
             </div>
             <p className="mt-1 text-[13px] text-muted-foreground">
-              Hachimi 请求执行 <span className="font-mono text-foreground">{toolName || "dangerous_tool"}</span>
-              {args && <code className="ml-1 rounded bg-surface-elevated px-1 py-0.5 font-mono text-xs">{args}</code>}。
-              此操作在工作区内，可撤销。
+              Hachimi 请求执行{" "}
+              <span className="font-mono text-foreground">{toolName || "dangerous_tool"}</span>
+              {args && (
+                <code className="ml-1 rounded bg-surface-elevated px-1 py-0.5 font-mono text-xs">
+                  {args}
+                </code>
+              )}
+              。 此操作在工作区内，可撤销。
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <button

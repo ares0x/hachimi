@@ -1,18 +1,19 @@
 // scripts/chat.ts
-import * as readline from "node:readline/promises";
+
 import { stdin as input, stdout as output } from "node:process";
+import * as readline from "node:readline/promises";
 
 import { Agent } from "../packages/core/src/agent/agent.js";
-import { ToolRegistry } from "../packages/core/src/tools/registry.js";
 import { MockLLMProvider } from "../packages/core/src/agent/llm.js";
 import { OpenAICompatibleProvider } from "../packages/core/src/agent/providers/openai-compatible.js";
 import { MemoryManager } from "../packages/core/src/memory/manager.js";
-import { SkillRegistry } from "../packages/core/src/skills/registry.js";
-import { writingSkill } from "../packages/core/src/skills/builtin/writing.js";
 import { SessionManager } from "../packages/core/src/session/manager.js";
-import { generateId } from "../packages/shared/src/index.js";
-import type { Message } from "../packages/core/src/types/index.js";
 import { summarySkill } from "../packages/core/src/skills/builtin/summary.js";
+import { writingSkill } from "../packages/core/src/skills/builtin/writing.js";
+import { SkillRegistry } from "../packages/core/src/skills/registry.js";
+import { ToolRegistry } from "../packages/core/src/tools/registry.js";
+import type { Message } from "../packages/core/src/types/index.js";
+import { generateId } from "../packages/shared/src/index.js";
 
 async function main() {
   const tools = new ToolRegistry();

@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { ProviderRegistry } from "./transport.js";
-import { OpenAICompatibleProvider } from "./openai-compatible.js";
+import { describe, expect, it } from "vitest";
 import { AnthropicProviderTransport } from "./anthropic.js";
+import { OpenAICompatibleProvider } from "./openai-compatible.js";
+import { ProviderRegistry } from "./transport.js";
 
 describe("ProviderRegistry and ProviderTransports", () => {
   it("creates OpenAICompatibleProvider for openai, deepseek, moonshot, qwen", () => {

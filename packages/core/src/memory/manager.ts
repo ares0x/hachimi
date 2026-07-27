@@ -1,8 +1,8 @@
-import { generateId, cosineSimilarity, jaccardSimilarity, normalizeText } from "@hachimi/shared";
-import type { MemorySearchOptions } from "./types.js";
-import type { MemoryEntry, MemoryLayer } from "../types/index.js";
+import { cosineSimilarity, generateId, jaccardSimilarity, normalizeText } from "@hachimi/shared";
 import type { JsonFileStore } from "@hachimi/storage";
 import { FileJsonStore } from "@hachimi/storage";
+import type { MemoryEntry, MemoryLayer } from "../types/index.js";
+import type { MemorySearchOptions } from "./types.js";
 
 interface MemoryData {
   working: MemoryEntry[];
@@ -247,7 +247,7 @@ export class MemoryManager {
     this.longTerm = this.longTerm
       .map((entry) => {
         const ageDays = (now - entry.lastAccessedAt) / (1000 * 60 * 60 * 24);
-        const effectiveImportance = entry.importance * Math.pow(0.98, ageDays);
+        const effectiveImportance = entry.importance * 0.98 ** ageDays;
         return { entry, effectiveImportance };
       })
       .filter(({ effectiveImportance }) => effectiveImportance >= minImportance)

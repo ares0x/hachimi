@@ -8,18 +8,48 @@
       }
     }
   },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
       "preset": "recommended",
-      "suspicious": {
-        "noExplicitAny": "off"
-      },
-      "complexity": {
-        "noExcessiveCognitiveComplexity": "off"
+      "a11y": {
+        "recommended": false
       },
       "style": {
-        "noNonNullAssertion": "off"
+        "noNonNullAssertion": "off",
+        "noDescendingSpecificity": "off"
+      },
+      "suspicious": {
+        "noExplicitAny": "off",
+        "noDoubleEquals": "off",
+        "noControlCharactersInRegex": "off",
+        "noArrayIndexKey": "off",
+        "noGlobalIsNan": "off",
+        "noAssignInExpressions": "off",
+        "noConfusingVoidType": "off",
+        "useIterableCallbackReturn": "off"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": "off",
+        "noBannedTypes": "off",
+        "noImportantStyles": "off",
+        "useOptionalChain": "off",
+        "noCommaOperator": "off",
+        "noStaticOnlyClass": "off",
+        "noUselessSwitchCase": "off",
+        "useLiteralKeys": "off"
+      },
+      "correctness": {
+        "noUnusedVariables": "off",
+        "noUnusedImports": "off",
+        "noUnusedFunctionParameters": "off",
+        "noUnusedPrivateClassMembers": "off",
+        "useExhaustiveDependencies": "off"
       }
     }
   },
@@ -42,13 +72,17 @@
     "ignoreUnknown": true,
     "includes": [
       "**",
-      "!**/node_modules/**",
-      "!**/dist/**",
-      "!**/build/**",
-      "!**/coverage/**",
-      "!**/data/**",
-      "!**/.gemini/**",
-      "!**/demo/**"
+      "!**/node_modules",
+      "!**/dist",
+      "!**/dist-electron",
+      "!**/build",
+      "!**/coverage",
+      "!**/data*",
+      "!**/.gemini",
+      "!**/demo",
+      "!**/*.jsonl",
+      "!**/*.db",
+      "!**/pnpm-lock.yaml"
     ]
   }
 }

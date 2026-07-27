@@ -1,7 +1,9 @@
+import { BrainCircuit, Check, ChevronRight, Copy, ListChecks, Quote, Wrench } from "lucide-react";
 import { useState } from "react";
-import { ChevronRight, Copy, Quote, BrainCircuit, Wrench, ListChecks } from "lucide-react";
 import type { Message, PlanStep, ToolCall } from "../lib/agent-demo";
+
 export type { Message as MessageData } from "../lib/agent-demo";
+
 import { cn } from "../lib/utils";
 import { Markdown } from "./markdown";
 import { Mark, Meta, SandboxBadge, StatusBadge, StatusDot } from "./primitives";
@@ -76,23 +78,70 @@ function ToolStrip({ tools }: { tools: ToolCall[] }) {
   );
 }
 
-function HoverActions() {
+function HoverActions({ text, onQuote }: { text: string; onQuote?: (q: string) => void }) {
+  const [copied, setCopied] = useState(false);
+  const [remembered, setRemembered] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleQuote = () => {
+    if (onQuote) {
+      onQuote(text);
+    }
+  };
+
+  const handleRemember = async () => {
+    try {
+      await fetch("/api/memory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: text.slice(0, 200), importance: 0.8 }),
+      });
+      setRemembered(true);
+      setTimeout(() => setRemembered(false), 2000);
+    } catch {
+      /* ignore */
+    }
+  };
+
   return (
     <div className="mt-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-      {[
-        { icon: Copy, label: "Copy" },
-        { icon: Quote, label: "Quote" },
-        { icon: BrainCircuit, label: "Remember" },
-      ].map(({ icon: Icon, label }) => (
-        <button
-          key={label}
-          type="button"
-          className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-        >
-          <Icon className="size-3" />
-          {label}
-        </button>
-      ))}
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+      >
+        {copied ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
+        {copied ? "Copied" : "Copy"}
+      </button>
+      <button
+        type="button"
+        onClick={handleQuote}
+        className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+      >
+        <Quote className="size-3" />
+        Quote
+      </button>
+      <button
+        type="button"
+        onClick={handleRemember}
+        className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+      >
+        {remembered ? (
+          <Check className="size-3 text-emerald-500" />
+        ) : (
+          <BrainCircuit className="size-3" />
+        )}
+        {remembered ? "Saved" : "Remember"}
+      </button>
     </div>
   );
 }
@@ -132,7 +181,7 @@ export function MessageStream({
             {m.streaming && (
               <span className="ml-0.5 inline-block h-4 w-[2px] translate-y-0.5 bg-primary pulse-status" />
             )}
-            {!m.streaming && m.text && <HoverActions />}
+            {!m.streaming && m.text && <HoverActions text={m.text} onQuote={onQuote} />}
           </article>
         )
       )}

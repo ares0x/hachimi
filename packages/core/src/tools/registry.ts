@@ -9,6 +9,8 @@ export interface ToolExecuteOptions {
   context?: any;
   hooks?: HookRegistry;
   sessionId?: string;
+  workManager?: any;
+  workId?: string;
   onToolApproval?: (
     toolName: string,
     args: Record<string, unknown>,

@@ -30,7 +30,7 @@ export function cosineSimilarity(vecA: number[], vecB: number[]): number {
 export function normalizeText(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[\s\d，。？！、；：""''（）()\[\]【】<>《》\-_=+\/\\|]/g, "")
+    .replace(/[\s\d，。？！、；：""''（）()[\]【】<>《》\-_=+/\\|]/g, "")
     .trim();
 }
 

@@ -1,5 +1,5 @@
 // packages/channels/cli/src/index.ts
-import { HarnessRuntime, getOrCreateHarnessRuntime } from "@hachimi/core";
+import { getOrCreateHarnessRuntime, type HarnessRuntime } from "@hachimi/core";
 
 export interface CliRunOptions {
   prompt: string;

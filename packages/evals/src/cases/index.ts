@@ -6,11 +6,11 @@ import { safetyJailCases } from "./safety-jail.js";
 import { subagentDelegationCases } from "./subagent-delegation.js";
 import { toolCallingCases } from "./tool-calling.js";
 
-export * from "./tool-calling.js";
-export * from "./multi-turn-reasoning.js";
 export * from "./memory-retrieval.js";
-export * from "./subagent-delegation.js";
+export * from "./multi-turn-reasoning.js";
 export * from "./safety-jail.js";
+export * from "./subagent-delegation.js";
+export * from "./tool-calling.js";
 
 export const allEvalCases: EvalCase[] = [
   ...toolCallingCases,

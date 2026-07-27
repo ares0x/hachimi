@@ -4,7 +4,7 @@
  */
 import { createAppContext } from "./app-context.js";
 import { HachimiTUIApp } from "./ui/app.js";
-import { colorize, getActiveTheme, bold, dim, renderBadge } from "./ui/theme.js";
+import { bold, colorize, dim, getActiveTheme, renderBadge } from "./ui/theme.js";
 import { askInteractivePrompt, exitFullscreenCanvas } from "./ui/view.js";
 
 async function main() {

@@ -1,7 +1,7 @@
 // packages/core/src/agent/sub-agent-async.test.ts
 import { describe, expect, it } from "vitest";
-import { SubAgentDelegator } from "./sub-agent.js";
 import { createHarnessRuntime } from "../runtime/harness-runtime.js";
+import { SubAgentDelegator } from "./sub-agent.js";
 
 describe("SubAgent Non-blocking Async Mode & Status Check Suite", () => {
   it("spawns sub-agent asynchronously (async: true) within 50ms and tracks task status", async () => {

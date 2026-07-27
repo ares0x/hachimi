@@ -1,13 +1,14 @@
 import {
+  Brain,
   Code2,
   MessageSquare,
+  Moon,
   PenLine,
   Plus,
   Search,
-  Brain,
   ShieldCheck,
-  Moon,
 } from "lucide-react";
+import type { Mode } from "../lib/agent-demo";
 import {
   CommandDialog,
   CommandEmpty,
@@ -17,7 +18,6 @@ import {
   CommandList,
   CommandShortcut,
 } from "./command";
-import type { Mode } from "../lib/agent-demo";
 
 export function CommandPalette({
   open,

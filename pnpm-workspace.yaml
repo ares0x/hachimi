@@ -1,6 +1,4 @@
 packages:
-    - "packages/*"
-    - "packages/channels/*"
-    - "packages/tools-builtin/*"
-    - "packages/storage/*"
-    - "apps/*"
+  - "packages/*"
+  - "packages/channels/*"
+  - "apps/*"

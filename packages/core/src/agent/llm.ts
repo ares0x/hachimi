@@ -1,6 +1,7 @@
 // packages/core/src/agent/llm.ts
-import type { Message, ToolDefinition, LLMResponse, LLMProvider } from "../types/index.js";
+
 import { generateId } from "@hachimi/shared";
+import type { LLMProvider, LLMResponse, Message, ToolDefinition } from "../types/index.js";
 
 export class MockLLMProvider implements LLMProvider {
   async chat(messages: Message[], tools: ToolDefinition[] = []): Promise<LLMResponse> {
@@ -22,7 +23,7 @@ export class MockLLMProvider implements LLMProvider {
     const userContent = typeof lastUser?.content === "string" ? lastUser.content : "";
 
     // 4. Tool call matching (Calculator or generic tool call syntax)
-    const callMatch = userContent.match(/调用工具\s*([a-zA-Z0-9_\-]+)/);
+    const callMatch = userContent.match(/调用工具\s*([a-zA-Z0-9_-]+)/);
     if (callMatch) {
       const toolName = callMatch[1];
       return {
@@ -38,7 +39,7 @@ export class MockLLMProvider implements LLMProvider {
     }
 
     const hasCalculator = tools.some((t) => t.name === "calculator");
-    const calcMatch = userContent.match(/(\d+)\s*([\+\-\*\/])\s*(\d+)/);
+    const calcMatch = userContent.match(/(\d+)\s*([+\-*/])\s*(\d+)/);
     if (hasCalculator && calcMatch) {
       const [, a, op, b] = calcMatch;
       return {

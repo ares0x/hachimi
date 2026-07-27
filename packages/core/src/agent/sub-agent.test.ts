@@ -1,7 +1,7 @@
 // packages/core/src/agent/sub-agent.test.ts
 import { describe, expect, it } from "vitest";
-import { SubAgentDelegator } from "./sub-agent.js";
 import { createHarnessRuntime } from "../runtime/harness-runtime.js";
+import { SubAgentDelegator } from "./sub-agent.js";
 
 describe("F4 SubAgent Delegation Suite", () => {
   it("spawns isolated sub-agent and returns summary result", async () => {

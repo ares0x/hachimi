@@ -46,8 +46,16 @@
   --color-mode-research: var(--mode-research);
   --color-mode-write: var(--mode-write);
 
-  --shadow-sm: var(--shadow-1);
+  --shadow-1: var(--shadow-1);
   --shadow-md: var(--shadow-2);
+}
+
+.app-drag {
+  -webkit-app-region: drag;
+}
+
+.app-no-drag {
+  -webkit-app-region: no-drag;
 }
 
 :root,
@@ -60,9 +68,9 @@
   --surface-hover: oklch(0.94 0.006 85);
   --surface-active: oklch(0.92 0.008 85);
 
-  --border: oklch(0.88 0.008 85);
+  --border: oklch(0.92 0.006 85);
   --border-strong: oklch(0.78 0.012 85);
-  --border-alpha: oklch(0.4 0.02 200 / 0.12);
+  --border-alpha: oklch(0.3 0.015 200 / 0.08);
 
   --foreground: oklch(0.28 0.02 260);
   --muted-foreground: oklch(0.48 0.015 260);
@@ -81,10 +89,10 @@
   --danger: oklch(0.5 0.16 25);
   --info: oklch(0.5 0.09 210);
 
-  --focus-ring: oklch(0.52 0.09 198);
+  --focus-ring: oklch(0.48 0.09 198 / 0.25);
 
-  --shadow-1: 0 1px 2px oklch(0.3 0.02 260 / 0.06);
-  --shadow-2: 0 4px 14px oklch(0.3 0.02 260 / 0.08);
+  --shadow-1: 0 1px 3px oklch(0.2 0.01 260 / 0.04), 0 1px 2px oklch(0.2 0.01 260 / 0.02);
+  --shadow-2: 0 8px 24px oklch(0.2 0.01 260 / 0.07), 0 2px 6px oklch(0.2 0.01 260 / 0.04);
 }
 
 [data-theme="dark"] {

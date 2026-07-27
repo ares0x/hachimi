@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { ContextBuilder } from "./builder.js";
-import { ToolRegistry } from "../tools/registry.js";
 import { defaultTokenEstimator } from "@hachimi/shared";
+import { describe, expect, it } from "vitest";
+import { ToolRegistry } from "../tools/registry.js";
+import { ContextBuilder } from "./builder.js";
 
 describe("ContextBuilder Prompt-Cache stability and tail truncation", () => {
   it("keeps static identity, skills, and tools prefix at top of system prompt", async () => {

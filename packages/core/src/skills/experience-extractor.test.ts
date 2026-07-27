@@ -3,8 +3,8 @@ import { existsSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { SkillRegistry } from "./registry.js";
 import { SkillProposalManager, TrajectoryCompressor } from "./experience-extractor.js";
+import { SkillRegistry } from "./registry.js";
 
 describe("F5 Experience Skill Extraction & Human-in-the-Loop Proposal Suite", () => {
   it("TrajectoryCompressor detects pattern and user correction", () => {

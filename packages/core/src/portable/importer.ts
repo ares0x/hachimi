@@ -1,5 +1,5 @@
 // packages/core/src/portable/importer.ts
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { AppContext } from "../runtime/context.js";
 import { calculateBundleChecksum } from "./exporter.js";

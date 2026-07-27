@@ -2,14 +2,14 @@
 import { DEFAULT_TOKEN_BUDGET, MASTER_AGENT_SYSTEM_PROMPT } from "@hachimi/shared";
 import type { SkillRegistry } from "../skills/registry.js";
 import type { ToolRegistry } from "../tools/registry.js";
-import type { MemoryEntry } from "../types/index.js";
-import type { Message } from "../types/index.js";
+import type { MemoryEntry, Message } from "../types/index.js";
 
 export interface ContextOptions {
   maxTokens?: number; // Token 预算上限
   summaryThreshold?: number; // 历史消息超过多少条触发摘要
   mode?: "fast" | "normal" | "thoughtful"; // 模式影响摘要强度和细节保留
   enableTokenTruncation?: boolean;
+  toolResultMaxBytes?: number; // W5.1: tool_result 最大字节数限制（默认 8192）
 }
 
 export interface ContextBuildInput {
@@ -42,6 +42,7 @@ const DEFAULT_OPTIONS: Required<ContextOptions> = {
   summaryThreshold: 20,
   mode: "normal",
   enableTokenTruncation: true,
+  toolResultMaxBytes: 8192,
 };
 
 export class ContextBuilder {
@@ -72,7 +73,9 @@ export class ContextBuilder {
       if (list.length > 0) {
         toolsBlock =
           "【可用工具】\n" +
-          list.map((t) => `- ${t.name} [${t.permission ?? "safe"}]: ${t.description}`).join("\n");
+          list.map((t) => `- ${t.name} [${t.permission ?? "safe"}]: ${t.description}`).join("\n") +
+          "\n\n【高效工具使用原则】\n" +
+          "当你通过工具（如 list_dir、read_file）获取到关键信息后，必须立即在当前或下一轮直接总结并完整回答用户，禁止无休止地递归遍历所有子目录或重复调用工具导致耗尽轮次。";
       }
     }
     staticBlocks.push(toolsBlock);
@@ -129,7 +132,7 @@ export class ContextBuilder {
 
     // 组合 System Prompt
     const staticPart = staticBlocks.join("\n\n");
-    let dynamicPart = dynamicBlocks.join("\n\n");
+    const dynamicPart = dynamicBlocks.join("\n\n");
 
     let systemPrompt = dynamicPart
       ? `${staticPart}\n\n--- 动态上下文边界 ---\n\n${dynamicPart}`
@@ -172,25 +175,41 @@ export class ContextBuilder {
   }
 
   private buildHistoryBlock(history: Message[], opts: Required<ContextOptions>): string {
-    if (history.length <= opts.summaryThreshold) {
-      return `【对话历史】\n${this.formatRecentMessages(history)}`;
+    const sanitizedHistory = history.map((m) =>
+      this.sanitizeMessageContent(m, opts.toolResultMaxBytes)
+    );
+
+    if (sanitizedHistory.length <= opts.summaryThreshold) {
+      return `【对话历史】\n${this.formatRecentMessages(sanitizedHistory)}`;
     }
 
-    const summary = this.summarizeHistory(history, opts.mode);
-    const recent = this.formatRecentMessages(history.slice(-10));
+    const summary = this.summarizeHistory(sanitizedHistory, opts.mode);
+    const recent = this.formatRecentMessages(sanitizedHistory.slice(-10));
 
     return `【对话摘要】\n${summary}\n\n【最近消息】\n${recent}`;
+  }
+
+  private sanitizeMessageContent(m: Message, maxBytes: number): Message {
+    if (!m.content) return m;
+
+    let contentStr =
+      typeof m.content === "string"
+        ? m.content
+        : m.content.map((part) => (typeof part === "string" ? part : "[content]")).join("");
+
+    if (contentStr.length > maxBytes) {
+      const truncatedCount = contentStr.length - 400;
+      contentStr = `${contentStr.slice(0, 200)}\n\n[...工具输出超限已截断 ${truncatedCount} 字符...]\n\n${contentStr.slice(-200)}`;
+    }
+
+    return { ...m, content: contentStr };
   }
 
   private formatRecentMessages(messages: Message[]): string {
     return messages
       .map((m) => {
-        const contentStr =
-          typeof m.content === "string"
-            ? m.content
-            : m.content.map((part) => (typeof part === "string" ? part : "[content]")).join("");
-
-        return `${m.role}: ${contentStr.substring(0, 120)}${contentStr.length > 120 ? "..." : ""}`;
+        const contentStr = typeof m.content === "string" ? m.content : "[content]";
+        return `${m.role}: ${contentStr}`;
       })
       .join("\n");
   }

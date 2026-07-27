@@ -1,6 +1,6 @@
 import type { ProviderTransport, ProviderTransportConfig } from "../../types/index.js";
-import { OpenAICompatibleProvider } from "./openai-compatible.js";
 import { AnthropicProviderTransport } from "./anthropic.js";
+import { OpenAICompatibleProvider } from "./openai-compatible.js";
 
 /** 支持的 Provider 传输层标识 (规范标识：anthropic, openai, deepseek, qwen, moonshot, ollama) */
 export type ProviderType =
@@ -17,11 +17,11 @@ export class ProviderRegistry {
   private static transports = new Map<string, ProviderTransport>();
 
   static register(transport: ProviderTransport) {
-    this.transports.set(transport.id, transport);
+    ProviderRegistry.transports.set(transport.id, transport);
   }
 
   static get(id: string): ProviderTransport | undefined {
-    return this.transports.get(id);
+    return ProviderRegistry.transports.get(id);
   }
 
   static create(type: ProviderType | string, config: ProviderTransportConfig): ProviderTransport {

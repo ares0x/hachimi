@@ -10,10 +10,10 @@
 
 | 阶段 | 名称 | 状态 | 核心目标 |
 |------|------|------|----------|
-| **W0** | 执行真相源与可恢复 | 🔴 未开始 | 事件流落盘、进程重启后续跑 |
-| **W1** | Work 数据模型与 API | 🔴 未开始 | Work 成为一等公民，替代纯 Session 聊天 |
-| **W2** | 策略引擎与生产默认 | 🔴 未开始 | 权限策略、API Secret、多表面生产可用 |
-| **W3** | Work-first UI 最小集 | 🔴 未开始 | UI 改语义，投影 Runtime 状态而非聊天列表 |
+| **W0** | 执行真相源与可恢复 | 🟢 已完成 | 事件流落盘、进程重启后续跑 |
+| **W1** | Work 数据模型与 API | 🟡 进行中 | Work 成为一等公民，替代纯 Session 聊天 |
+| **W2** | 策略引擎与生产默认 | 🟡 进行中 | 权限策略、API Secret、多表面生产可用 |
+| **W3** | Work-first UI 最小集 | 🟡 进行中 | UI 改语义，投影 Runtime 状态而非聊天列表 |
 | **W4** | 演化闭环 F5 | 🔴 未开始 | 轨迹→技能提案→人审→Skill 落地 |
 | **W5** | 上下文治理与评测加固 | 🔴 未开始 | 长 Work 不爆 context，eval 覆盖新场景 |
 | **W6** | 连接器（可选 P2）| 🔴 未开始 | 日历等工具化，非壳内 App |
@@ -26,13 +26,13 @@
 
 ### W0.1 — 定义 RuntimeEvent 类型集
 
-- [ ] 在 `packages/core/src/types/` 下新建 `event.ts`，定义 `RuntimeEvent` 联合类型：
+- [x] 在 `packages/core/src/types/` 下新建 `event.ts`，定义 `RuntimeEvent` 联合类型：
   - `session_started | user_message | assistant_message`
   - `tool_call | tool_result | approval_requested | approval_granted | approval_denied`
   - `steer | error | run_finished`
-- [ ] 每种 event 包含：`id`、`sessionId`、`type`、`timestamp`、`payload`（各类型独立结构）
-- [ ] 使用 Zod schema 验证并导出 TS 类型，通过 `packages/core/src/index.ts` 暴露公有类型
-- [ ] 单测：枚举所有 event 类型的 Zod parse 完整性
+- [x] 每种 event 包含：`id`、`sessionId`、`type`、`timestamp`、`payload`（各类型独立结构）
+- [x] 使用 Zod schema 验证并导出 TS 类型，通过 `packages/core/src/index.ts` 暴露公有类型
+- [x] 单测：枚举所有 event 类型的 Zod parse 完整性
 
 **验收**: 类型进 `@hachimi/core` 公有面，`pnpm typecheck` 无误
 
@@ -40,14 +40,14 @@
 
 ### W0.2 — Append-only 事件落盘
 
-- [ ] 新建 `packages/core/src/events/` 目录：
+- [x] 新建 `packages/core/src/events/` 目录：
   - `event-store.ts`：接口 `IEventStore`（`append` / `list` / `tail`）
   - `file-event-store.ts`：按 session 分文件的 JSONL append 落盘（`~/.hachimi/events/{sessionId}.jsonl`）
   - `sqlite-event-store.ts`：可选 SQLite 实现（单表 events，索引 sessionId+timestamp）
-- [ ] **先把 file-event-store 做透**，sqlite 版本作为可选扩展
-- [ ] 从 `packages/core/src/index.ts` 导出 `IEventStore`、`FileEventStore`
-- [ ] `HarnessRuntime.execute()` 在各关键节点写入事件（user_message / assistant_message / tool_call / tool_result / approval_* / steer / run_finished / error）
-- [ ] 单测：顺序写入 5 条事件，读回顺序一致；多 session 隔离
+- [x] **先把 file-event-store 做透**，sqlite 版本作为可选扩展
+- [x] 从 `packages/core/src/index.ts` 导出 `IEventStore`、`FileEventStore`
+- [x] `HarnessRuntime.execute()` 在各关键节点写入事件（user_message / assistant_message / tool_call / tool_result / approval_* / steer / run_finished / error）
+- [x] 单测：顺序写入 5 条事件，读回顺序一致；多 session 隔离
 
 **验收**: 每轮工具调用可从磁盘重放顺序；`pnpm test` 绿
 
@@ -55,12 +55,12 @@
 
 ### W0.3 — 启动恢复：事件重建 Context
 
-- [ ] `SessionManager` 启动时检测已有事件文件：
+- [x] `SessionManager` 启动时检测已有事件文件：
   - 若存在 JSONL，从事件重建 `messages[]`
   - 若有 `tool_call` 无对应 `tool_result`，标记该轮为未完成
-- [ ] `HarnessRuntime` 提供 `recoverSession(sessionId)` 方法
-- [ ] 旧数据兼容：无事件文件的旧 Session 直接加载 messages，可选标记 `legacy: true`
-- [ ] 集成测试：`kill server → 重启 → 同 session 续聊 → 历史工具结果不丢`
+- [x] `HarnessRuntime` 提供 `recoverSession(sessionId)` 方法
+- [x] 旧数据兼容：无事件文件的旧 Session 直接加载 messages，可选标记 `legacy: true`
+- [x] 集成测试：`kill server → 重启 → 同 session 续聊 → 历史工具结果不丢`
 
 **验收**: 手工验证 server 重启后续聊；单测模拟恢复路径
 
@@ -68,12 +68,12 @@
 
 ### W0.4 — GET /api/sessions/:id/events API
 
-- [ ] `apps/server/src/routes/` 新增：
+- [x] `apps/server/src/routes/` 新增：
   - `GET /api/sessions/:id/events` — 分页列表（`?limit=50&cursor=<eventId>`）
   - `GET /api/sessions/:id/events/stream` — SSE 实时订阅（非 token 流）
-- [ ] 返回格式：`{ events: RuntimeEvent[], nextCursor?: string, total: number }`
-- [ ] 鉴权：同现有 API secret 机制
-- [ ] 更新 `docs/API.md` 增加 Events 一节
+- [x] 返回格式：`{ events: RuntimeEvent[], nextCursor?: string, total: number }`
+- [x] 鉴权：同现有 API secret 机制
+- [x] 更新 `docs/API.md` 增加 Events 一节
 
 **验收**: `curl` 命令可解析 JSON 事件列表
 
@@ -81,8 +81,8 @@
 
 ### W0.5 — 旧数据兼容策略文档
 
-- [ ] `docs/ARCHITECTURE.md` 增加「事件系统」一节：新会话全量事件、旧会话 legacy 标记策略
-- [ ] `docs/API.md` 注明 events 端点与旧 messages 端点关系
+- [x] `docs/ARCHITECTURE.md` 增加「事件系统」一节：新会话全量事件、旧会话 legacy 标记策略
+- [x] `docs/API.md` 注明 events 端点与旧 messages 端点关系
 
 **验收**: 文档与实现一致，无矛盾
 
@@ -90,12 +90,12 @@
 
 ### W0.6 — W0 单测套件
 
-- [ ] `packages/core/src/events/__tests__/event-store.test.ts`：
+- [x] `packages/core/src/events/__tests__/event-store.test.ts`：
   - append 顺序保证
   - 多 session 隔离（A 的事件不混入 B）
   - 恢复后下一轮 context 含关键 tool_result
   - cursor 分页正确性
-- [ ] CI 集成全覆盖
+- [x] CI 集成全覆盖
 
 **出口脚本**:
 ```bash
@@ -113,12 +113,12 @@
 
 ### W1.1 — Work 数据模型定义
 
-- [ ] `packages/core/src/types/work.ts` 定义 `Work` 与 `PlanStep` 接口：
+- [x] `packages/core/src/types/work.ts` 定义 `Work` 与 `PlanStep` 接口：
   - 字段：`id / title / goal? / status / plan[] / sessionIds[] / kind / parentWorkId? / createdAt / updatedAt`
   - `status ∈ active | waiting | blocked | completed | failed | archived`
   - `kind ∈ primary | worker`
-- [ ] Zod schema 验证，JSON 存盘；通过 `@hachimi/core` 公有面导出
-- [ ] 初始阶段：`workId === sessionId`（1:1 映射，后续可拆）
+- [x] Zod schema 验证，JSON 存盘；通过 `@hachimi/core` 公有面导出
+- [x] 初始阶段：`workId === sessionId`（1:1 映射，后续可拆）
 
 **验收**: 类型导出，`pnpm typecheck` 无误
 
@@ -126,12 +126,12 @@
 
 ### W1.2 — 标题自动生成
 
-- [ ] `WorkManager.generateTitle(firstUserMessage: string): string`：
+- [x] `WorkManager.generateTitle(firstUserMessage: string): string`：
   - 规则优先：截取首条用户消息前 40 字符，去除换行
   - 可选增强：LLM 生成短标题（5–8 字）
   - **禁止纯时间戳作为标题**
-- [ ] Session 创建路径：首次用户消息 → 同步生成 title → 写入 Work
-- [ ] 单测：多种消息长度、含换行、空消息的标题生成结果
+- [x] Session 创建路径：首次用户消息 → 同步生成 title → 写入 Work
+- [x] 单测：多种消息长度、含换行、空消息的标题生成结果
 
 **验收**: 新建 Work 后 `title` 为可读文本，非时间戳
 
@@ -139,10 +139,10 @@
 
 ### W1.3 — Plan 支持：先计划再执行
 
-- [ ] `WorkManager.updatePlan(workId, steps)` / `updateStepStatus(workId, stepId, status)`
+- [x] `WorkManager.updatePlan(workId, steps)` / `updateStepStatus(workId, stepId, status)`
 - [ ] Agent 可通过内置工具 `update_work_plan` 更新 plan
-- [ ] 有 plan 展示清单，无 plan 退化为纯 Activity 流（不强制每次有计划）
-- [ ] 单测：plan 读写、步骤状态流转
+- [x] 有 plan 展示清单，无 plan 退化为纯 Activity 流（不强制每次有计划）
+- [x] 单测：plan 读写、步骤状态流转
 
 **验收**: API 可读写 plan；无 plan 的旧 Work 正常降级展示
 
@@ -150,14 +150,14 @@
 
 ### W1.4 — Activity 映射：事件投影
 
-- [ ] `WorkManager.listActivities(workId)` — 从 W0 事件流投影为 Activity 列表：
+- [x] `WorkManager.listActivities(workId)` — 从 W0 事件流投影为 Activity 列表：
   - `user/assistant_message → Activity{ type:"message" }`
   - `tool_call + tool_result → Activity{ type:"tool" }`
   - `approval_* → Activity{ type:"approval" }`
   - `steer → Activity{ type:"steer" }`
   - `error → Activity{ type:"error" }`
-- [ ] 按时间排序，cursor 分页
-- [ ] 单测：events → activities 映射正确性
+- [x] 按时间排序，cursor 分页
+- [x] 单测：events → activities 映射正确性
 
 **验收**: list activities 与 raw events 一致
 
@@ -165,15 +165,15 @@
 
 ### W1.5 — Work REST API
 
-- [ ] `apps/server/src/routes/works.ts` 新增路由：
+- [x] `apps/server/src/routes/works.ts` 新增路由：
   - `POST /api/works` — 用 intent 创建（`{ intent, goal? }`）
   - `GET /api/works` — 列表（默认 `kind=primary`，支持 `?status=active`）
   - `GET /api/works/:id` — 详情（含 goal/plan/sessionIds）
   - `PATCH /api/works/:id` — 更新 status/plan/title
   - `GET /api/works/:id/activities` — Activity 分页列表
   - `POST /api/works/:id/steer` — 对当前 Work 的意图干预
-- [ ] Chat API 内部绑定 Work（接收可选 `workId` 参数）
-- [ ] 更新 `docs/API.md` Works 一节完整文档
+- [x] Chat API 内部绑定 Work（接收可选 `workId` 参数）
+- [x] 更新 `docs/API.md` Works 一节完整文档
 
 **验收**: 脚本只通过 works API 跑通一轮带工具任务
 
@@ -193,10 +193,10 @@
 
 ### W1.7 — 子 Agent Work 过滤
 
-- [ ] 子 Agent 创建 session 时携带 `kind=worker` + `parentWorkId`
-- [ ] `GET /api/works` 默认过滤 `kind=primary`
-- [ ] `GET /api/works/:id/children` 查询子任务列表
-- [ ] UI 层：Worker 不与主 Work 平级展示，默认折叠
+- [x] 子 Agent 创建 session 时携带 `kind=worker` + `parentWorkId`
+- [x] `GET /api/works` 默认过滤 `kind=primary`
+- [x] `GET /api/works/:id/children` 查询子任务列表
+- [x] UI 层：Worker 不与主 Work 平级展示，默认折叠
 
 **验收**: Rail 不被大量 Worker 刷屏
 
@@ -208,12 +208,12 @@
 
 ### W2.1 — 策略表落地与矩阵测试
 
-- [ ] 扩展 `channelPolicy` 为 `surface × toolClass × action` 矩阵：
+- [x] 扩展 `channelPolicy` 为 `surface × toolClass × action` 矩阵：
   - surface: `web | desktop | tui | telegram | api | cli`
   - 策略: `deny | allow-safe | allowlist | allow-all`（allow-all 仅 TUI）
-- [ ] `packages/core/src/tools/policy.ts`：`isAllowed(surface, tool, permLevel)` 方法
-- [ ] 矩阵单测：web/telegram/tui × safe/needs_confirm/dangerous 9 种组合
-- [ ] 实机验证：Telegram 遵循 `allow-safe`（needs_confirm 工具被 hold）
+- [x] `packages/core/src/tools/policy.ts`：`isAllowed(surface, tool, permLevel)` 方法
+- [x] 矩阵单测：web/telegram/tui × safe/needs_confirm/dangerous 9 种组合
+- [x] 实机验证：Telegram 遵循 `allow-safe`（needs_confirm 工具被 hold）
 
 **验收**: 矩阵单测 + 实机通过
 
@@ -224,7 +224,7 @@
 - [ ] `POST /api/tools/approve` — 批准/拒绝待审工具（`{ approvalId, decision: "approve"|"deny" }`）
 - [ ] `POST /api/works/:id/cancel` — 取消正在运行的 Work
 - [ ] approve/deny → 写入 `approval_granted` / `approval_denied` 事件
-- [ ] Web UI：待审批时出现 Approve/Deny 按钮（关联 Activity 块）
+- [x] Web UI：待审批时出现 Approve/Deny 按钮（关联 Activity 块）
 - [ ] 单测：approve → 工具继续执行；deny → 返回 cancelled 结果
 
 **验收**: 事件流出现 `approval_*` 事件
@@ -233,11 +233,11 @@
 
 ### W2.3 — 默认 API Secret 生成
 
-- [ ] 首次启动若无 `HACHIMI_API_SECRET`：自动生成 32 字节 hex secret，写入 `~/.hachimi/config.json`
-- [ ] 启动日志提示（不打印 secret 本身）
-- [ ] 无 secret 时拒绝非 127.0.0.1 请求
-- [ ] README 增加「首次启动」与「Secret 管理」说明
-- [ ] 行为测试：无 secret → 自动生成并持久化
+- [x] 首次启动若无 `HACHIMI_API_SECRET`：自动生成 32 字节 hex secret，写入 `~/.hachimi/config.json`
+- [x] 启动日志提示（不打印 secret 本身）
+- [x] 无 secret 时拒绝非 127.0.0.1 请求
+- [x] README 增加「首次启动」与「Secret 管理」说明
+- [x] 行为测试：无 secret → 自动生成并持久化
 
 **验收**: 文档 + 行为测试通过；无默认同网裸奔
 
@@ -245,9 +245,9 @@
 
 ### W2.4 — CORS 白名单与绑定
 
-- [ ] 默认绑定 `127.0.0.1`（非 `0.0.0.0`）
-- [ ] CORS 白名单：允许 `http://localhost:*`，拒绝任意来源反射
-- [ ] 可配置 `server.host` / `server.allowedOrigins`
+- [x] 默认绑定 `127.0.0.1`（非 `0.0.0.0`）
+- [x] CORS 白名单：允许 `http://localhost:*`，拒绝任意来源反射
+- [x] 可配置 `server.host` / `server.allowedOrigins`
 
 **验收**: 非白名单来源返回 403/CORS 错误；配置项说明完整
 
@@ -255,9 +255,9 @@
 
 ### W2.5 — 双客户端 Steer 不脑裂
 
-- [ ] 多 SSE 订阅者同时接收同一 session 事件推送
-- [ ] steer 通过事件写入，并发不丢失
-- [ ] 手工清单：两标签页同时打开同一 Work，交替发言，两端均可见
+- [x] 多 SSE 订阅者同时接收同一 session 事件推送
+- [x] steer 通过事件写入，并发不丢失
+- [x] 手工清单：两标签页同时打开同一 Work，交替发言，两端均可见
 
 **验收**: 手工清单通过
 
@@ -279,12 +279,12 @@
 
 ### W3.1 — Rail：Work 列表替换 Session 列表
 
-- [ ] `packages/ui/src/components/work-list.tsx`：
+- [x] `packages/ui/src/components/work-list.tsx`：
   - 每项：状态点（颜色按 status）+ 可读标题 + 相对时间（`2h ago`）
   - 状态点颜色：`active`=蓝 / `waiting`=黄 / `blocked`=红 / `completed`=绿 / `archived`=灰
-- [ ] 去掉用户必选 Modes（Chat/Code/Research/Write）或移入设置
-- [ ] 新建按钮改为「+ 新工作」
-- [ ] 数据源：`GET /api/works`（primary only）
+- [x] 去掉用户必选 Modes（Chat/Code/Research/Write）或移入设置
+- [x] 新建按钮改为「+ 新工作」
+- [x] 数据源：`GET /api/works`（primary only）
 
 **验收**: 无 Mode 强选；列表展示 Work 标题+状态
 
@@ -292,9 +292,9 @@
 
 ### W3.2 — 空闲态：意图芯片创建 Work
 
-- [ ] 未选中 Work 时：欢迎语 + 建议 Intent chips（4–6 个，硬编码首批）
-- [ ] 点击 chip → 发送该意图 → 创建 Work → 切换到新 Work 主区
-- [ ] 文案示例：「今天需要我接手什么？」
+- [x] 未选中 Work 时：欢迎语 + 建议 Intent chips（4–6 个，硬编码首批）
+- [x] 点击 chip → 发送该意图 → 创建 Work → 切换到新 Work 主区
+- [x] 文案示例：「今天需要我接手什么？」
 
 **验收**: chip 真实创建/发送，非空动画
 
@@ -426,10 +426,10 @@
 
 ### W5.1 — tool_result 大小上限与摘要回灌
 
-- [ ] ContextBuilder 层：tool_result 超过 8KB 时自动截断+摘要
+- [x] ContextBuilder 层：tool_result 超过 8KB 时自动截断+摘要
   - 摘要规则：头 200 字符 + 尾 200 字符 + `[...截断 X 字节...]`
-- [ ] 配置项：`context.toolResultMaxBytes`（默认 8192）
-- [ ] 单测：超大输出不撑爆 context
+- [x] 配置项：`context.toolResultMaxBytes`（默认 8192）
+- [x] 单测：超大输出不撑爆 context
 
 **验收**: 超大工具输出被截断并摘要；单测通过
 

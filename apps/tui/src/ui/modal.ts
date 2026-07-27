@@ -1,11 +1,11 @@
 // apps/tui/src/ui/modal.ts
 import {
-  getActiveTheme,
+  bold,
   colorize,
+  dim,
+  getActiveTheme,
   getDisplayWidth,
   padDisplayWidth,
-  bold,
-  dim,
   type UITheme,
 } from "./theme.js";
 
