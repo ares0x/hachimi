@@ -47,6 +47,3 @@ data-test*
 *.db-shm
 *.db-wal
 *.sqlite
-
-# Prototypes
-demo/
