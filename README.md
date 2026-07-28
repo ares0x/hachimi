@@ -99,12 +99,41 @@ curl -N -X POST http://127.0.0.1:3700/api/chat \
   -d '{"prompt": "解释什么是 AI Agent", "provider": "deepseek", "stream": true}'
 ```
 
-### 4. 运行全量单元测试
+### 4. 使用 Work 管理命令 (W1.6)
+
+Hachimi CLI 内置 Work 子命令，无需浏览器即可管理日常工作：
+
+```bash
+# 列出所有主 Work（标题 + 状态 + 更新时间）
+pnpm dev:cli work list
+
+# 查看指定 Work 的详情（Goal / Plan / 最近 15 条活动）
+pnpm dev:cli work show work_abc123
+
+# 创建一个新的 Work
+pnpm dev:cli work create --intent "分析当前项目的目录结构"
+
+# 查看指定 Work 的工具审批审计记录
+pnpm dev:cli work audit work_abc123
+
+# 对已有 Work 继续对话
+pnpm dev:cli -s work_abc123 "继续上一步的分析"
+```
+
+**推荐日常路径**：
+
+1. `hachimi work create --intent "..."` 创建今日工作意图
+2. `hachimi work list` 查看所有活跃 Work 的进度概览
+3. `hachimi -s <workId> "..."` 对指定 Work 发送后续指令
+4. `hachimi work show <workId>` 检查 Goal / Plan / 活动轨迹
+5. `hachimi work audit <workId>` 审查工具批准/拒绝记录
+
+### 5. 运行全量单元测试
 
 ```bash
 pnpm test
 ```
-*(通过 15 个测试套件，36 项单元测试 100% 绿灯)*
+ *(通过 38 个测试文件、107 项单元测试 100% 绿灯)*
 
 ---
 
@@ -147,9 +176,9 @@ hachimi/
 | **Phase D** | 带 Schema 版本的可移植记忆、SHA-256 Checksum、一键导出/导入、增量合并去重、Schema 自动迁移 | **已完成 (Done)** |
 | **Phase E** | 统一能力源 `CapabilitySource`、`~/.hachimi/skills/` 外部技能包、声明式 Hooks、MCP Client | **已完成 (Done)** |
 | **Phase F** | 多终端 Channel (F2: Telegram Bot 网关, F3: Web UI 极简面板) + 统一 HarnessRuntime 架构演进 | **已完成 (Done)** |
-| **Phase W** | Work-First 个人助理内核重构（W0 事件落盘、W1 Work 模型、W2 权限策略、W3 Work 界面、W5.1 截断） | **推进中 (Active)** |
+| **Phase W0–W3** | 事件落盘与恢复、Work 数据模型与 API、权限策略与生产默认、Work-first UI | **已完成 (Done)** |
 
-目前项目已包含 **38 个测试文件、86 项单元测试** (`pnpm test` 全绿通行)。
+目前项目已包含 **38 个测试文件、107 项单元测试** (`pnpm test` 全绿通行)。
 
 ---
 

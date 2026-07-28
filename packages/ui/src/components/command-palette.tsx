@@ -1,11 +1,13 @@
 import {
   Brain,
   Code2,
+  Download,
   MessageSquare,
   Moon,
   PenLine,
   Plus,
   Search,
+  Settings2,
   ShieldCheck,
 } from "lucide-react";
 import type { Mode } from "../lib/agent-demo";
@@ -27,6 +29,7 @@ export function CommandPalette({
   onToggleTheme,
   onRunDemo,
   onExportBundle,
+  onOpenSettings,
   theme,
 }: {
   open: boolean;
@@ -36,6 +39,7 @@ export function CommandPalette({
   onToggleTheme: () => void;
   onRunDemo?: () => void;
   onExportBundle?: () => void;
+  onOpenSettings?: () => void;
   theme?: string;
 }) {
   const run = (fn?: () => void) => () => {
@@ -51,9 +55,22 @@ export function CommandPalette({
         <CommandGroup heading="Actions">
           <CommandItem onSelect={run(onNewSession)}>
             <Plus className="mr-2 size-4" />
-            New session
+            New Work / Session
             <CommandShortcut>⌘N</CommandShortcut>
           </CommandItem>
+          {onOpenSettings && (
+            <CommandItem onSelect={run(onOpenSettings)}>
+              <Settings2 className="mr-2 size-4" />
+              打开设置
+              <CommandShortcut>⌘,</CommandShortcut>
+            </CommandItem>
+          )}
+          {onExportBundle && (
+            <CommandItem onSelect={run(onExportBundle)}>
+              <Download className="mr-2 size-4" />
+              导出 Bundle
+            </CommandItem>
+          )}
           <CommandItem onSelect={run(onRunDemo)}>
             <ShieldCheck className="mr-2 size-4" />
             运行演示任务（含授权请求）

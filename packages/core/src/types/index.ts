@@ -85,9 +85,8 @@ export interface ToolDefinition {
   description: string;
   parameters: Record<string, unknown>; // JSON Schema
   execute: (args: Record<string, unknown>, ctx?: any) => Promise<string>;
+  /** 工具风险等级；默认 safe。Registry 据此触发 PermissionPolicy 裁决 */
   permission?: ToolPermission;
-  /** Whether this tool needs human approval before execution */
-  requiresApproval?: boolean;
 }
 
 export interface ToolContext {

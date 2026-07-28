@@ -1,3 +1,15 @@
+export interface ToolArgSummary {
+  oneLine: string;
+  fields: Array<{
+    key: string;
+    label: string;
+    value: string;
+    truncated?: boolean;
+    code?: boolean;
+    mono?: boolean;
+  }>;
+}
+
 const getApiBase = () => {
   if (typeof window !== "undefined" && (window as any).__HACHIMI_API_BASE__) {
     return (window as any).__HACHIMI_API_BASE__;
@@ -42,7 +54,8 @@ export function setApiSecret(secret: string) {
 export function getApiSecret(): string {
   if (currentSecret) return currentSecret;
   if (typeof window !== "undefined") {
-    if ((window as any).__HACHIMI_API_SECRET__) return (window as any).__HACHIMI_API_SECRET__;
+    if ((window as any).__HACHIMI_API_SECRET__)
+      return (window as any).__HACHIMI_API_SECRET__;
     try {
       const stored = localStorage.getItem("hachimi_api_secret");
       if (stored) return stored;
@@ -55,7 +68,9 @@ export function getApiSecret(): string {
     : "";
 }
 
-function getAuthHeaders(customHeaders: Record<string, string> = {}): Record<string, string> {
+function getAuthHeaders(
+  customHeaders: Record<string, string> = {},
+): Record<string, string> {
   const secret = getApiSecret();
   const headers: Record<string, string> = { ...customHeaders };
   if (secret) {
@@ -66,7 +81,9 @@ function getAuthHeaders(customHeaders: Record<string, string> = {}): Record<stri
 
 export async function fetchStatus(): Promise<StatusData | null> {
   try {
-    const res = await fetch(`${getApiBase()}/api/status`, { headers: getAuthHeaders() });
+    const res = await fetch(`${getApiBase()}/api/status`, {
+      headers: getAuthHeaders(),
+    });
     if (!res.ok) return null;
     return (await res.json()) as StatusData;
   } catch {
@@ -76,7 +93,9 @@ export async function fetchStatus(): Promise<StatusData | null> {
 
 export async function fetchSessions(): Promise<SessionItem[]> {
   try {
-    const res = await fetch(`${getApiBase()}/api/sessions`, { headers: getAuthHeaders() });
+    const res = await fetch(`${getApiBase()}/api/sessions`, {
+      headers: getAuthHeaders(),
+    });
     if (!res.ok) return [];
     const data = (await res.json()) as { sessions?: SessionItem[] };
     return data.sessions || [];
@@ -113,7 +132,10 @@ export async function createSession(title?: string): Promise<any | null> {
   }
 }
 
-export async function renameSession(id: string, title: string): Promise<any | null> {
+export async function renameSession(
+  id: string,
+  title: string,
+): Promise<any | null> {
   try {
     const res = await fetch(`${getApiBase()}/api/sessions/${id}`, {
       method: "PATCH",
@@ -169,7 +191,7 @@ export async function sendSteerPrompt(prompt: string): Promise<boolean> {
 
 export async function approveTool(
   approvalId: string,
-  decision: "approve" | "deny"
+  decision: "approve" | "deny",
 ): Promise<boolean> {
   try {
     const res = await fetch(`${getApiBase()}/api/tools/approve`, {
@@ -187,9 +209,14 @@ export async function streamChatPrompt(
   prompt: string,
   sessionId: string,
   onChunk: (chunk: string) => void,
-  onConfirmRequired?: (info: { approvalId?: string; toolName: string; args: string }) => void,
+  onConfirmRequired?: (info: {
+    approvalId?: string;
+    toolName: string;
+    args: Record<string, unknown>;
+    argsSummary?: ToolArgSummary;
+  }) => void,
   onDone?: (content: string) => void,
-  onError?: (err: string) => void
+  onError?: (err: string) => void,
 ) {
   try {
     const res = await fetch(`${getApiBase()}/api/chat`, {
@@ -234,10 +261,24 @@ export async function streamChatPrompt(
             if (data.type === "chunk" && data.chunk) {
               onChunk(data.chunk);
             } else if (data.type === "confirm_required" && onConfirmRequired) {
+              let parsedArgs: Record<string, unknown>;
+              if (typeof data.args === "string") {
+                try {
+                  parsedArgs = JSON.parse(data.args);
+                } catch {
+                  parsedArgs = { _raw: data.args };
+                }
+              } else if (data.args && typeof data.args === "object") {
+                parsedArgs = data.args as Record<string, unknown>;
+              } else {
+                parsedArgs = {};
+              }
               onConfirmRequired({
                 approvalId: data.approvalId,
                 toolName: data.toolName,
-                args: data.args,
+                args: parsedArgs,
+                argsSummary:
+                  (data.argsSummary as ToolArgSummary | undefined) || undefined,
               });
             } else if (data.type === "done") {
               if (onDone) onDone(data.content || "");
@@ -255,7 +296,9 @@ export async function streamChatPrompt(
 
 export async function exportBundle(): Promise<any | null> {
   try {
-    const res = await fetch(`${getApiBase()}/api/export`, { headers: getAuthHeaders() });
+    const res = await fetch(`${getApiBase()}/api/export`, {
+      headers: getAuthHeaders(),
+    });
     if (!res.ok) return null;
     const data = (await res.json()) as { bundle?: any };
     return data.bundle || null;
@@ -269,7 +312,13 @@ export async function exportBundle(): Promise<any | null> {
 export interface WorkItem {
   id: string;
   title: string;
-  status: "active" | "waiting" | "blocked" | "completed" | "failed" | "archived";
+  status:
+    | "active"
+    | "waiting"
+    | "blocked"
+    | "completed"
+    | "failed"
+    | "archived";
   kind: "primary" | "worker";
   goal?: string;
   planTotal: number;
@@ -293,7 +342,9 @@ export async function fetchWorks(kind = "primary"): Promise<WorkItem[]> {
 
 export async function fetchWork(id: string): Promise<any | null> {
   try {
-    const res = await fetch(`${getApiBase()}/api/works/${id}`, { headers: getAuthHeaders() });
+    const res = await fetch(`${getApiBase()}/api/works/${id}`, {
+      headers: getAuthHeaders(),
+    });
     if (!res.ok) return null;
     const data = (await res.json()) as { work?: any };
     return data.work || null;
@@ -302,7 +353,10 @@ export async function fetchWork(id: string): Promise<any | null> {
   }
 }
 
-export async function createWork(intent: string, goal?: string): Promise<any | null> {
+export async function createWork(
+  intent: string,
+  goal?: string,
+): Promise<any | null> {
   try {
     const res = await fetch(`${getApiBase()}/api/works`, {
       method: "POST",
@@ -319,7 +373,7 @@ export async function createWork(intent: string, goal?: string): Promise<any | n
 
 export async function updateWork(
   id: string,
-  patch: { title?: string; status?: string; goal?: string }
+  patch: { title?: string; status?: string; goal?: string },
 ): Promise<any | null> {
   try {
     const res = await fetch(`${getApiBase()}/api/works/${id}`, {
@@ -345,5 +399,155 @@ export async function fetchWorkActivities(id: string): Promise<any[]> {
     return data.activities || [];
   } catch {
     return [];
+  }
+}
+
+// ─── W2.2: Cancel / W2.6: Events / W3.x: Goal & Plan mutations ────────────────
+
+export async function cancelWork(
+  id: string,
+  reason = "用户手动取消",
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/works/${id}/cancel`, {
+      method: "POST",
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ reason }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export interface WorkEventFilter {
+  /** 逗号分隔或事件类型数组，如 approval_granted, approval_denied */
+  type?: string | string[];
+  limit?: number;
+}
+
+export async function fetchWorkEvents(
+  id: string,
+  filter: WorkEventFilter = {},
+): Promise<any[]> {
+  try {
+    const params = new URLSearchParams();
+    if (filter.type) {
+      params.set(
+        "type",
+        Array.isArray(filter.type) ? filter.type.join(",") : filter.type,
+      );
+    }
+    if (filter.limit) params.set("limit", String(filter.limit));
+    const qs = params.toString();
+    const res = await fetch(
+      `${getApiBase()}/api/works/${id}/events${qs ? `?${qs}` : ""}`,
+      { headers: getAuthHeaders() },
+    );
+    if (!res.ok) return [];
+    const data = (await res.json()) as { events?: any[] };
+    return data.events || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function updateWorkGoal(
+  id: string,
+  goal: string,
+): Promise<any | null> {
+  return updateWork(id, { goal });
+}
+
+export interface WorkPlanStepInput {
+  id?: string;
+  title: string;
+  description?: string;
+  status?: "pending" | "running" | "done" | "skipped";
+}
+
+export async function updateWorkPlan(
+  id: string,
+  steps: WorkPlanStepInput[],
+): Promise<any | null> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/works/${id}`, {
+      method: "PATCH",
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ plan: steps }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { work?: any };
+    return data.work || null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── W3.7: Daemon Config Sync ──────────────────────────────────────────────────
+
+export interface DaemonProviderInfo {
+  id: string;
+  model: string;
+  hasKey: boolean;
+  baseURL?: string;
+}
+
+export interface DaemonConfig {
+  activeProvider: string;
+  providers: DaemonProviderInfo[];
+}
+
+export async function fetchDaemonConfig(): Promise<DaemonConfig | null> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/config`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as DaemonConfig;
+  } catch {
+    return null;
+  }
+}
+
+export async function updateDaemonConfig(
+  patch: { activeProvider?: string; model?: string },
+): Promise<{ activeProvider: string; model: string } | null> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/config`, {
+      method: "PATCH",
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(patch),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      success?: boolean;
+      activeProvider?: string;
+      model?: string;
+    };
+    if (!data.success) return null;
+    return {
+      activeProvider: data.activeProvider || patch.activeProvider || "",
+      model: data.model || patch.model || "default",
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function importBundle(file: File): Promise<any | null> {
+  try {
+    const fd = new FormData();
+    fd.append("bundle", file);
+    const res = await fetch(`${getApiBase()}/api/import`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: fd,
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { bundle?: any };
+    return data.bundle || null;
+  } catch {
+    return null;
   }
 }

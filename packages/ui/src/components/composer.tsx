@@ -1,4 +1,4 @@
-import { ArrowUp, AtSign, Paperclip, Slash, Square, Zap } from "lucide-react";
+import { ArrowUp, AtSign, FolderKanban, Paperclip, Slash, Square, Zap } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { MODE_LABEL, type Mode } from "../lib/agent-demo";
 import { cn } from "../lib/utils";
@@ -12,6 +12,7 @@ export function Composer({
   running,
   mode = "chat",
   disabled,
+  workTitle,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -21,6 +22,8 @@ export function Composer({
   running?: boolean;
   mode?: Mode;
   disabled?: boolean;
+  /** W3.4: 当前发言锚定的 Work 标题；空则显示未选中 */
+  workTitle?: string | null;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -30,6 +33,21 @@ export function Composer({
 
   return (
     <div className="border-t border-border/40 bg-background px-4 pt-3 pb-4 sm:px-6">
+      {/* W3.4: 显示当前发言锚定的 Work，带 shortcut 提示 */}
+      <div className="mx-auto mb-2 flex w-full max-w-[48rem] items-center gap-1.5 px-1 font-mono text-[11px] text-muted-foreground/75">
+        <FolderKanban className="size-3" />
+        <span className="truncate">
+          In:{" "}
+          <span className="text-foreground/85">
+            {workTitle || "（未选中 Work，首次发送将自动创建）"}
+          </span>
+        </span>
+        <span className="ml-auto hidden sm:inline">
+          快捷键 · <span className="text-foreground/80">⌘ Enter</span> 发送 ·{" "}
+          <span className="text-foreground/80">Shift Enter</span> 换行
+        </span>
+      </div>
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -47,14 +65,25 @@ export function Composer({
             disabled={disabled}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey || !e.shiftKey)) {
+              // W3.4: 严格语义 — ⌘/Ctrl+Enter 发送，Shift+Enter 换行；
+              // 裸 Enter 在单行时也发送（常见 UX），但保留 shift/meta 覆盖语义。
+              if (
+                e.key === "Enter" &&
+                (e.metaKey || e.ctrlKey || (!e.shiftKey && !e.nativeEvent.isComposing))
+              ) {
                 e.preventDefault();
                 if (!running && value.trim()) {
                   onSubmit();
                 }
               }
             }}
-            placeholder={disabled ? "等待授权决定…" : "描述意图，Hachimi 会先给计划再执行…"}
+            placeholder={
+              disabled
+                ? "等待授权决定…"
+                : workTitle
+                  ? `描述对「${workTitle.length > 30 ? workTitle.slice(0, 30) + "…" : workTitle}」的下一步需求…`
+                  : "描述意图，Hachimi 会创建一个 Work 并先给出计划再执行…"
+            }
             className="scroll-quiet block w-full resize-none border-0 bg-transparent px-4 pt-3.5 pb-1 text-[14px] leading-6 text-foreground placeholder:text-muted-foreground outline-none focus:outline-none focus:ring-0 focus:shadow-none focus-visible:outline-none focus-visible:ring-0 focus-visible:shadow-none disabled:cursor-not-allowed disabled:opacity-60"
             style={{ outline: "none", boxShadow: "none" }}
           />
@@ -77,7 +106,7 @@ export function Composer({
             </div>
 
             <span className="ml-1 hidden font-mono text-[11px] text-muted-foreground/60 transition-opacity group-focus-within:opacity-100 sm:inline">
-              {MODE_LABEL[mode || "chat"]} · ⌘Enter 发送
+              {MODE_LABEL[mode || "chat"]} · ⌘Enter 发送 · ShiftEnter 换行
             </span>
 
             <div className="ml-auto flex items-center gap-2">
@@ -98,7 +127,7 @@ export function Composer({
                       onClick={onSteer}
                       disabled={disabled || !value.trim()}
                       className="inline-flex h-7 items-center gap-1 rounded-md px-2 font-mono text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground disabled:opacity-40"
-                      title="在当前回合中途插入插队指令"
+                      title="纠偏当前 Work 的执行方向（在运行中回合中插入指令）"
                     >
                       <Zap className="size-3" />
                       <span>插队纠偏</span>

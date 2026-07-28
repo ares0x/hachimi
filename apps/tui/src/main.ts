@@ -2,6 +2,7 @@
 /**
  * Hachimi TUI Immersive Terminal Application Entrypoint
  */
+import { summarizeToolArgs } from "@hachimi/shared";
 import { createAppContext } from "./app-context.js";
 import { HachimiTUIApp } from "./ui/app.js";
 import { bold, colorize, dim, getActiveTheme, renderBadge } from "./ui/theme.js";
@@ -12,8 +13,16 @@ async function main() {
     async onToolApproval(toolName, args, permission) {
       const theme = getActiveTheme();
       const badge = renderBadge("⚠️ APPROVAL REQUIRED", theme.colors.warning, "#FFFFFF");
+      const summary = summarizeToolArgs(toolName, args as Record<string, unknown>);
       console.log(`\n${badge} ${bold(`工具 [${toolName}] (${permission}) 试图执行`)}`);
-      console.log(dim(`   参数: ${JSON.stringify(args)}`));
+      console.log(dim(`   ${summary.oneLine}`));
+      for (const f of summary.fields.slice(0, 3)) {
+        const valLines = String(f.value).split("\n");
+        const preview = valLines.length > 4
+          ? valLines.slice(0, 4).join("\n      ") + `\n      …[+${valLines.length - 4} lines 省略]`
+          : f.value;
+        console.log(dim(`   · ${f.label}: ${preview}`));
+      }
 
       const promptStr = colorize("👉 是否允许执行该工具？(y/N): ", theme.colors.primary);
       const ans = (await askInteractivePrompt(`   ${promptStr}`)).trim().toLowerCase();

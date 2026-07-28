@@ -1,10 +1,15 @@
 // apps/tui/src/ui/app.ts
 import type { Message } from "@hachimi/core";
-import { generateId } from "@hachimi/shared";
+import { generateId, summarizeToolArgs } from "@hachimi/shared";
 import type { AppContext } from "../app-context.js";
 import { handleSlashCommand } from "./commands.js";
 import { renderModalBox } from "./modal.js";
-import { colorize, getActiveTheme, renderBadge, setActiveTheme } from "./theme.js";
+import {
+  colorize,
+  getActiveTheme,
+  renderBadge,
+  setActiveTheme,
+} from "./theme.js";
 import {
   askInteractivePrompt,
   askInteractiveSelector,
@@ -178,7 +183,9 @@ export class HachimiTUIApp {
         if (res.action === "clear") {
           clearTerminalCanvas();
           console.log(renderWelcomeCard(this.ctx.getStatus()));
-          console.log(colorize(res.content || "当前会话已重置", theme.colors.success));
+          console.log(
+            colorize(res.content || "当前会话已重置", theme.colors.success),
+          );
           continue;
         }
 
@@ -193,22 +200,32 @@ export class HachimiTUIApp {
               title: res.title || " 信息 ",
               content: res.content || "",
               theme,
-            })
+            }),
           );
           continue;
         }
 
         if (res.action === "selector_theme") {
           const themeItems = [
-            { id: "default", label: "default", sublabel: "Grok 经典深色 (TokyoNight)" },
+            {
+              id: "default",
+              label: "default",
+              sublabel: "Grok 经典深色 (TokyoNight)",
+            },
             { id: "amber", label: "amber", sublabel: "暖金琥珀" },
             { id: "neon", label: "neon", sublabel: "午夜霓虹" },
           ];
-          const selected = await askInteractiveSelector("🎨 选择界面主题", themeItems);
+          const selected = await askInteractiveSelector(
+            "🎨 选择界面主题",
+            themeItems,
+          );
           if (selected) {
             setActiveTheme(selected.id);
             console.log(
-              colorize(`✨ 主题已成功切换为: [${selected.id}]`, getActiveTheme().colors.success)
+              colorize(
+                `✨ 主题已成功切换为: [${selected.id}]`,
+                getActiveTheme().colors.success,
+              ),
             );
           }
           continue;
@@ -216,40 +233,63 @@ export class HachimiTUIApp {
 
         if (res.action === "selector_provider") {
           const providerItems = [
-            { id: "deepseek", label: "deepseek", sublabel: "DeepSeek (deepseek-v4-pro / flash)" },
-            { id: "openai", label: "openai", sublabel: "OpenAI (gpt-5.6-sol / terra / luna)" },
+            {
+              id: "deepseek",
+              label: "deepseek",
+              sublabel: "DeepSeek (deepseek-v4-pro / flash)",
+            },
+            {
+              id: "openai",
+              label: "openai",
+              sublabel: "OpenAI (gpt-5.6-sol / terra / luna)",
+            },
             {
               id: "anthropic",
               label: "anthropic",
-              sublabel: "Anthropic Claude (claude-fable-5 / opus-4-8 / sonnet-5)",
+              sublabel:
+                "Anthropic Claude (claude-fable-5 / opus-4-8 / sonnet-5)",
             },
-            { id: "qwen", label: "qwen", sublabel: "通义千问 (qwen3.8-max / qwen3.7-plus)" },
-            { id: "moonshot", label: "moonshot", sublabel: "Moonshot / Kimi (kimi-k3)" },
+            {
+              id: "qwen",
+              label: "qwen",
+              sublabel: "通义千问 (qwen3.8-max / qwen3.7-plus)",
+            },
+            {
+              id: "moonshot",
+              label: "moonshot",
+              sublabel: "Moonshot / Kimi (kimi-k3)",
+            },
             { id: "mock", label: "mock", sublabel: "Mock 模拟测试模式" },
           ];
           const selected = await askInteractiveSelector(
             "🤖 【Step 1/2】选择 LLM API 提供商 (Provider)",
-            providerItems
+            providerItems,
           );
           if (selected) {
             const providerId = selected.id;
             let selectedModel: string | undefined;
 
             const presetModels = PROVIDER_PRESET_MODELS[providerId] || [
-              { id: "__custom__", label: "✏️ 输入自定义模型名称...", sublabel: "手动填写模型标识" },
+              {
+                id: "__custom__",
+                label: "✏️ 输入自定义模型名称...",
+                sublabel: "手动填写模型标识",
+              },
             ];
 
             const modelSelected = await askInteractiveSelector(
               `🧠 【Step 2/2】选择 [${providerId}] 模型 (Model)`,
-              presetModels
+              presetModels,
             );
             if (modelSelected) {
               if (modelSelected.id === "__custom__") {
                 const modelPrompt = colorize(
                   `✏️ 请输入 [${providerId}] 的自定义 Model 名称: `,
-                  theme.colors.primary
+                  theme.colors.primary,
                 );
-                selectedModel = (await askInteractivePrompt(modelPrompt)).trim();
+                selectedModel = (
+                  await askInteractivePrompt(modelPrompt)
+                ).trim();
               } else {
                 selectedModel = modelSelected.id;
               }
@@ -261,7 +301,7 @@ export class HachimiTUIApp {
             if (!currentP?.apiKey && providerId !== "mock") {
               const keyPrompt = colorize(
                 `🔑 未检测到 [${providerId}] 的 API Key，请输入 API Key (按 Enter 确定): `,
-                theme.colors.warning
+                theme.colors.warning,
               );
               inputKey = (await askInteractivePrompt(keyPrompt)).trim();
             }
@@ -270,12 +310,13 @@ export class HachimiTUIApp {
               ...(selectedModel ? { model: selectedModel } : {}),
               ...(inputKey ? { apiKey: inputKey } : {}),
             });
-            const activeModelStr = selectedModel || currentP?.model || "default";
+            const activeModelStr =
+              selectedModel || currentP?.model || "default";
             console.log(
               colorize(
                 `✨ LLM 提供商与模型已成功更新为: [${providerId}] (${activeModelStr})`,
-                getActiveTheme().colors.success
-              )
+                getActiveTheme().colors.success,
+              ),
             );
           }
           continue;
@@ -284,29 +325,35 @@ export class HachimiTUIApp {
         if (res.action === "selector_model") {
           const activeProvider = this.ctx.config.llm.activeProvider;
           const presetModels = PROVIDER_PRESET_MODELS[activeProvider] || [
-            { id: "__custom__", label: "✏️ 输入自定义模型名称...", sublabel: "手动填写模型标识" },
+            {
+              id: "__custom__",
+              label: "✏️ 输入自定义模型名称...",
+              sublabel: "手动填写模型标识",
+            },
           ];
 
           const modelSelected = await askInteractiveSelector(
             `🧠 选择当前 [${activeProvider}] 的模型 (Model)`,
-            presetModels
+            presetModels,
           );
           if (modelSelected) {
             let chosenModel = modelSelected.id;
             if (chosenModel === "__custom__") {
               const modelPrompt = colorize(
                 `✏️ 请输入 [${activeProvider}] 的自定义 Model 名称: `,
-                theme.colors.primary
+                theme.colors.primary,
               );
               chosenModel = (await askInteractivePrompt(modelPrompt)).trim();
             }
             if (chosenModel) {
-              this.ctx.setActiveProvider(activeProvider, { model: chosenModel });
+              this.ctx.setActiveProvider(activeProvider, {
+                model: chosenModel,
+              });
               console.log(
                 colorize(
                   `✨ [${activeProvider}] 的 Model 已成功更新为: [${chosenModel}]`,
-                  getActiveTheme().colors.success
-                )
+                  getActiveTheme().colors.success,
+                ),
               );
             }
           }
@@ -320,23 +367,33 @@ export class HachimiTUIApp {
             id: s.id,
             label: `${s.title || "默认会话"} [${s.id}]`,
             sublabel:
-              s.id === currentId ? "👈 当前激活" : new Date(s.updatedAt).toLocaleTimeString(),
+              s.id === currentId
+                ? "👈 当前激活"
+                : new Date(s.updatedAt).toLocaleTimeString(),
           }));
 
           if (sessionItems.length === 0) {
-            console.log(colorize("（暂无历史会话，按 Ctrl+W 新建）", theme.colors.subtext));
+            console.log(
+              colorize(
+                "（暂无历史会话，按 Ctrl+W 新建）",
+                theme.colors.subtext,
+              ),
+            );
             continue;
           }
 
-          const selected = await askInteractiveSelector("💬 选择切换历史会话", sessionItems);
+          const selected = await askInteractiveSelector(
+            "💬 选择切换历史会话",
+            sessionItems,
+          );
           if (selected) {
             const loaded = sessions.load(selected.id);
             if (loaded) {
               console.log(
                 colorize(
                   `✅ 已成功切换到会话: [${loaded.id}] (${loaded.title || "默认会话"})`,
-                  theme.colors.success
-                )
+                  theme.colors.success,
+                ),
               );
             }
           }
@@ -349,11 +406,16 @@ export class HachimiTUIApp {
         let hasStreamStarted = false;
         const history = sessions.getHistory();
         const reply = await this.ctx.agent.run(userInput, history, {
+          channel: "tui",
           onChunk: (chunk: string) => {
             if (!hasStreamStarted) {
               hasStreamStarted = true;
               process.stdout.write(" ".repeat(40) + "\r");
-              const botBadge = renderBadge("🤖 HACHIMI", theme.colors.assistantRole, "#FFFFFF");
+              const botBadge = renderBadge(
+                "🤖 HACHIMI",
+                theme.colors.assistantRole,
+                "#FFFFFF",
+              );
               process.stdout.write(`${botBadge} `);
             }
             process.stdout.write(chunk);
@@ -365,13 +427,42 @@ export class HachimiTUIApp {
             console.log(renderToolTimeline(name, args, "start"));
           },
           onToolEnd: (name, result, durationMs, success) => {
-            console.log(renderToolTimeline(name, {}, "end", result, durationMs, success));
+            console.log(
+              renderToolTimeline(name, {}, "end", result, durationMs, success),
+            );
+          },
+          /**
+           * TUI 交互式工具审批（仅当 policy 设为 allow-safe 时触发 needs_confirm/dangerous）
+           * 默认 allow-all 策略下此回调不会被调用，但已就绪以便将来更换策略
+           */
+          onToolApproval: async (toolName, args) => {
+            const { createInterface } = await import("node:readline/promises");
+            const rl = createInterface({
+              input: process.stdin,
+              output: process.stdout,
+            });
+            try {
+              const summary = summarizeToolArgs(
+                toolName,
+                args as Record<string, unknown>,
+              );
+              const answer = await rl.question(
+                `\n⚠️  [需要授权] ${summary.oneLine}\n   允许执行? (y/n) > `,
+              );
+              return answer.trim().toLowerCase().startsWith("y");
+            } finally {
+              rl.close();
+            }
           },
         });
 
         if (!hasStreamStarted) {
           process.stdout.write(" ".repeat(40) + "\r");
-          const botBadge = renderBadge("🤖 HACHIMI", theme.colors.assistantRole, "#FFFFFF");
+          const botBadge = renderBadge(
+            "🤖 HACHIMI",
+            theme.colors.assistantRole,
+            "#FFFFFF",
+          );
           console.log(`${botBadge} ${reply}`);
         } else {
           process.stdout.write("\n");

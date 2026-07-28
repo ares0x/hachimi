@@ -21,7 +21,7 @@ import { MemoryManager } from "../memory/manager.js";
 import { SessionManager } from "../session/manager.js";
 import { summarySkill, writingSkill } from "../skills/builtin/index.js";
 import { SkillRegistry } from "../skills/registry.js";
-import { registerBuiltinTools } from "../tools/builtin.js";
+import { registerBuiltinTools } from "../tools/builtin/index.js";
 import {
   defaultPermissionPolicy,
   type PermissionPolicy,

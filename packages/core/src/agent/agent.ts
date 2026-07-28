@@ -9,15 +9,37 @@ import { ContextBuilder } from "../context/builder.js";
 import type { HookRegistry } from "../extensions/hooks.js";
 import type { MemoryManager } from "../memory/manager.js";
 import type { SkillRegistry } from "../skills/registry.js";
+import type { SurfaceType } from "../tools/policy.js";
 import type { ToolRegistry } from "../tools/registry.js";
-import type { LLMProvider, Message } from "../types/index.js";
+import type {
+  ChannelType,
+  LLMProvider,
+  Message,
+  ToolPermission,
+} from "../types/index.js";
+import type { WorkManager } from "../work/work-manager.js";
 
 export interface AgentRunOptions {
   onChunk?: (chunk: string) => void;
   onToolStart?: (name: string, args: Record<string, unknown>) => void;
-  onToolEnd?: (name: string, result: string, durationMs: number, success: boolean) => void;
+  onToolEnd?: (
+    name: string,
+    result: string,
+    durationMs: number,
+    success: boolean,
+  ) => void;
   hooks?: HookRegistry;
   sessionId?: string;
+  /**
+   * 调用表面（与 PermissionPolicy surface 对齐）
+   * 如 tui | web | web-sse | desktop | telegram | api | cli …
+   * 传给 ToolRegistry.execute() 的 channel 字段以激活 PermissionPolicy 矩阵
+   */
+  channel?: SurfaceType | ChannelType;
+  // W1.3: 当前 Work ID (1:1 映射 sessionId)，供内置工具 update_work_plan 更新 plan
+  workId?: string;
+  /** W1.3: WorkManager 实例，供内置工具 update_work_plan 写入 plan 到文件 */
+  workManager?: WorkManager;
   /**
    * Per-call 交互式审批 handler（如 API server 的 SSE confirm_required + /api/tools/approve）。
    * 优先于构造时的 this.onToolApproval，使交互式审批在非 TUI 表面真正生效。
@@ -25,8 +47,18 @@ export interface AgentRunOptions {
   onToolApproval?: (
     toolName: string,
     args: Record<string, unknown>,
-    permission: string
+    permission: string,
   ) => Promise<boolean>;
+  /**
+   * W2.2: 每次触发 onToolApproval 回调之前调用，用于写入 approval_requested 事件
+   * （可由 HarnessRuntime 或 server 层注入）
+   */
+  onApprovalRequested?: (info: {
+    approvalId: string;
+    toolName: string;
+    args: Record<string, unknown>;
+    permission: string;
+  }) => void | Promise<void>;
 }
 
 export interface AgentOptions {
@@ -40,10 +72,15 @@ export interface AgentOptions {
   onToolApproval?: (
     toolName: string,
     args: Record<string, unknown>,
-    permission: string
+    permission: string,
   ) => Promise<boolean>;
   onToolStart?: (name: string, args: Record<string, unknown>) => void;
-  onToolEnd?: (name: string, result: string, durationMs: number, success: boolean) => void;
+  onToolEnd?: (
+    name: string,
+    result: string,
+    durationMs: number,
+    success: boolean,
+  ) => void;
 }
 
 /**
@@ -70,10 +107,15 @@ export class Agent {
   private onToolApproval?: (
     toolName: string,
     args: Record<string, unknown>,
-    permission: string
+    permission: string,
   ) => Promise<boolean>;
   private onToolStart?: (name: string, args: Record<string, unknown>) => void;
-  private onToolEnd?: (name: string, result: string, durationMs: number, success: boolean) => void;
+  private onToolEnd?: (
+    name: string,
+    result: string,
+    durationMs: number,
+    success: boolean,
+  ) => void;
 
   constructor(options: AgentOptions) {
     this.llm = options.llm;
@@ -94,7 +136,7 @@ export class Agent {
           this.skills.getActivationTool((skillName) => {
             this.activeSkill = skillName;
             console.log(`[Skill] 显式激活技能: ${skillName}`);
-          })
+          }),
         );
       } catch {
         /* ignore if already registered */
@@ -116,7 +158,9 @@ export class Agent {
       return false;
     }
     this.pendingSteerPrompt = prompt.trim();
-    console.log(`[Agent] 收到中途转向指令 (steer): "${this.pendingSteerPrompt}"`);
+    console.log(
+      `[Agent] 收到中途转向指令 (steer): "${this.pendingSteerPrompt}"`,
+    );
     return true;
   }
 
@@ -143,7 +187,7 @@ export class Agent {
   async run(
     userInput: string,
     history: Message[] = [],
-    options?: AgentRunOptions
+    options?: AgentRunOptions,
   ): Promise<string> {
     this.running = true;
     this.rejectionCounts.clear();
@@ -158,7 +202,7 @@ export class Agent {
   private async executeRun(
     userInput: string,
     history: Message[] = [],
-    options?: AgentRunOptions
+    options?: AgentRunOptions,
   ): Promise<string> {
     const input = userInput.trim();
 
@@ -176,7 +220,8 @@ export class Agent {
           if (options?.onChunk) options.onChunk(reply);
           return reply;
         } else {
-          const reply = "请告诉我需要记住的具体内容，例如：请记住我喜欢喝手冲咖啡";
+          const reply =
+            "请告诉我需要记住的具体内容，例如：请记住我喜欢喝手冲咖啡";
           if (options?.onChunk) options.onChunk(reply);
           return reply;
         }
@@ -274,7 +319,9 @@ export class Agent {
 
       console.log(
         `[Agent ToolLoop Round ${rounds}] ToolCalls:`,
-        response.tool_calls.map((c) => `${c.name}(${JSON.stringify(c.arguments)})`)
+        response.tool_calls.map(
+          (c) => `${c.name}(${JSON.stringify(c.arguments)})`,
+        ),
       );
 
       // 有工具调用
@@ -288,21 +335,31 @@ export class Agent {
 
       for (const call of response.tool_calls) {
         const toolDef = this.tools.get(call.name);
-        const permission = toolDef?.permission ?? "safe";
+        const permission = (toolDef?.permission ?? "safe") as ToolPermission;
 
         const startTime = Date.now();
-        if (this.onToolStart) {
-          this.onToolStart(call.name, call.arguments);
-        } else if (options?.onToolStart) {
-          options.onToolStart(call.name, call.arguments);
+        // per-call 优先，回退到构造时注入
+        const toolStartHandler = options?.onToolStart ?? this.onToolStart;
+        const toolEndHandler = options?.onToolEnd ?? this.onToolEnd;
+        if (toolStartHandler) {
+          toolStartHandler(call.name, call.arguments);
         }
 
         let approved = true;
-        const requiresApproval =
-          permission === "needs_confirm" || permission === "dangerous" || toolDef?.requiresApproval;
         const approvalHandler = options?.onToolApproval ?? this.onToolApproval;
 
-        if (requiresApproval) {
+        // 通过 PermissionPolicy 矩阵决定是否需要 UI 审批
+        // 这样 tui(allow-all) + needs_confirm 工具 → "allow"（不问人）
+        //      telegram(allow-safe) + needs_confirm 工具 → "require_approval"（触发回调）
+        const surface = (options?.channel ?? "api") as SurfaceType;
+        const policyDecision = this.tools
+          .getPermissionPolicy()
+          .decide(surface, call.name, toolDef?.permission ?? "safe");
+
+        if (policyDecision === "deny") {
+          // 策略直接拒绝（如 deny surface 或 allowlist 不含此工具）
+          approved = false;
+        } else if (policyDecision === "require_approval") {
           // 拒绝熔断：同一工具被拒达到上限后短路，防止 agent 死循环重试
           const priorRejections = this.rejectionCounts.get(call.name) || 0;
           if (priorRejections >= this.maxRejectionsPerTool) {
@@ -316,8 +373,8 @@ export class Agent {
               name: call.name,
               timestamp: Date.now(),
             });
-            if (options?.onToolEnd) {
-              options.onToolEnd(call.name, stopMsg, 0, false);
+            if (toolEndHandler) {
+              toolEndHandler(call.name, stopMsg, 0, false);
             }
             if (this.totalRejections >= this.maxTotalRejections) {
               const halt = "\n\n⚠️ [多次工具被拒，已停止本轮执行]";
@@ -328,11 +385,29 @@ export class Agent {
           }
 
           // 优先使用 per-call 交互式审批 handler（如 API server 的 SSE confirm_required），
-          // 回退到构造时的 this.onToolApproval（默认 policy 兜底，用于非交互表面）
+          // 回退到构造时的 this.onToolApproval（适用于非交互表面的 CI/自动化场景）
           if (approvalHandler) {
-            approved = await approvalHandler(call.name, call.arguments, permission);
+            // W2.2: 先触发 onApprovalRequested，写入 approval_requested 事件
+            if (options?.onApprovalRequested) {
+              const approvalId = `apr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+              try {
+                await options.onApprovalRequested({
+                  approvalId,
+                  toolName: call.name,
+                  args: call.arguments,
+                  permission,
+                });
+              } catch {
+                /* 事件写入失败不阻断审批流程 */
+              }
+            }
+            approved = await approvalHandler(
+              call.name,
+              call.arguments,
+              permission,
+            );
           } else {
-            // 安全绝杀：未提供审批回调且工具需要确认或属于高危权限时，默认强制拒绝执行！
+            // 安全绝杀：无 handler 且 policy 要求审批 → 默认拒绝
             approved = false;
           }
           if (!approved) {
@@ -340,6 +415,7 @@ export class Agent {
             this.totalRejections++;
           }
         }
+        // policyDecision === "allow"：直接进入执行，不需要审批回调
 
         const result = approved
           ? await this.tools.execute(call.name, call.arguments, {
@@ -347,19 +423,20 @@ export class Agent {
               onToolApproval: approvalHandler,
               hooks: options?.hooks || this.hooks,
               sessionId: options?.sessionId,
+              channel: options?.channel,
+              workId: options?.workId,
+              workManager: options?.workManager,
             })
           : formatUserRejectionMessage(call.name);
 
         console.log(
           `[Agent ToolLoop Round ${rounds}] Tool '${call.name}' result:`,
-          result.slice(0, 150)
+          result.slice(0, 150),
         );
 
         const durationMs = Date.now() - startTime;
-        if (this.onToolEnd) {
-          this.onToolEnd(call.name, result, durationMs, approved);
-        } else if (options?.onToolEnd) {
-          options.onToolEnd(call.name, result, durationMs, approved);
+        if (toolEndHandler) {
+          toolEndHandler(call.name, result, durationMs, approved);
         }
 
         messages.push({

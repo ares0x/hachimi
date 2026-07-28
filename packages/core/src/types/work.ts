@@ -75,4 +75,6 @@ export interface WorkSummary {
   planDone: number;
   updatedAt: string;
   createdAt: string;
+  /** worker 任务的父 Work ID，UI 可据此关联子任务 */
+  parentWorkId?: string;
 }

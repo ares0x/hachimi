@@ -7,10 +7,16 @@
  * 存储路径：{dataDir}/works/{workId}.json
  */
 
-import { existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { generateId } from "@hachimi/shared";
 import { FileDirStore } from "@hachimi/storage";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { join } from "node:path";
 import type { IEventStore } from "../events/event-store.js";
 import type { Activity } from "../types/event.js";
 import type {
@@ -70,7 +76,11 @@ export class WorkManager {
 
   private writeWork(work: Work): void {
     work.updatedAt = new Date().toISOString();
-    writeFileSync(this.filePath(work.id), JSON.stringify(work, null, 2), "utf-8");
+    writeFileSync(
+      this.filePath(work.id),
+      JSON.stringify(work, null, 2),
+      "utf-8",
+    );
   }
 
   // ─── 标题生成 ───────────────────────────────────────────────────────────────
@@ -136,7 +146,10 @@ export class WorkManager {
     });
 
     // 按最近更新排序
-    filtered.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    filtered.sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
 
     return filtered.slice(offset, offset + limit).map((w) => ({
       id: w.id,
@@ -148,13 +161,14 @@ export class WorkManager {
       planDone: w.plan.filter((s) => s.status === "done").length,
       updatedAt: w.updatedAt,
       createdAt: w.createdAt,
+      parentWorkId: w.parentWorkId,
     }));
   }
 
   /** 更新 Work（title / status / goal） */
   update(
     workId: string,
-    patch: Partial<Pick<Work, "title" | "status" | "goal" | "metadata">>
+    patch: Partial<Pick<Work, "title" | "status" | "goal" | "metadata">>,
   ): Work | null {
     const work = this.readWork(workId);
     if (!work) return null;
@@ -197,7 +211,7 @@ export class WorkManager {
     workId: string,
     stepId: string,
     status: PlanStepStatus,
-    completedAt?: string
+    completedAt?: string,
   ): Work | null {
     const work = this.readWork(workId);
     if (!work) return null;
@@ -219,7 +233,7 @@ export class WorkManager {
    */
   async listActivities(
     workId: string,
-    options: { limit?: number; cursor?: string } = {}
+    options: { limit?: number; cursor?: string } = {},
   ): Promise<{ activities: Activity[]; nextCursor?: string; total: number }> {
     if (!this.eventStore) {
       return { activities: [], total: 0 };
@@ -254,10 +268,13 @@ export class WorkManager {
    */
   private projectToActivities(
     events: import("../types/event.js").RuntimeEvent[],
-    sessionId: string
+    sessionId: string,
   ): Activity[] {
     const activities: Activity[] = [];
-    const pendingToolCalls = new Map<string, import("../types/event.js").ToolCallEvent>();
+    const pendingToolCalls = new Map<
+      string,
+      import("../types/event.js").ToolCallEvent
+    >();
 
     for (const event of events) {
       switch (event.type) {
@@ -424,7 +441,10 @@ export class WorkManager {
       .filter((f) => f.endsWith(".json"))
       .map((f) => this.store.read<Work>(join(this.dir, f)))
       .filter((w): w is Work => !!w && w.parentWorkId === parentWorkId)
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      )
       .map((w) => ({
         id: w.id,
         title: w.title,
@@ -435,6 +455,7 @@ export class WorkManager {
         planDone: w.plan.filter((s) => s.status === "done").length,
         updatedAt: w.updatedAt,
         createdAt: w.createdAt,
+        parentWorkId: w.parentWorkId,
       }));
   }
 }

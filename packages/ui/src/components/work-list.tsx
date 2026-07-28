@@ -1,4 +1,4 @@
-import { Brain, Check, Command, Package, PanelLeft, Pencil, Plus, Settings, Trash2, X } from "lucide-react";
+import { Check, Command, PanelLeft, Pencil, Plus, Settings, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import type { WorkItem } from "../api";
 import { cn, formatRelativeTime } from "../lib/utils";
@@ -34,7 +34,7 @@ export function WorkList({
   onDeleteWork,
   onNewWork,
   onOpenPalette,
-  onExportBundle,
+  onOpenSettings,
 }: {
   works: WorkItem[];
   activeWorkId: string | null;
@@ -45,7 +45,7 @@ export function WorkList({
   onDeleteWork?: (id: string) => void;
   onNewWork: () => void;
   onOpenPalette: () => void;
-  onExportBundle?: () => void;
+  onOpenSettings?: () => void;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -134,14 +134,15 @@ export function WorkList({
           >
             <Command className="size-4" />
           </button>
-          {onExportBundle && (
+          {onOpenSettings && (
             <button
               type="button"
-              onClick={onExportBundle}
+              onClick={onOpenSettings}
               className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-              title="导出 Bundle"
+              title="设置 (⌘,)"
+              aria-label="设置"
             >
-              <Package className="size-4" />
+              <Settings className="size-4" />
             </button>
           )}
         </div>
@@ -305,14 +306,17 @@ export function WorkList({
           <span className="flex-1 text-left">命令面板</span>
           <span className="font-mono text-[11px]">⌘K</span>
         </button>
-        <button
-          type="button"
-          onClick={onExportBundle}
-          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-[13px] text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-        >
-          <Package className="size-4" />
-          <span className="flex-1 text-left">导出 Bundle</span>
-        </button>
+        {onOpenSettings && (
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-[13px] text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+          >
+            <Settings className="size-4" />
+            <span className="flex-1 text-left">设置</span>
+            <span className="font-mono text-[11px]">⌘,</span>
+          </button>
+        )}
       </div>
     </aside>
   );

@@ -17,6 +17,7 @@ import type {
 import type { SessionManager } from "../session/manager.js";
 import type { SkillRegistry } from "../skills/registry.js";
 import type { ToolRegistry } from "../tools/registry.js";
+import type { SurfaceType } from "../tools/policy.js";
 import type { ChannelType } from "../types/index.js";
 import type { WorkManager } from "../work/work-manager.js";
 import type { AppContext, CreateAppContextOptions } from "./context.js";
@@ -31,12 +32,16 @@ export interface RuntimeInputOptions {
     args: Record<string, unknown>,
     permission?: string
   ) => Promise<boolean>;
+  /**
+   * per-call surface 覆盖；通常由 RuntimeInput.channel 自动注入，无需手动设置
+   */
+  channel?: SurfaceType | ChannelType;
 }
 
 export interface RuntimeInput {
   prompt: string;
   sessionId?: string;
-  channel?: ChannelType;
+  channel?: SurfaceType | ChannelType;
   providerOverride?: string;
   options?: RuntimeInputOptions;
   metadata?: Record<string, unknown>;
@@ -122,7 +127,7 @@ export class HarnessRuntime {
         payload: { title: sessionObj.title, channel: input.channel as string },
       });
 
-      // W1: 若是首次运行且无对应 Work，自动创建 Work
+      // W1: 若是首次运行且无对应 Work，自动创建 Work（workId === sessionId）
       const existingWork = this.works.get(sessionId);
       if (!existingWork) {
         this.works.create({
@@ -132,6 +137,11 @@ export class HarnessRuntime {
         });
       }
     }
+
+    // W1: 当前 Work ID（1:1 映射 sessionId），供 agent / 工具使用
+    const workId = sessionId;
+    // 缓存本轮工具调用的 toolCallId 映射：agent 内生成的 (toolName) → runtime toolCallId
+    const pendingToolCalls = new Map<string, string>();
 
     // W0: 写入 user_message 事件
     const userMsgEventId = generateId("evt_");
@@ -157,7 +167,60 @@ export class HarnessRuntime {
     try {
       // 3. 执行 Agent 核心对话循环
       const history = sessionObj.messages || [];
-      content = await this.agent.run(input.prompt, history, input.options);
+      content = await this.agent.run(input.prompt, history, {
+        ...input.options,
+        // 确保 channel 注入到 AgentRunOptions，使 PermissionPolicy 感知正确的 surface
+        channel: input.options?.channel ?? input.channel,
+        // sessionId 已由 sessions.getOrCreate 解析；此处传入确保 Agent 层工具调用携带正确 sessionId
+        sessionId,
+        // W1.3: Work 上下文，使 update_work_plan 等内置工具可以读写 Work.plan
+        workId,
+        workManager: this.works,
+        // W0 / W2.2: 写入 tool_call / tool_result / approval_requested 事件
+        onToolStart: async (toolName, args) => {
+          const callId = generateId("call_");
+          pendingToolCalls.set(toolName + "_" + Date.now(), callId);
+          pendingToolCalls.set("__last__", callId);
+          void (await this.events.append({
+            id: generateId("evt_"),
+            sessionId,
+            type: "tool_call",
+            timestamp: new Date().toISOString(),
+            payload: { toolCallId: callId, toolName, args },
+          }));
+          if (input.options?.onToolStart) input.options.onToolStart(toolName, args);
+        },
+        onToolEnd: async (toolName, result, durationMs, success) => {
+          const callId =
+            pendingToolCalls.get("__last__") || generateId("call_");
+          pendingToolCalls.delete("__last__");
+          void (await this.events.append({
+            id: generateId("evt_"),
+            sessionId,
+            type: "tool_result",
+            timestamp: new Date().toISOString(),
+            payload: {
+              toolCallId: callId,
+              toolName,
+              result,
+              isError: !success,
+              durationMs,
+            },
+          }));
+          if (input.options?.onToolEnd) {
+            input.options.onToolEnd(toolName, result, durationMs, success);
+          }
+        },
+        onApprovalRequested: async ({ approvalId, toolName, args, permission }) => {
+          void (await this.events.append({
+            id: generateId("evt_"),
+            sessionId,
+            type: "approval_requested",
+            timestamp: new Date().toISOString(),
+            payload: { approvalId, toolName, args, permission },
+          }));
+        },
+      });
 
       // 4. 追加 User 与 Assistant 对话记录到 Session 中并持久化
       sessionObj.messages.push({

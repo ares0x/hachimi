@@ -18,3 +18,4 @@ export type { LogLevel } from "./logger.js";
 export { createScopedLogger, log, setLogFormat, setLogLevel, setLogSilent } from "./logger.js";
 export { createTokenEstimator, defaultTokenEstimator } from "./token.js";
 export { cosineSimilarity, jaccardSimilarity, normalizeText } from "./vector.js";
+export { summarizeToolArgs, type ToolArgSummary } from "./tool-summary.js";

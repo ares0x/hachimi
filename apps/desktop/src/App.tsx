@@ -1,39 +1,129 @@
 import {
-  type ActivityStep,
-  exportBundle as apiExportBundle,
+  ActivityTimeline,
   CommandPalette,
   Composer,
   ContextPanel,
-  createSession,
-  deleteSession,
-  fetchSession,
-  fetchSessions,
-  fetchStatus,
-  type MessageData,
-  MessageStream,
-  type Mode,
+  type ContextPanelData,
+  GoalPanel,
   PermissionDock,
-  renameSession,
+  PlanTracker,
+  type PlanStep as PlanTrackerStep,
   SessionHeader,
-  type SessionItemData,
-  Sidebar,
+  type ModelOption as SettingsModelOption,
+  SettingsPanel,
+  type ThemeTone,
+  type ActivityStep as TimelineActivityStep,
+  WelcomeView,
+  type WorkItem,
+  WorkList,
+  exportBundle as apiExportBundle,
+  importBundle as apiImportBundle,
+  approveTool,
+  cancelWork,
+  createWork,
+  deleteSession,
+  deleteWork,
+  fetchDaemonConfig,
+  fetchSession,
+  fetchStatus,
+  fetchWork,
+  fetchWorkActivities,
+  fetchWorkEvents,
+  fetchWorks,
+  getApiSecret,
   sendSteerPrompt,
+  setApiSecret,
   streamChatPrompt,
+  updateDaemonConfig,
+  updateWork,
+  updateWorkGoal,
+  updateWorkPlan,
   useTheme,
 } from "@hachimi/ui";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+const INTENT_CHIPS = [
+  "分析当前项目的目录结构与架构设计",
+  "总结今日已完成的工作要点",
+  "检查工作区是否存在危险文件配置",
+  "列出我当前已记录的喜好与偏好设置",
+];
+
+// Fallback model options when daemon config is unavailable
+const FALLBACK_MODEL_OPTIONS: SettingsModelOption[] = [
+  {
+    id: "deepseek-v4-flash",
+    name: "DeepSeek V4 Flash",
+    description: "快速日常推理，默认推荐",
+    speed: "fast",
+  },
+  {
+    id: "deepseek-v4",
+    name: "DeepSeek V4",
+    description: "更长上下文，更深度思考",
+    speed: "balanced",
+  },
+];
+
+const DEFAULT_MODEL = "deepseek-v4-flash";
+
+type PlanStepRaw = PlanTrackerStep & { description?: string };
+
+interface LoadedWorkDetail {
+  id: string;
+  title: string;
+  goal?: string;
+  status: WorkItem["status"];
+  plan: PlanStepRaw[];
+  timeline: TimelineActivityStep[];
+  rawEvents?: { id: string; type: string; timestamp: string; summary: string; payload?: any }[];
+  tokens?: number;
+  maxTokens?: number;
+  requestId?: string;
+  awaitingApproval?: {
+    approvalId: string;
+    toolName: string;
+    summary: string;
+    sinceIso: string;
+  };
+}
+
+function buildModelOptions(cfg: {
+  activeProvider: string;
+  providers: Array<{ id: string; model: string; hasKey: boolean; baseURL?: string }>;
+}): SettingsModelOption[] {
+  return cfg.providers.map((p) => ({
+    id: p.model,
+    name: `${p.id} · ${p.model}`,
+    description: p.hasKey ? undefined : "未配置 API Key",
+    speed: p.id === "mock" ? "fast" : undefined,
+    providerId: p.id,
+  }));
+}
+
+function secretPreview(s: string): string {
+  if (!s) return "";
+  if (s.length <= 8) return `${"•".repeat(s.length)}`;
+  return `${s.slice(0, 3)}…${s.slice(-3)}`;
+}
 
 export function App() {
-  const { theme, toggle } = useTheme();
-  const [mode, setMode] = useState<Mode>("chat");
-  const [sessions, setSessions] = useState<SessionItemData[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<MessageData[]>([]);
-  const [activity, setActivity] = useState<ActivityStep[]>([]);
+  const { theme, setTheme, toggle } = useTheme();
+  const [works, setWorks] = useState<WorkItem[]>([]);
+  const [activeWorkId, setActiveWorkId] = useState<string | null>(null);
+  const [workDetail, setWorkDetail] = useState<LoadedWorkDetail | null>(null);
+
   const [input, setInput] = useState("");
   const [running, setRunning] = useState(false);
-  const [awaitingApproval, setAwaitingApproval] = useState<any | null>(null);
+  const [approvalQueue, setApprovalQueue] = useState<{
+    approvalId?: string;
+    toolName: string;
+    args: Record<string, unknown>;
+    argsSummary?: any;
+  } | null>(null);
+
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
@@ -42,11 +132,64 @@ export function App() {
       return false;
     }
   });
-  const [contextOpen, setContextOpen] = useState(false);
-  const [tokens, setTokens] = useState(0);
-  const [memoryCount, setMemoryCount] = useState(0);
-  const [currentSessionTitle, setCurrentSessionTitle] = useState("新会话");
-  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+
+  // Settings-managed state — synced with daemon config
+  const [modelOptions, setModelOptions] = useState<SettingsModelOption[]>(FALLBACK_MODEL_OPTIONS);
+  const [selectedModelId, setSelectedModelId] = useState<string>(() => {
+    try {
+      return localStorage.getItem("hachimi_model") || DEFAULT_MODEL;
+    } catch {
+      return DEFAULT_MODEL;
+    }
+  });
+  const handleModelChange = useCallback(
+    async (id: string) => {
+      setSelectedModelId(id);
+      try {
+        localStorage.setItem("hachimi_model", id);
+      } catch {
+        /* ignore */
+      }
+      const result = await updateDaemonConfig({ model: id });
+      if (result) {
+        const provider = modelOptions.find((m) => m.id === id);
+        if (provider && provider.providerId && provider.providerId !== result.activeProvider) {
+          const switchResult = await updateDaemonConfig({
+            activeProvider: provider.providerId,
+            model: id,
+          });
+          if (switchResult) {
+            const cfg = await fetchDaemonConfig();
+            if (cfg) setModelOptions(buildModelOptions(cfg));
+          }
+        }
+      }
+    },
+    [modelOptions]
+  );
+
+  const [accentHex, setAccentHex] = useState<string | undefined>(() => {
+    try {
+      return localStorage.getItem("hachimi_accent") || undefined;
+    } catch {
+      return undefined;
+    }
+  });
+  useEffect(() => {
+    if (!accentHex) return;
+    try {
+      localStorage.setItem("hachimi_accent", accentHex);
+      const root = document.documentElement;
+      if (root) root.style.setProperty("--primary", accentHex);
+    } catch {
+      /* ignore */
+    }
+  }, [accentHex]);
+
+  const [secretConfigured, setSecretConfigured] = useState<boolean>(Boolean(getApiSecret()));
+  const [bundleBusy, setBundleBusy] = useState(false);
 
   const toggleSidebarCollapse = useCallback(() => {
     setSidebarCollapsed((prev) => {
@@ -60,203 +203,232 @@ export function App() {
     });
   }, []);
 
-  // Keyboard shortcut Cmd+B / Ctrl+B for sidebar collapse toggle (Design System §15)
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === "b" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         toggleSidebarCollapse();
       }
+      if (e.key.toLowerCase() === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setPaletteOpen(true);
+      }
+      if (e.key.toLowerCase() === "," && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setSettingsOpen(true);
+      }
+      if (e.key === "Escape") {
+        setPaletteOpen(false);
+        setSettingsOpen(false);
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [toggleSidebarCollapse]);
 
-  // Auto-scroll on new messages
+  const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, running]);
+  }, [workDetail?.timeline, running]);
 
-  // Load Status & Sessions from apps/server
-  const refreshStatus = useCallback(async () => {
-    const status = await fetchStatus();
-    if (status) {
-      if (status.context?.tokens) setTokens(status.context.tokens);
-      if (status.memory?.totalCount != null) setMemoryCount(status.memory.totalCount);
-    }
+  // ─── Loaders ─────────────────────────────────────────────────────────────
+
+  const refreshWorksList = useCallback(async () => {
+    const list = await fetchWorks("primary");
+    setWorks(list);
   }, []);
 
-  const refreshSessions = useCallback(async (autoSelectLatest = false) => {
-    const list = await fetchSessions();
-    if (list) {
-      const items = list.map((s) => ({
-        id: s.id,
-        title: s.title,
-        updatedAt: s.updatedAt,
-        mode: (s.mode as Mode) || "chat",
-        runs: s.runs || 0,
-      }));
-      setSessions(items);
+  const refreshWorkDetail = useCallback(async (workId: string) => {
+    const [work, activities, events, sess, status] = await Promise.all([
+      fetchWork(workId),
+      fetchWorkActivities(workId),
+      fetchWorkEvents(workId, { limit: 50 }),
+      fetchSession(workId),
+      fetchStatus(),
+    ]);
 
-      if (autoSelectLatest && items.length > 0) {
-        setActiveSessionId(items[0].id);
-        setCurrentSessionTitle(items[0].title || items[0].id);
-      }
-    }
-  }, []);
+    const plan: PlanStepRaw[] = Array.isArray(work?.plan)
+      ? work.plan.map((p: any, i: number) => ({
+          id: String(p.id ?? `s_${i}`),
+          title: p.title ?? `Step ${i + 1}`,
+          description: p.description ?? undefined,
+          status: (p.status as PlanStepRaw["status"]) ?? "pending",
+          completedAt: p.completedAt ?? undefined,
+        }))
+      : [];
 
-  const loadCurrentSessionMessages = useCallback(async (id: string) => {
-    if (!id) return;
-    const sess = await fetchSession(id);
-    if (sess) {
-      setCurrentSessionTitle(sess.title || sess.id);
-      if (sess.messages && sess.messages.length > 0) {
-        setMessages(
-          sess.messages.map((m: any) => ({
-            id: m.id || String(Math.random()),
-            role: m.role,
-            text: m.content || "",
-            time: m.timestamp ? new Date(m.timestamp).toLocaleTimeString() : undefined,
-          }))
-        );
-      } else {
-        setMessages([]);
-      }
-    }
+    const rawEvents = events.map((e: any, i: number) => ({
+      id: String(e.id ?? `e_${i}`),
+      type: String(e.type ?? "unknown"),
+      timestamp: e.timestamp ? new Date(e.timestamp).toISOString() : new Date().toISOString(),
+      summary:
+        e.summary ||
+        (typeof e.payload?.summary === "string" ? e.payload.summary : undefined) ||
+        describeEvent(e) ||
+        e.type ||
+        "",
+      payload: e.payload,
+    }));
+
+    const pendingApproval = findLastItem(rawEvents, (e: any) => e.type === "approval_requested");
+    const granted = findLastItem(rawEvents, (e: any) => e.type === "approval_granted");
+    const denied = findLastItem(rawEvents, (e: any) => e.type === "approval_denied");
+    const awaiting: LoadedWorkDetail["awaitingApproval"] =
+      pendingApproval &&
+      (!granted || new Date(granted.timestamp) < new Date(pendingApproval.timestamp)) &&
+      (!denied || new Date(denied.timestamp) < new Date(pendingApproval.timestamp))
+        ? {
+            approvalId: String(pendingApproval.payload?.approvalId ?? pendingApproval.id),
+            toolName: String(pendingApproval.payload?.toolName ?? "tool"),
+            summary:
+              pendingApproval.summary ||
+              String(pendingApproval.payload?.summary ?? "等待您的批准决定"),
+            sinceIso: pendingApproval.timestamp,
+          }
+        : undefined;
+
+    setWorkDetail({
+      id: workId,
+      title: work?.title ?? sess?.title ?? `Work ${workId.slice(0, 8)}`,
+      goal: typeof work?.goal === "string" ? work.goal : undefined,
+      status: work?.status ?? "active",
+      plan,
+      timeline: (activities || []) as TimelineActivityStep[],
+      rawEvents,
+      tokens: status?.context?.tokens ?? work?.tokens ?? 0,
+      maxTokens: status?.context?.maxTokens ?? 12000,
+      requestId: sess?.requestId ?? work?.requestId ?? undefined,
+      awaitingApproval: awaiting,
+    });
   }, []);
 
   useEffect(() => {
-    refreshStatus();
-    refreshSessions(true);
-  }, [refreshStatus, refreshSessions]);
+    (async () => {
+      await refreshWorksList();
+      setSecretConfigured(Boolean(getApiSecret()));
+      const cfg = await fetchDaemonConfig();
+      if (cfg) {
+        setModelOptions(buildModelOptions(cfg));
+        const activeProvider = cfg.providers.find((p) => p.id === cfg.activeProvider);
+        if (activeProvider) {
+          setSelectedModelId(activeProvider.model);
+          try {
+            localStorage.setItem("hachimi_model", activeProvider.model);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+    })();
+  }, [refreshWorksList]);
 
   useEffect(() => {
-    if (activeSessionId) {
-      loadCurrentSessionMessages(activeSessionId);
-    } else {
-      setMessages([]);
-      setCurrentSessionTitle("新会话");
+    if (!activeWorkId) {
+      setWorkDetail(null);
+      return;
     }
-  }, [activeSessionId, loadCurrentSessionMessages]);
+    refreshWorkDetail(activeWorkId);
+  }, [activeWorkId, refreshWorkDetail]);
 
-  const handleSelectSession = (id: string) => {
-    setActiveSessionId(id);
+  // ─── Event handlers ──────────────────────────────────────────────────────
+
+  const handleSelectWork = (id: string) => {
+    setActiveWorkId(id);
     setSidebarOpen(false);
   };
 
-  const handleNewSession = () => {
-    setActiveSessionId(null);
-    setMessages([]);
-    setCurrentSessionTitle("新会话");
+  const handleNewWork = () => {
+    setActiveWorkId(null);
+    setWorkDetail(null);
   };
 
-  const handleRenameSession = async (id: string, newTitle: string) => {
-    await renameSession(id, newTitle);
-    await refreshSessions();
-    if (activeSessionId === id) {
-      setCurrentSessionTitle(newTitle);
+  const handleRenameWork = async (id: string, newTitle: string) => {
+    await updateWork(id, { title: newTitle });
+    await refreshWorksList();
+    if (workDetail?.id === id) {
+      setWorkDetail((prev) => (prev ? { ...prev, title: newTitle } : prev));
     }
   };
 
-  const handleDeleteSession = async (id: string) => {
+  const handleDeleteWork = async (id: string) => {
+    await deleteWork(id);
     await deleteSession(id);
-    const list = await fetchSessions();
-    if (list) {
-      const items = list.map((s) => ({
-        id: s.id,
-        title: s.title,
-        updatedAt: s.updatedAt,
-        mode: (s.mode as Mode) || "chat",
-        runs: s.runs || 0,
-      }));
-      setSessions(items);
-
-      if (activeSessionId === id) {
-        if (items.length > 0) {
-          setActiveSessionId(items[0].id);
-          setCurrentSessionTitle(items[0].title || items[0].id);
-        } else {
-          setActiveSessionId(null);
-          setMessages([]);
-          setCurrentSessionTitle("新会话");
-        }
-      }
+    await refreshWorksList();
+    if (activeWorkId === id) {
+      setActiveWorkId(null);
+      setWorkDetail(null);
     }
   };
 
-  const handleStartRun = async (promptText: string) => {
-    if (!promptText.trim() || running) return;
+  const handleCancelWork = async () => {
+    if (!activeWorkId || !workDetail) return;
+    const ok = await cancelWork(activeWorkId);
+    if (ok) {
+      await refreshWorksList();
+      await refreshWorkDetail(activeWorkId);
+    }
+  };
+
+  const handleSaveGoal = async (newGoal: string) => {
+    if (!activeWorkId) return;
+    const next = (newGoal || "").trim();
+    const updated = await updateWorkGoal(activeWorkId, next);
+    if (updated) {
+      setWorkDetail((prev) => (prev ? { ...prev, goal: next || undefined } : prev));
+      await refreshWorksList();
+    }
+  };
+
+  const handlePlanChange = async (steps: PlanStepRaw[]) => {
+    if (!activeWorkId) return;
+    const updated = await updateWorkPlan(activeWorkId, steps);
+    if (updated) {
+      setWorkDetail((prev) => (prev ? { ...prev, plan: steps } : prev));
+      await refreshWorksList();
+    }
+  };
+
+  const handleStartWork = async (intentText: string) => {
+    if (!intentText.trim() || running) return;
     setRunning(true);
     setInput("");
 
-    let sessionIdToUse = activeSessionId;
-
-    // Lazy Session Allocation
-    if (!sessionIdToUse) {
-      const title = promptText.trim().slice(0, 18);
-      const sess = await createSession(title);
-      if (!sess) {
-        setRunning(false);
-        return;
+    let workIdToUse = activeWorkId;
+    if (!workIdToUse) {
+      const newWork = await createWork(intentText.trim());
+      if (newWork) {
+        workIdToUse = newWork.id;
+        setActiveWorkId(newWork.id);
       }
-      sessionIdToUse = sess.id;
-      setActiveSessionId(sess.id);
-      setCurrentSessionTitle(sess.title || title);
-      await refreshSessions();
     }
 
-    const userMsgId = `u_${Date.now()}`;
-    const assistantMsgId = `a_${Date.now()}`;
+    await refreshWorksList();
+    if (workIdToUse) await refreshWorkDetail(workIdToUse);
 
-    setMessages((prev) => [
-      ...prev,
-      { id: userMsgId, role: "user", text: promptText },
-      { id: assistantMsgId, role: "assistant", text: "", streaming: true },
-    ]);
-
-    setActivity((prev) => [
-      ...prev,
-      {
-        id: `act_${Date.now()}`,
-        label: `User Turn: ${promptText.slice(0, 24)}...`,
-        status: "done",
-      },
-      { id: `act_exec_${Date.now()}`, label: "Agent Tool Execution", status: "running" },
-    ]);
-
-    const targetSessionId = sessionIdToUse!;
+    const targetWorkId = workIdToUse || String(Date.now());
 
     await streamChatPrompt(
-      promptText,
-      targetSessionId,
-      (chunk) => {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === assistantMsgId ? { ...m, text: m.text + chunk } : m))
-        );
+      intentText,
+      targetWorkId,
+      () => {
+        // noop — 真实聊天渲染走 timeline
       },
       (confirmInfo) => {
-        setAwaitingApproval(confirmInfo);
-      },
-      (doneContent) => {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMsgId ? { ...m, text: m.text || doneContent, streaming: false } : m
-          )
-        );
+        setApprovalQueue(confirmInfo);
         setRunning(false);
-        refreshStatus();
-        refreshSessions();
       },
-      (err) => {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMsgId
-              ? { ...m, text: `[Execution Error]: ${err}`, streaming: false }
-              : m
-          )
-        );
+      async () => {
+        await refreshWorksList();
+        if (targetWorkId) await refreshWorkDetail(targetWorkId);
+        setRunning(false);
+      },
+      async (err) => {
+        console.error("streamChat error:", err);
+        await refreshWorksList();
+        if (targetWorkId) await refreshWorkDetail(targetWorkId);
         setRunning(false);
       }
     );
@@ -265,32 +437,98 @@ export function App() {
   const handleSteer = async () => {
     if (!input.trim()) return;
     const steerText = input.trim();
-    const ok = await sendSteerPrompt(steerText);
     setInput("");
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `steer_${Date.now()}`,
-        role: "assistant",
-        text: ok
-          ? `[⚡ 插入纠偏]: 已成功注入指令 "${steerText}"`
-          : "[⚡ 插入纠偏]: 当前 Agent 处于空闲状态，无运行中回合",
-      },
-    ]);
-  };
-
-  const handleExportBundle = async () => {
-    const bundle = await apiExportBundle();
-    if (bundle) {
-      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `hachimi_bundle_${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+    const ok = await sendSteerPrompt(steerText);
+    if (ok && activeWorkId) {
+      setTimeout(() => refreshWorkDetail(activeWorkId), 300);
     }
   };
+
+  // ─── Bundle ──────────────────────────────────────────────────────────────
+
+  const handleExportBundle = async () => {
+    setBundleBusy(true);
+    try {
+      const bundle = await apiExportBundle();
+      if (bundle) {
+        const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `hachimi_bundle_${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } finally {
+      setBundleBusy(false);
+    }
+  };
+
+  const handleImportBundle = async (file: File) => {
+    setBundleBusy(true);
+    try {
+      const res = await apiImportBundle(file);
+      if (res) {
+        await refreshWorksList();
+        if (activeWorkId) await refreshWorkDetail(activeWorkId);
+      }
+    } finally {
+      setBundleBusy(false);
+    }
+  };
+
+  // ─── Approval decision ──────────────────────────────────────────────────
+
+  const resolveApproval = useCallback(
+    async (decision: "approve" | "deny") => {
+      if (!approvalQueue?.approvalId) {
+        setApprovalQueue(null);
+        return;
+      }
+      const ok = await approveTool(approvalQueue.approvalId, decision);
+      if (ok) {
+        setApprovalQueue(null);
+        setRunning(true);
+        setTimeout(async () => {
+          if (activeWorkId) await refreshWorkDetail(activeWorkId);
+          await refreshWorksList();
+          setRunning(false);
+        }, 2500);
+      }
+    },
+    [approvalQueue, activeWorkId, refreshWorkDetail, refreshWorksList]
+  );
+
+  // ─── Derived data for Inspector ─────────────────────────────────────────
+
+  const inspectorData: ContextPanelData = useMemo(() => {
+    const currentPlanStep = workDetail?.plan
+      ? (workDetail.plan.find((p) => p.status === "running" || p.status === "pending") ??
+        workDetail.plan[workDetail.plan.length - 1])
+      : undefined;
+
+    return {
+      currentStep: currentPlanStep
+        ? {
+            id: currentPlanStep.id,
+            title: currentPlanStep.title,
+            status: currentPlanStep.status,
+            description: currentPlanStep.description,
+          }
+        : undefined,
+      memories: [],
+      activeTools: [],
+      awaitingApproval: workDetail?.awaitingApproval,
+      rawRecentEvents: workDetail?.rawEvents,
+      tokens: workDetail?.tokens ?? 0,
+      maxTokens: workDetail?.maxTokens ?? 12000,
+      requestId: workDetail?.requestId,
+    };
+  }, [workDetail]);
+
+  // ─── Render ──────────────────────────────────────────────────────────────
+
+  const themeTone: ThemeTone = theme === "dark" ? "dark" : "light";
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
@@ -304,110 +542,142 @@ export function App() {
         />
       )}
 
-      {/* Left Rail Sidebar */}
+      {/* Left Work List Rail */}
       <div
         className={`fixed inset-y-0 left-0 z-40 transition-[width,transform] duration-200 ease-out lg:static lg:z-auto lg:translate-x-0 ${
           sidebarCollapsed ? "w-14" : "w-[264px]"
-        } ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+        } ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
       >
-        <Sidebar
-          sessions={sessions}
-          activeSessionId={activeSessionId}
-          onSelectSession={handleSelectSession}
-          onRenameSession={handleRenameSession}
-          onDeleteSession={handleDeleteSession}
-          mode={mode}
-          onSelectMode={setMode}
-          onNewSession={handleNewSession}
-          onOpenPalette={() => setPaletteOpen(true)}
-          onExportBundle={handleExportBundle}
-          running={running}
-          memoryCount={memoryCount}
+        <WorkList
+          works={works}
+          activeWorkId={activeWorkId}
           collapsed={sidebarCollapsed}
           onToggleCollapse={toggleSidebarCollapse}
+          onSelectWork={handleSelectWork}
+          onRenameWork={handleRenameWork}
+          onDeleteWork={handleDeleteWork}
+          onNewWork={handleNewWork}
+          onOpenPalette={() => setPaletteOpen(true)}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
       </div>
 
-      {/* Center Main Session Column */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <SessionHeader
-          title={currentSessionTitle}
-          model="deepseek-v4-flash"
-          running={running}
-          theme={theme}
-          onToggleTheme={toggle}
-          contextOpen={contextOpen}
-          onToggleContext={() => setContextOpen((o) => !o)}
-          onToggleSidebar={toggleSidebarCollapse}
-        />
-
-        <div ref={scrollRef} className="scroll-quiet min-h-0 flex-1 overflow-y-auto">
-          {messages.length === 0 ? (
-            <div className="mx-auto flex w-full max-w-[52rem] flex-col justify-center px-4 py-16 sm:px-6">
-              <h2 className="text-lg font-semibold text-foreground">今天需要我接手什么？</h2>
-              <p className="mt-1.5 text-[13px] text-muted-foreground">
-                我会先给出计划，再调用工具；任何写入或外发动作都会先问你。
-              </p>
-              <ul className="mt-5 space-y-2">
-                {[
-                  "请总结今日工作与活动要点",
-                  "检查工作区里有哪些危险的文件权限配置",
-                  "你还记得我有哪些喜好与偏好设置吗？",
-                ].map((s) => (
-                  <li key={s}>
-                    <button
-                      type="button"
-                      onClick={() => handleStartRun(s)}
-                      className="w-full rounded-lg border border-border bg-surface-elevated px-3.5 py-2.5 text-left text-[13px] text-foreground transition-colors hover:border-border-strong hover:bg-surface-hover"
-                    >
-                      {s}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : (
-            <MessageStream
-              messages={messages}
-              onQuote={(q) => setInput(`> ${q.slice(0, 80)}...\n\n`)}
-            />
-          )}
-        </div>
-
-        {/* Permission Dock (HITL) */}
-        {awaitingApproval && (
-          <PermissionDock
-            toolName={awaitingApproval.toolName}
-            args={awaitingApproval.args}
-            onApproveOnce={() => setAwaitingApproval(null)}
-            onApproveSession={() => setAwaitingApproval(null)}
-            onDeny={() => setAwaitingApproval(null)}
+      {/* Center: Goal/Plan/Activity Work view */}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
+        {/* Header — only when inside a Work */}
+        {activeWorkId && (
+          <SessionHeader
+            title={workDetail?.title ?? `Work ${activeWorkId.slice(0, 8)}…`}
+            subtitle={
+              workDetail?.status
+                ? workStatusLabel(workDetail.status)
+                : undefined
+            }
+            model={selectedModelId}
+            running={running}
+            theme={theme}
+            onToggleTheme={toggle}
+            contextOpen={inspectorOpen}
+            onToggleContext={() => setInspectorOpen((o) => !o)}
+            onToggleSidebar={toggleSidebarCollapse}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onOpenPalette={() => setPaletteOpen(true)}
+            onCancelWork={handleCancelWork}
           />
         )}
 
-        {/* Composer */}
-        <Composer
-          value={input}
-          onChange={setInput}
-          onSubmit={() => handleStartRun(input.trim())}
-          onSteer={handleSteer}
-          onStop={() => setRunning(false)}
-          running={running}
-          mode={mode}
-        />
+        <div ref={scrollRef} className="scroll-quiet min-h-0 flex-1 overflow-y-auto bg-background">
+          {!activeWorkId ? (
+            <WelcomeView
+              model={selectedModelId}
+              theme={theme}
+              onToggleTheme={toggle}
+              contextOpen={inspectorOpen}
+              onToggleContext={() => setInspectorOpen((o) => !o)}
+              onToggleSidebar={toggleSidebarCollapse}
+              onSelectPrompt={(p) => handleStartWork(p)}
+              intentChips={INTENT_CHIPS}
+              onOpenSettings={() => setSettingsOpen(true)}
+              onOpenPalette={() => setPaletteOpen(true)}
+            />
+          ) : (
+            <div className="mx-auto w-full max-w-[52rem] px-4 py-6 sm:px-6 sm:py-8">
+              {/* 1. Goal */}
+              <div className="mb-5">
+                <GoalPanel
+                  goal={workDetail?.goal ?? ""}
+                  onSave={handleSaveGoal}
+                  disabled={running || !workDetail}
+                  status={workDetail?.status ?? "active"}
+                />
+              </div>
+
+              {/* 2. Plan Tracker */}
+              <div className="mb-5">
+                <PlanTracker
+                  steps={workDetail?.plan ?? []}
+                  onChange={handlePlanChange}
+                  editable={
+                    !running &&
+                    workDetail?.status !== "completed" &&
+                    workDetail?.status !== "failed"
+                  }
+                />
+              </div>
+
+              {/* 3. Activity Timeline */}
+              <div>
+                <ActivityTimeline
+                  activities={workDetail?.timeline ?? []}
+                  onApprove={(id) =>
+                    resolveApprovalForTimeline(id, "approve", resolveApproval, approvalQueue)
+                  }
+                  onDeny={(id) =>
+                    resolveApprovalForTimeline(id, "deny", resolveApproval, approvalQueue)
+                  }
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Pinned bottom: Permission Dock + Composer */}
+        <div className="shrink-0">
+          {(approvalQueue || workDetail?.awaitingApproval) && (
+            <PermissionDock
+              toolName={approvalQueue?.toolName ?? workDetail?.awaitingApproval?.toolName ?? "tool"}
+              args={approvalQueue?.args ?? {}}
+              argsSummary={approvalQueue?.argsSummary}
+              onApproveOnce={() => resolveApproval("approve")}
+              onApproveSession={() => resolveApproval("approve")}
+              onDeny={() => resolveApproval("deny")}
+            />
+          )}
+
+          <Composer
+            value={input}
+            onChange={setInput}
+            onSubmit={() => handleStartWork(input.trim())}
+            onSteer={handleSteer}
+            onStop={() => setRunning(false)}
+            running={running}
+            mode="chat"
+            workTitle={activeWorkId ? (workDetail?.title ?? null) : null}
+          />
+        </div>
       </div>
 
-      {/* Right Inspector Context Panel */}
-      {contextOpen && (
+      {/* Right Inspector */}
+      {inspectorOpen && (
         <>
           <button
             type="button"
             aria-label="Close Inspector"
-            onClick={() => setContextOpen(false)}
+            onClick={() => setInspectorOpen(false)}
             className="fixed inset-0 z-30 bg-foreground/20 xl:hidden"
           />
-          <div className="fixed inset-y-0 right-0 z-40 w-[300px] xl:static xl:z-auto xl:w-[320px]">
-            <ContextPanel activity={activity} tokens={tokens} />
+          <div className="fixed inset-y-0 right-0 z-40 w-[320px] xl:static xl:z-auto xl:w-[340px]">
+            <ContextPanel data={inspectorData} />
           </div>
         </>
       )}
@@ -416,11 +686,120 @@ export function App() {
       <CommandPalette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
-        onNewSession={handleNewSession}
+        onNewSession={handleNewWork}
         onExportBundle={handleExportBundle}
         onToggleTheme={toggle}
         theme={theme}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
+
+      {/* Settings Panel */}
+      <SettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        theme={themeTone}
+        onThemeChange={(t) => setTheme(t === "dark" ? "dark" : "light")}
+        accentColor={accentHex}
+        onAccentChange={setAccentHex}
+        models={modelOptions}
+        selectedModelId={selectedModelId}
+        onModelChange={handleModelChange}
+        secretConfigured={secretConfigured}
+        secretPreview={secretPreview(getApiSecret())}
+        onSecretClear={() => {
+          try {
+            localStorage.removeItem("hachimi_api_secret");
+          } catch {
+            /* ignore */
+          }
+          setApiSecret("");
+          setSecretConfigured(false);
+        }}
+        onSecretPaste={(raw) => {
+          setApiSecret(raw.trim());
+          setSecretConfigured(true);
+        }}
+        onExportBundle={handleExportBundle}
+        onImportBundle={handleImportBundle}
+        bundleBusy={bundleBusy}
       />
     </div>
   );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ────────────────────────────────────────────────────────────────────────────
+
+function describeEvent(e: any): string {
+  try {
+    switch (e.type) {
+      case "session_started":
+        return "会话开始";
+      case "user_message":
+        return `用户: ${String((e.payload ?? {}).content ?? e.summary ?? "").slice(0, 40)}`;
+      case "assistant_message":
+        return `助手: ${String((e.payload ?? {}).content ?? e.summary ?? "").slice(0, 40)}`;
+      case "tool_call":
+        return `调用 ${String((e.payload ?? {}).toolName ?? "")}`;
+      case "tool_result":
+        return `结果 ${String((e.payload ?? {}).toolName ?? "")}`;
+      case "approval_requested":
+        return `请求批准: ${String((e.payload ?? {}).toolName ?? "")}`;
+      case "approval_granted":
+        return `批准 ${String((e.payload ?? {}).toolName ?? "")}`;
+      case "approval_denied":
+        return `拒绝 ${String((e.payload ?? {}).toolName ?? "")}`;
+      case "steer":
+        return `纠偏: ${String(e.summary ?? "").slice(0, 30)}`;
+      case "run_finished":
+        return "回合结束";
+      case "error":
+        return `错误: ${String(e.summary ?? (e.payload ?? {}).message ?? "").slice(0, 40)}`;
+      default:
+        return String(e.summary ?? e.type ?? "");
+    }
+  } catch {
+    return "";
+  }
+}
+
+function workStatusLabel(s: WorkItem["status"]): string {
+  switch (s) {
+    case "active":
+      return "执行中";
+    case "waiting":
+      return "等待";
+    case "blocked":
+      return "阻塞";
+    case "completed":
+      return "已完成";
+    case "failed":
+      return "失败";
+    case "archived":
+      return "已归档";
+  }
+}
+
+/**
+ * Timeline 内嵌 approval 的决策分发
+ */
+async function resolveApprovalForTimeline(
+  approvalId: string,
+  decision: "approve" | "deny",
+  resolve: (d: "approve" | "deny") => Promise<void>,
+  activeQueue: { approvalId?: string } | null
+) {
+  if (activeQueue && activeQueue.approvalId === approvalId) {
+    await resolve(decision);
+    return;
+  }
+  await approveTool(approvalId, decision);
+}
+
+function findLastItem<T>(arr: T[], predicate: (item: T) => boolean): T | undefined {
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (predicate(arr[i])) return arr[i];
+  }
+  return undefined;
 }

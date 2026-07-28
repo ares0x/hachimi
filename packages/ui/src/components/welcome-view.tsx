@@ -2,10 +2,12 @@ import {
   ArrowRight,
   Brain,
   ChevronDown,
+  Command,
   Compass,
   Moon,
   PanelLeft,
   PanelRight,
+  Settings,
   ShieldCheck,
   Sparkles,
   Sun,
@@ -60,6 +62,9 @@ export function WelcomeView({
   onToggleContext,
   onToggleSidebar,
   onSelectPrompt,
+  intentChips,
+  onOpenSettings,
+  onOpenPalette,
 }: {
   model?: string;
   theme: "light" | "dark";
@@ -68,7 +73,25 @@ export function WelcomeView({
   onToggleContext: () => void;
   onToggleSidebar: () => void;
   onSelectPrompt: (prompt: string) => void;
+  /** 可选：覆盖默认 QUICK_ACTIONS 的 prompt 列表（用于外部注入） */
+  intentChips?: string[];
+  onOpenSettings?: () => void;
+  onOpenPalette?: () => void;
 }) {
+  const actions: FeatureItem[] =
+    intentChips && intentChips.length > 0
+      ? intentChips.map((p, i) => {
+          const fallback = QUICK_ACTIONS[i] ?? QUICK_ACTIONS[0];
+          return {
+            id: `chip_${i}`,
+            icon: fallback.icon,
+            title: p.length > 30 ? `${p.slice(0, 28)}…` : p,
+            subtitle: p,
+            prompt: p,
+          };
+        })
+      : QUICK_ACTIONS;
+
   return (
     <div className="flex h-full w-full flex-col bg-background">
       {/* Ghost Top Toolbar */}
@@ -84,7 +107,9 @@ export function WelcomeView({
           </button>
           <div className="flex items-center gap-2">
             <Mark size={18} />
-            <span className="text-[14px] font-medium text-foreground">Hachimi</span>
+            <span className="text-[14px] font-medium text-foreground">
+              Hachimi
+            </span>
           </div>
         </div>
 
@@ -103,8 +128,34 @@ export function WelcomeView({
             className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
             aria-label="切换主题"
           >
-            {theme === "light" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+            {theme === "light" ? (
+              <Sun className="size-4" />
+            ) : (
+              <Moon className="size-4" />
+            )}
           </button>
+          {onOpenPalette && (
+            <button
+              type="button"
+              onClick={onOpenPalette}
+              className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+              title="命令面板 (⌘K)"
+              aria-label="命令面板"
+            >
+              <Command className="size-4" />
+            </button>
+          )}
+          {onOpenSettings && (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+              title="设置 (⌘,)"
+              aria-label="设置"
+            >
+              <Settings className="size-4" />
+            </button>
+          )}
           <button
             type="button"
             onClick={onToggleContext}
@@ -112,7 +163,7 @@ export function WelcomeView({
               "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium transition-colors",
               contextOpen
                 ? "bg-surface-active text-foreground"
-                : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+                : "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
             )}
           >
             <PanelRight className="size-4" />
@@ -139,7 +190,7 @@ export function WelcomeView({
 
           {/* Compact Quick Action Rows */}
           <div className="mt-6 flex w-full flex-col gap-2">
-            {QUICK_ACTIONS.map((item) => {
+            {actions.map((item) => {
               const Icon = item.icon;
               return (
                 <button

@@ -46,6 +46,7 @@ export function Sidebar({
   onNewSession,
   onOpenPalette,
   onExportBundle,
+  onOpenSettings,
   running,
   memoryCount,
   collapsed = false,
@@ -61,6 +62,7 @@ export function Sidebar({
   onNewSession: () => void;
   onOpenPalette: () => void;
   onExportBundle?: () => void;
+  onOpenSettings?: () => void;
   running: boolean;
   memoryCount: number;
   collapsed?: boolean;
@@ -166,6 +168,7 @@ export function Sidebar({
           </button>
           <button
             type="button"
+            onClick={onOpenSettings}
             className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
             title="设置"
             aria-label="设置"
@@ -352,6 +355,7 @@ export function Sidebar({
         </button>
         <button
           type="button"
+          onClick={onOpenSettings}
           className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-[13px] text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
         >
           <Settings className="size-4" />

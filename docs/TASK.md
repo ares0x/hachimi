@@ -11,9 +11,9 @@
 | 阶段 | 名称 | 状态 | 核心目标 |
 |------|------|------|----------|
 | **W0** | 执行真相源与可恢复 | 🟢 已完成 | 事件流落盘、进程重启后续跑 |
-| **W1** | Work 数据模型与 API | 🟡 进行中 | Work 成为一等公民，替代纯 Session 聊天 |
-| **W2** | 策略引擎与生产默认 | 🟡 进行中 | 权限策略、API Secret、多表面生产可用 |
-| **W3** | Work-first UI 最小集 | 🟡 进行中 | UI 改语义，投影 Runtime 状态而非聊天列表 |
+| **W1** | Work 数据模型与 API | 🟢 已完成 | Work 成为一等公民，替代纯 Session 聊天 |
+| **W2** | 策略引擎与生产默认 | 🟢 已完成 | 权限策略、API Secret、多表面生产可用；approve/deny 单测覆盖 |
+| **W3** | Work-first UI 最小集 | 🟢 已完成 | UI 改语义，投影 Runtime 状态而非聊天列表；Desktop 对齐 Web |
 | **W4** | 演化闭环 F5 | 🔴 未开始 | 轨迹→技能提案→人审→Skill 落地 |
 | **W5** | 上下文治理与评测加固 | 🔴 未开始 | 长 Work 不爆 context，eval 覆盖新场景 |
 | **W6** | 连接器（可选 P2）| 🔴 未开始 | 日历等工具化，非壳内 App |
@@ -140,7 +140,7 @@
 ### W1.3 — Plan 支持：先计划再执行
 
 - [x] `WorkManager.updatePlan(workId, steps)` / `updateStepStatus(workId, stepId, status)`
-- [ ] Agent 可通过内置工具 `update_work_plan` 更新 plan
+- [x] Agent 可通过内置工具 `update_work_plan` 更新 plan
 - [x] 有 plan 展示清单，无 plan 退化为纯 Activity 流（不强制每次有计划）
 - [x] 单测：plan 读写、步骤状态流转
 
@@ -181,11 +181,11 @@
 
 ### W1.6 — CLI：work 子命令
 
-- [ ] 现有 CLI 入口增加：
+- [x] 现有 CLI 入口增加：
   - `hachimi work list` — 列出 primary Works（标题+状态+时间）
   - `hachimi work show <id>` — 显示 goal/plan/最近 activities
   - `hachimi work create --intent "..."` — 创建 Work（可选）
-- [ ] README 更新「推荐日常」路径
+- [x] README 更新「推荐日常」路径
 
 **验收**: 无浏览器可完成 list / show / run
 
@@ -221,11 +221,11 @@
 
 ### W2.2 — 显式审批 API
 
-- [ ] `POST /api/tools/approve` — 批准/拒绝待审工具（`{ approvalId, decision: "approve"|"deny" }`）
-- [ ] `POST /api/works/:id/cancel` — 取消正在运行的 Work
-- [ ] approve/deny → 写入 `approval_granted` / `approval_denied` 事件
+- [x] `POST /api/tools/approve` — 批准/拒绝待审工具（`{ approvalId, decision: "approve"|"deny" }`）
+- [x] `POST /api/works/:id/cancel` — 取消正在运行的 Work
+- [x] approve/deny → 写入 `approval_granted` / `approval_denied` 事件
 - [x] Web UI：待审批时出现 Approve/Deny 按钮（关联 Activity 块）
-- [ ] 单测：approve → 工具继续执行；deny → 返回 cancelled 结果
+- [x] 单测：approve → 工具继续执行；deny → 返回 cancelled 结果
 
 **验收**: 事件流出现 `approval_*` 事件
 
@@ -265,9 +265,9 @@
 
 ### W2.6 — 审计查询
 
-- [ ] `GET /api/works/:id/events?type=approval_granted,approval_denied` — 按类型过滤
-- [ ] CLI：`hachimi work audit <id>` — 打印批准/拒绝记录
-- [ ] 输出格式：`timestamp | tool | decision | surface`
+- [x] `GET /api/works/:id/events?type=approval_granted,approval_denied` — 按类型过滤
+- [x] CLI：`hachimi work audit <id>` — 打印批准/拒绝记录
+- [x] 输出格式：`timestamp | tool | decision | surface`
 
 **验收**: CLI 或 API 可查询工具批准记录
 
@@ -302,13 +302,13 @@
 
 ### W3.3 — 主区：Goal / Plan / Activity 三层
 
-- [ ] 选中 Work 后主区结构：
+- [x] 选中 Work 后主区结构：
   1. **Goal 区**（顶部可折叠）：`work.goal` 文本
   2. **Plan 区**（若有）：步骤清单（pending/running/done/skipped 状态图标）
   3. **Activity 流**（主体）：消息气泡 + 工具调用块 + 审批块
-- [ ] 工具调用块：工具名 + 参数摘要 + 结果摘要（可展开）
-- [ ] 审批块：待审批时 Approve/Deny 按钮
-- [ ] **选中与内容严格绑定**：切换 Work 时内容完全切换，无全局 Hello 残留
+- [x] 工具调用块：工具名 + 参数摘要 + 结果摘要（可展开）
+- [x] 审批块：待审批时 Approve/Deny 按钮
+- [x] **选中与内容严格绑定**：切换 Work 时内容完全切换，无全局 Hello 残留
 
 **验收**: 选中 Work ≠ 全局 Hello；截图心智为工作台
 
@@ -316,9 +316,9 @@
 
 ### W3.4 — Composer：对当前 Work 发言
 
-- [ ] Composer 底部显示当前 Work 名称（`In: [Work 标题]`）
-- [ ] Steer 按钮 tooltip：「纠偏当前 Work 执行方向」
-- [ ] 快捷键：`⌘ Enter` 发送，`Shift+Enter` 换行（文档化）
+- [x] Composer 底部显示当前 Work 名称（`In: [Work 标题]`）
+- [x] Steer 按钮 tooltip：「纠偏当前 Work 执行方向」
+- [x] 快捷键：`⌘ Enter` 发送，`Shift+Enter` 换行（文档化）
 
 **验收**: 用户清楚当前对哪个 Work 发言
 
@@ -326,12 +326,12 @@
 
 ### W3.5 — Inspector User 层（默认展示）
 
-- [ ] Inspector 面板默认 User 层：
+- [x] Inspector 面板默认 User 层：
   - **当前步骤**：正在执行的 Plan Step 名称（若有）
   - **用到的记忆**：本轮检索到的 Memory 条目（1–3 条）
   - **可用工具**：当前激活工具列表
   - **等待状态**：是否在等待用户审批（工具名+参数摘要）
-- [ ] 非 Raw JSON，友好可读展示
+- [x] 非 Raw JSON，友好可读展示
 
 **验收**: 用户可理解 Agent 当前状态；默认非 Raw JSON
 
@@ -339,11 +339,11 @@
 
 ### W3.6 — Inspector Dev 层（折叠）
 
-- [ ] Inspector 底部可展开 Dev 层：
+- [x] Inspector 底部可展开 Dev 层：
   - 原始事件流（最近 20 条）
   - Token 用量（prompt/completion）
   - Request ID（用于排查）
-- [ ] 折叠开关独立，不影响 User 层默认可见
+- [x] 折叠开关独立，不影响 User 层默认可见
 
 **验收**: 默认折叠；开关分离
 
@@ -351,12 +351,12 @@
 
 ### W3.7 — Settings 子集
 
-- [ ] Settings 面板：
+- [x] Settings 面板：
   - 模型选择（来自 config）
   - 主题切换（Light/Dark）
   - Secret 状态展示（是否已配置，不展示值）
   - Bundle 导入/导出（复用现有 PortableBundle）
-- [ ] 与 Daemon 配置同源（读写 `~/.hachimi/config.json`）
+- [x] 与 Daemon 配置同源（读写 `~/.hachimi/config.json`）
 
 **验收**: 与 Daemon 配置同源
 
@@ -364,8 +364,9 @@
 
 ### W3.8 — 共享 UI 组件抽取
 
-- [ ] `WorkList`、`ActivityTimeline`、`PlanTracker` 抽入 `packages/ui`
-- [ ] Desktop 可 webview 同源复用（不要求 100% 对等）
+- [x] `WorkList`、`ActivityTimeline`、`PlanTracker` 抽入 `packages/ui`
+- [x] Desktop 可 webview 同源复用（不要求 100% 对等）
+- [x] Desktop `apps/desktop/src/App.tsx` 已对齐 Web Work-first UI（WorkList 替代旧 Sidebar，完整三层 Goal/Plan/Activity）
 
 **验收**: `packages/ui` 导出三组件
 

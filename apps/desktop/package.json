@@ -5,8 +5,9 @@
   "type": "module",
   "main": "./dist-electron/main.js",
   "scripts": {
-    "dev": "pnpm build && electron .",
+    "dev": "vite",
     "build": "tsc && vite build",
+    "start": "pnpm build && electron .",
     "preview": "vite preview"
   },
   "dependencies": {

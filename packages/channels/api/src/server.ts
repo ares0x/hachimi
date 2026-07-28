@@ -1,21 +1,30 @@
 // packages/channels/api/src/server.ts
 
-import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
 import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import {
   type AppContext,
-  createAgentSession,
   getOrCreateHarnessRuntime,
   type HarnessRuntime,
   ProactiveScheduler,
   SkillProposalManager,
 } from "@hachimi/core";
-import { DAEMON_DEFAULT_HOST, DAEMON_DEFAULT_PORT, generateId, log } from "@hachimi/shared";
-import fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
+import {
+  DAEMON_DEFAULT_HOST,
+  DAEMON_DEFAULT_PORT,
+  generateId,
+  log,
+  summarizeToolArgs,
+} from "@hachimi/shared";
+import fastify, {
+  type FastifyInstance,
+  type FastifyReply,
+  type FastifyRequest,
+} from "fastify";
+import { randomBytes } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 export interface HachimiApiServerOptions {
   runtime?: HarnessRuntime;
@@ -35,17 +44,27 @@ export interface HachimiApiServer {
   close(): Promise<void>;
 }
 
-export function createHachimiApiServer(options: HachimiApiServerOptions = {}): HachimiApiServer {
+export function createHachimiApiServer(
+  options: HachimiApiServerOptions = {},
+): HachimiApiServer {
   const runtime =
     options.runtime ||
     getOrCreateHarnessRuntime(
-      options.appContext ? { providerOverride: options.appContext.config.llm.activeProvider } : {}
+      options.appContext
+        ? { providerOverride: options.appContext.config.llm.activeProvider }
+        : {},
     );
   const appContext = runtime.context;
-  const proposalManager = new SkillProposalManager(appContext.config.paths.dataDir, runtime.skills);
+  const proposalManager = new SkillProposalManager(
+    appContext.config.paths.dataDir,
+    runtime.skills,
+  );
   const scheduler = new ProactiveScheduler(appContext.config.paths.dataDir);
 
-  const secretKey = resolveApiSecret(options.secretKey, appContext.config.paths.dataDir);
+  const secretKey = resolveApiSecret(
+    options.secretKey,
+    appContext.config.paths.dataDir,
+  );
   const authRequired = Boolean(secretKey);
 
   const server = fastify({ logger: false });
@@ -54,7 +73,10 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
   server.register(cors, {
     origin: (origin, cb) => {
       // 无 origin (curl / server-to-server) 或 localhost 来源均放行
-      if (!origin || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+      if (
+        !origin ||
+        /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+      ) {
         cb(null, true);
       } else {
         cb(new Error(`CORS: origin '${origin}' not allowed`), false);
@@ -66,7 +88,13 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
 
   // F3 / W3: 托管 Web UI 静态产物 (使用统一 Work-first UI: apps/web/dist)
   const webDistDir = resolve(process.cwd(), "apps", "web", "dist");
-  const webPublicDir = resolve(process.cwd(), "packages", "channels", "web", "public");
+  const webPublicDir = resolve(
+    process.cwd(),
+    "packages",
+    "channels",
+    "web",
+    "public",
+  );
   const staticRoot = existsSync(webDistDir)
     ? webDistDir
     : existsSync(webPublicDir)
@@ -90,7 +118,7 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
         if (secretKey) {
           html = html.replace(
             "<head>",
-            `<head><script>window.__HACHIMI_API_SECRET__="${secretKey}";</script>`
+            `<head><script>window.__HACHIMI_API_SECRET__="${secretKey}";</script>`,
           );
         }
         return reply.type("text/html").send(html);
@@ -100,52 +128,64 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
   });
 
   // H1.6 链路追踪 x-request-id 中间件
-  server.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
-    const reqId = (request.headers["x-request-id"] as string) || generateId("req_");
-    (request as any).requestId = reqId;
-    reply.header("x-request-id", reqId);
-  });
+  server.addHook(
+    "onRequest",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const reqId =
+        (request.headers["x-request-id"] as string) || generateId("req_");
+      (request as any).requestId = reqId;
+      reply.header("x-request-id", reqId);
+    },
+  );
 
   // C5 传输层 Token 鉴权中间件 (针对 /api/* 接口校验 Token，本地 127.0.0.1 回环与静态文件豁免)
-  server.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!request.url.startsWith("/api")) {
-      return;
-    }
-
-    // 若显式指定了 secretKey (如测试用例或 HACHIMI_API_SECRET)，强制执行 Bearer Token 校验；
-    // 若 Secret 为系统自动生成的底层兜底，本地 127.0.0.1 回环无缝放行，远程非本机请求严格校验。
-    const isAutoGeneratedSecret = !options.secretKey && !process.env.HACHIMI_API_SECRET;
-    if (isAutoGeneratedSecret) {
-      const clientIp = request.ip || "";
-      const host = request.hostname || "";
-      const isLocalhost =
-        clientIp === "127.0.0.1" ||
-        clientIp === "::1" ||
-        clientIp === "::ffff:127.0.0.1" ||
-        host.startsWith("localhost") ||
-        host.startsWith("127.0.0.1");
-
-      if (isLocalhost) {
+  server.addHook(
+    "onRequest",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!request.url.startsWith("/api")) {
         return;
       }
-    }
 
-    const authHeader = request.headers.authorization;
-    let token: string | undefined;
+      // 若显式指定了 secretKey (如测试用例或 HACHIMI_API_SECRET)，强制执行 Bearer Token 校验；
+      // 若 Secret 为系统自动生成的底层兜底，本地 127.0.0.1 回环无缝放行，远程非本机请求严格校验。
+      const isAutoGeneratedSecret =
+        !options.secretKey && !process.env.HACHIMI_API_SECRET;
+      if (isAutoGeneratedSecret) {
+        const clientIp = request.ip || "";
+        const host = request.hostname || "";
+        const isLocalhost =
+          clientIp === "127.0.0.1" ||
+          clientIp === "::1" ||
+          clientIp === "::ffff:127.0.0.1" ||
+          host.startsWith("localhost") ||
+          host.startsWith("127.0.0.1");
 
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      token = authHeader.slice(7).trim();
-    } else if (request.query && typeof request.query === "object" && "token" in request.query) {
-      token = String((request.query as any).token);
-    }
+        if (isLocalhost) {
+          return;
+        }
+      }
 
-    if (!token || token !== secretKey) {
-      reply.code(401).send({
-        error: "Unauthorized",
-        message: "Invalid or missing Bearer API secret token",
-      });
-    }
-  });
+      const authHeader = request.headers.authorization;
+      let token: string | undefined;
+
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        token = authHeader.slice(7).trim();
+      } else if (
+        request.query &&
+        typeof request.query === "object" &&
+        "token" in request.query
+      ) {
+        token = String((request.query as any).token);
+      }
+
+      if (!token || token !== secretKey) {
+        reply.code(401).send({
+          error: "Unauthorized",
+          message: "Invalid or missing Bearer API secret token",
+        });
+      }
+    },
+  );
 
   // 1. GET /health
   server.get("/health", async () => {
@@ -162,117 +202,194 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
     return runtime.getStatus();
   });
 
-  // 3. POST /api/chat (全部委派给 HarnessRuntime.execute，带 Request ID 追踪)
-  server.post("/api/chat", async (request: FastifyRequest, reply: FastifyReply) => {
-    const requestId = (request as any).requestId;
-    const body = (request.body || {}) as {
-      prompt?: string;
-      sessionId?: string;
-      provider?: string;
-      stream?: boolean;
+  // W3.7: GET /api/config — 读取 Daemon 配置（不暴露 apiKey）
+  server.get("/api/config", async () => {
+    const cfg = appContext.getConfig();
+    const providers = Object.entries(cfg.llm.providers).map(([id, p]) => ({
+      id,
+      model: p.model || "default",
+      hasKey: Boolean(p.apiKey),
+      baseURL: p.baseURL || undefined,
+    }));
+    return {
+      activeProvider: cfg.llm.activeProvider,
+      providers,
     };
+  });
 
-    const prompt = (body.prompt || "").trim();
-    if (!prompt) {
-      reply.code(400).send({ error: "Missing required parameter: prompt" });
-      return;
-    }
+  // W3.7: PATCH /api/config — 更新 Daemon 配置（切换 provider / model）
+  server.patch(
+    "/api/config",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = (request.body || {}) as {
+        activeProvider?: string;
+        model?: string;
+      };
 
-    const isSSE =
-      body.stream === true || (request.headers.accept || "").includes("text/event-stream");
+      const cfg = appContext.getConfig();
 
-    if (isSSE) {
-      reply.raw.setHeader("Content-Type", "text/event-stream");
-      reply.raw.setHeader("Cache-Control", "no-cache");
-      reply.raw.setHeader("Connection", "keep-alive");
-      reply.raw.setHeader("x-request-id", requestId);
+      if (body.activeProvider) {
+        const providerName = body.activeProvider.toLowerCase();
+        if (!cfg.llm.providers[providerName]) {
+          reply.code(400).send({
+            error: `Unknown provider: ${providerName}`,
+          });
+          return;
+        }
+
+        const pConfig = body.model
+          ? { model: body.model }
+          : undefined;
+
+        appContext.setActiveProvider(providerName, pConfig);
+
+        return {
+          success: true,
+          activeProvider: providerName,
+          model: cfg.llm.providers[providerName]?.model || body.model || "default",
+        };
+      }
+
+      if (body.model) {
+        // 仅更新当前 provider 的 model
+        const activeName = cfg.llm.activeProvider;
+        appContext.setActiveProvider(activeName, { model: body.model });
+
+        return {
+          success: true,
+          activeProvider: activeName,
+          model: body.model,
+        };
+      }
+
+      reply.code(400).send({
+        error: "Missing activeProvider or model in request body",
+      });
+    },
+  );
+
+  // 3. POST /api/chat (全部委派给 HarnessRuntime.execute，带 Request ID 追踪)
+  server.post(
+    "/api/chat",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const requestId = (request as any).requestId;
+      const body = (request.body || {}) as {
+        prompt?: string;
+        sessionId?: string;
+        provider?: string;
+        stream?: boolean;
+      };
+
+      const prompt = (body.prompt || "").trim();
+      if (!prompt) {
+        reply.code(400).send({ error: "Missing required parameter: prompt" });
+        return;
+      }
+
+      const isSSE =
+        body.stream === true ||
+        (request.headers.accept || "").includes("text/event-stream");
+
+      if (isSSE) {
+        reply.raw.setHeader("Content-Type", "text/event-stream");
+        reply.raw.setHeader("Cache-Control", "no-cache");
+        reply.raw.setHeader("Connection", "keep-alive");
+        reply.raw.setHeader("x-request-id", requestId);
+
+        try {
+          const output = await runtime.execute({
+            prompt,
+            sessionId: body.sessionId,
+            channel: "web-sse",
+            providerOverride: body.provider,
+            metadata: { requestId },
+            options: {
+              onChunk: (chunk) => {
+                reply.raw.write(
+                  `data: ${JSON.stringify({ type: "chunk", chunk })}\n\n`,
+                );
+              },
+              onToolApproval: async (toolName, args) => {
+                const approvalId = `appr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+                const summary = summarizeToolArgs(
+                  toolName,
+                  args as Record<string, unknown>,
+                );
+                reply.raw.write(
+                  `data: ${JSON.stringify({
+                    type: "confirm_required",
+                    approvalId,
+                    toolName,
+                    args,
+                    argsSummary: summary,
+                  })}\n\n`,
+                );
+                return new Promise<boolean>((resolve) => {
+                  pendingApprovals.set(approvalId, {
+                    resolve,
+                    toolName,
+                    args,
+                    sessionId: body.sessionId,
+                  });
+                  setTimeout(() => {
+                    if (pendingApprovals.has(approvalId)) {
+                      pendingApprovals.delete(approvalId);
+                      resolve(false);
+                    }
+                  }, 30000);
+                });
+              },
+            },
+          });
+
+          reply.raw.write(
+            `data: ${JSON.stringify({
+              type: "done",
+              sessionId: output.sessionId,
+              content: output.content,
+              requestId,
+            })}\n\n`,
+          );
+        } catch (err: any) {
+          reply.raw.write(
+            `data: ${JSON.stringify({
+              type: "error",
+              error: err?.message || String(err),
+              requestId,
+            })}\n\n`,
+          );
+        } finally {
+          reply.raw.end();
+        }
+        return;
+      }
 
       try {
         const output = await runtime.execute({
           prompt,
           sessionId: body.sessionId,
-          channel: "web-sse",
+          channel: "api-json",
           providerOverride: body.provider,
           metadata: { requestId },
-          options: {
-            onChunk: (chunk) => {
-              reply.raw.write(`data: ${JSON.stringify({ type: "chunk", chunk })}\n\n`);
-            },
-            onToolApproval: async (toolName, args) => {
-              const approvalId = `appr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-              reply.raw.write(
-                `data: ${JSON.stringify({
-                  type: "confirm_required",
-                  approvalId,
-                  toolName,
-                  args: JSON.stringify(args),
-                })}\n\n`
-              );
-              return new Promise<boolean>((resolve) => {
-                pendingApprovals.set(approvalId, {
-                  resolve,
-                  toolName,
-                  args,
-                  sessionId: body.sessionId,
-                });
-                setTimeout(() => {
-                  if (pendingApprovals.has(approvalId)) {
-                    pendingApprovals.delete(approvalId);
-                    resolve(false);
-                  }
-                }, 30000);
-              });
-            },
-          },
         });
 
-        reply.raw.write(
-          `data: ${JSON.stringify({
-            type: "done",
-            sessionId: output.sessionId,
-            content: output.content,
-            requestId,
-          })}\n\n`
-        );
+        return {
+          success: true,
+          sessionId: output.sessionId,
+          content: output.content,
+          durationMs: output.durationMs,
+          requestId,
+        };
       } catch (err: any) {
-        reply.raw.write(
-          `data: ${JSON.stringify({
-            type: "error",
-            error: err?.message || String(err),
-            requestId,
-          })}\n\n`
-        );
-      } finally {
-        reply.raw.end();
+        reply.code(500).send({
+          success: false,
+          sessionId: body.sessionId,
+          error: err?.message || String(err),
+          requestId,
+        });
       }
-      return;
-    }
-
-    try {
-      const output = await runtime.execute({
-        prompt,
-        sessionId: body.sessionId,
-        channel: "api-json",
-        providerOverride: body.provider,
-        metadata: { requestId },
-      });
-
-      return {
-        success: true,
-        sessionId: output.sessionId,
-        content: output.content,
-        durationMs: output.durationMs,
-        requestId,
-      };
-    } catch (err: any) {
-      reply.code(500).send({
-        success: false,
-        sessionId: body.sessionId,
-        error: err?.message || String(err),
-        requestId,
-      });
-    }
-  });
+    },
+  );
 
   const pendingApprovals = new Map<
     string,
@@ -285,65 +402,85 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
   >();
 
   // W2.2: POST /api/tools/approve
-  server.post("/api/tools/approve", async (request: FastifyRequest, reply: FastifyReply) => {
-    const body = (request.body || {}) as { approvalId?: string; decision?: "approve" | "deny" };
-    if (!body.approvalId || !body.decision) {
-      reply.code(400).send({ error: "Missing required parameters: approvalId, decision" });
-      return;
-    }
+  server.post(
+    "/api/tools/approve",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = (request.body || {}) as {
+        approvalId?: string;
+        decision?: "approve" | "deny";
+      };
+      if (!body.approvalId || !body.decision) {
+        reply
+          .code(400)
+          .send({ error: "Missing required parameters: approvalId, decision" });
+        return;
+      }
 
-    const record = pendingApprovals.get(body.approvalId);
-    if (!record) {
-      reply.code(404).send({ error: "Approval request expired or not found" });
-      return;
-    }
+      const record = pendingApprovals.get(body.approvalId);
+      if (!record) {
+        reply
+          .code(404)
+          .send({ error: "Approval request expired or not found" });
+        return;
+      }
 
-    pendingApprovals.delete(body.approvalId);
-    const approved = body.decision === "approve";
+      pendingApprovals.delete(body.approvalId);
+      const approved = body.decision === "approve";
 
-    if (record.sessionId) {
-      await appContext.events.append({
-        id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        timestamp: new Date().toISOString(),
-        type: approved ? "approval_granted" : "approval_denied",
-        sessionId: record.sessionId,
-        payload: {
-          approvalId: body.approvalId,
-          toolName: record.toolName,
-          surface: "web-sse",
-        },
-      });
-    }
+      if (record.sessionId) {
+        await appContext.events.append({
+          id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          timestamp: new Date().toISOString(),
+          type: approved ? "approval_granted" : "approval_denied",
+          sessionId: record.sessionId,
+          payload: {
+            approvalId: body.approvalId,
+            toolName: record.toolName,
+            surface: "web-sse",
+          },
+        });
+      }
 
-    record.resolve(approved);
-    return { success: true, approvalId: body.approvalId, decision: body.decision };
-  });
+      record.resolve(approved);
+      return {
+        success: true,
+        approvalId: body.approvalId,
+        decision: body.decision,
+      };
+    },
+  );
 
   // C6: POST /api/chat/steer
-  server.post("/api/chat/steer", async (request: FastifyRequest, reply: FastifyReply) => {
-    const body = (request.body || {}) as { prompt?: string };
-    const prompt = (body.prompt || "").trim();
-    if (!prompt) {
-      reply.code(400).send({ error: "Missing required parameter: prompt" });
-      return;
-    }
+  server.post(
+    "/api/chat/steer",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = (request.body || {}) as { prompt?: string };
+      const prompt = (body.prompt || "").trim();
+      if (!prompt) {
+        reply.code(400).send({ error: "Missing required parameter: prompt" });
+        return;
+      }
 
-    const steered = runtime.steer(prompt);
-    return { success: steered, prompt, isRunning: runtime.agent.isRunning() };
-  });
+      const steered = runtime.steer(prompt);
+      return { success: steered, prompt, isRunning: runtime.agent.isRunning() };
+    },
+  );
 
   // C6: POST /api/chat/followup
-  server.post("/api/chat/followup", async (request: FastifyRequest, reply: FastifyReply) => {
-    const body = (request.body || {}) as { prompt?: string };
-    const prompt = (body.prompt || "").trim();
-    if (!prompt) {
-      reply.code(400).send({ error: "Missing required parameter: prompt" });
-      return;
-    }
+  server.post(
+    "/api/chat/followup",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = (request.body || {}) as { prompt?: string };
+      const prompt = (body.prompt || "").trim();
+      if (!prompt) {
+        reply.code(400).send({ error: "Missing required parameter: prompt" });
+        return;
+      }
 
-    runtime.followUp(prompt);
-    return { success: true, prompt };
-  });
+      runtime.followUp(prompt);
+      return { success: true, prompt };
+    },
+  );
 
   // Phase D: GET /api/export
   server.get("/api/export", async () => {
@@ -352,17 +489,23 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
   });
 
   // Phase D: POST /api/import
-  server.post("/api/import", async (request: FastifyRequest, reply: FastifyReply) => {
-    const body = (request.body || {}) as { bundle?: any; mergeStrategy?: "additive" | "overwrite" };
-    if (!body.bundle) {
-      reply.code(400).send({ error: "Missing required parameter: bundle" });
-      return;
-    }
-    const result = await runtime.importBundle(body.bundle, {
-      mergeStrategy: body.mergeStrategy,
-    });
-    return { success: true, result };
-  });
+  server.post(
+    "/api/import",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = (request.body || {}) as {
+        bundle?: any;
+        mergeStrategy?: "additive" | "overwrite";
+      };
+      if (!body.bundle) {
+        reply.code(400).send({ error: "Missing required parameter: bundle" });
+        return;
+      }
+      const result = await runtime.importBundle(body.bundle, {
+        mergeStrategy: body.mergeStrategy,
+      });
+      return { success: true, result };
+    },
+  );
 
   // Phase F5: GET /api/proposals & Accept / Reject
   server.get("/api/proposals", async (request: FastifyRequest) => {
@@ -374,79 +517,96 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
     return { proposals: proposalManager.listProposals(status) };
   });
 
-  server.post("/api/proposals/:id/accept", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const result = proposalManager.acceptProposal(id);
-    if (!result.success) {
-      reply.code(400).send(result);
-      return;
-    }
-    return result;
-  });
+  server.post(
+    "/api/proposals/:id/accept",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const result = proposalManager.acceptProposal(id);
+      if (!result.success) {
+        reply.code(400).send(result);
+        return;
+      }
+      return result;
+    },
+  );
 
-  server.post("/api/proposals/:id/reject", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const result = proposalManager.rejectProposal(id);
-    if (!result.success) {
-      reply.code(400).send(result);
-      return;
-    }
-    return result;
-  });
+  server.post(
+    "/api/proposals/:id/reject",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const result = proposalManager.rejectProposal(id);
+      if (!result.success) {
+        reply.code(400).send(result);
+        return;
+      }
+      return result;
+    },
+  );
 
   // Phase F6: GET /api/triggers & POST /api/triggers & DELETE /api/triggers/:id
   server.get("/api/triggers", async () => {
     return { triggers: scheduler.listTasks() };
   });
 
-  server.post("/api/triggers", async (request: FastifyRequest, reply: FastifyReply) => {
-    const body = (request.body || {}) as {
-      name?: string;
-      prompt?: string;
-      intervalMs?: number;
-      cronExpression?: string;
-      channel?: string;
-      delayMs?: number;
-    };
-    if (!body.name || !body.prompt) {
-      reply.code(400).send({ error: "Missing required parameters: name and prompt" });
-      return;
-    }
-    const created = scheduler.addTask({
-      name: body.name,
-      prompt: body.prompt,
-      intervalMs: body.intervalMs,
-      cronExpression: body.cronExpression,
-      channel: body.channel,
-      delayMs: body.delayMs,
-    });
-    return { success: true, trigger: created };
-  });
+  server.post(
+    "/api/triggers",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = (request.body || {}) as {
+        name?: string;
+        prompt?: string;
+        intervalMs?: number;
+        cronExpression?: string;
+        channel?: string;
+        delayMs?: number;
+      };
+      if (!body.name || !body.prompt) {
+        reply
+          .code(400)
+          .send({ error: "Missing required parameters: name and prompt" });
+        return;
+      }
+      const created = scheduler.addTask({
+        name: body.name,
+        prompt: body.prompt,
+        intervalMs: body.intervalMs,
+        cronExpression: body.cronExpression,
+        channel: body.channel,
+        delayMs: body.delayMs,
+      });
+      return { success: true, trigger: created };
+    },
+  );
 
-  server.delete("/api/triggers/:id", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const removed = scheduler.removeTask(id);
-    if (!removed) {
-      reply.code(404).send({ error: `Trigger task '${id}' not found` });
-      return;
-    }
-    return { success: true, id };
-  });
+  server.delete(
+    "/api/triggers/:id",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const removed = scheduler.removeTask(id);
+      if (!removed) {
+        reply.code(404).send({ error: `Trigger task '${id}' not found` });
+        return;
+      }
+      return { success: true, id };
+    },
+  );
 
   // 4. GET /api/sessions & POST /api/sessions
   server.get("/api/sessions", async () => {
     return { sessions: runtime.sessions.list() };
   });
 
-  server.get("/api/sessions/:id", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const session = runtime.sessions.load(id);
-    if (!session) {
-      reply.code(404).send({ error: `Session '${id}' not found` });
-      return;
-    }
-    return { session };
-  });
+  server.get(
+    "/api/sessions/:id",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const session = runtime.sessions.load(id);
+      if (!session) {
+        reply.code(404).send({ error: `Session '${id}' not found` });
+        return;
+      }
+      return { session };
+    },
+  );
 
   server.post("/api/sessions", async (request: FastifyRequest) => {
     const body = (request.body || {}) as { title?: string };
@@ -454,20 +614,23 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
     return { session: created };
   });
 
-  server.patch("/api/sessions/:id", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const body = (request.body || {}) as { title: string };
-    if (!body.title?.trim()) {
-      reply.code(400).send({ error: "Title is required" });
-      return;
-    }
-    const updated = runtime.sessions.rename(id, body.title.trim());
-    if (!updated) {
-      reply.code(404).send({ error: `Session '${id}' not found` });
-      return;
-    }
-    return { session: updated };
-  });
+  server.patch(
+    "/api/sessions/:id",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const body = (request.body || {}) as { title: string };
+      if (!body.title?.trim()) {
+        reply.code(400).send({ error: "Title is required" });
+        return;
+      }
+      const updated = runtime.sessions.rename(id, body.title.trim());
+      if (!updated) {
+        reply.code(404).send({ error: `Session '${id}' not found` });
+        return;
+      }
+      return { session: updated };
+    },
+  );
 
   server.delete("/api/sessions/:id", async (request: FastifyRequest) => {
     const { id } = request.params as { id: string };
@@ -478,86 +641,116 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
   // ─── W0: Events API ──────────────────────────────────────────────────────────
 
   // GET /api/sessions/:id/events — 分页事件列表
-  server.get("/api/sessions/:id/events", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const query = request.query as { limit?: string; cursor?: string; type?: string };
-    const limit = Math.min(Number(query.limit || 50), 200);
-    const cursor = query.cursor;
-    const types = query.type
-      ? (query.type.split(",") as import("@hachimi/core").RuntimeEventType[])
-      : undefined;
+  server.get(
+    "/api/sessions/:id/events",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const query = request.query as {
+        limit?: string;
+        cursor?: string;
+        type?: string;
+      };
+      const limit = Math.min(Number(query.limit || 50), 200);
+      const cursor = query.cursor;
+      const types = query.type
+        ? (query.type.split(",") as import("@hachimi/core").RuntimeEventType[])
+        : undefined;
 
-    const hasEvents = await runtime.events.hasEvents(id);
-    if (!hasEvents) {
-      const session = runtime.sessions.load(id);
-      if (!session) {
-        reply.code(404).send({ error: `Session '${id}' not found` });
-        return;
+      const hasEvents = await runtime.events.hasEvents(id);
+      if (!hasEvents) {
+        const session = runtime.sessions.load(id);
+        if (!session) {
+          reply.code(404).send({ error: `Session '${id}' not found` });
+          return;
+        }
       }
-    }
 
-    const result = await runtime.events.list(id, { limit, cursor, types });
-    return result;
-  });
+      const result = await runtime.events.list(id, { limit, cursor, types });
+      return result;
+    },
+  );
 
   // ─── W1: Works API ───────────────────────────────────────────────────────────
 
   // GET /api/works — 列出 Works（默认 primary，支持 status 过滤）
   server.get("/api/works", async (request: FastifyRequest) => {
-    const query = request.query as { kind?: string; status?: string; limit?: string };
+    const query = request.query as {
+      kind?: string;
+      status?: string;
+      limit?: string;
+    };
     const kind = (query.kind as "primary" | "worker") || "primary";
-    const status = query.status as import("@hachimi/core").WorkStatus | undefined;
+    const status = query.status as
+      | import("@hachimi/core").WorkStatus
+      | undefined;
     const limit = Number(query.limit || 50);
-    const works = runtime.works.list({ kind, status: status ? [status] : undefined, limit });
+    const works = runtime.works.list({
+      kind,
+      status: status ? [status] : undefined,
+      limit,
+    });
     return { works };
   });
 
   // POST /api/works — 用 intent 创建 Work
-  server.post("/api/works", async (request: FastifyRequest, reply: FastifyReply) => {
-    const body = (request.body || {}) as { intent?: string; goal?: string; sessionId?: string };
-    if (!body.intent?.trim()) {
-      reply.code(400).send({ error: "Missing required parameter: intent" });
-      return;
-    }
-    const work = runtime.works.create({
-      intent: body.intent.trim(),
-      goal: body.goal,
-      sessionId: body.sessionId,
-      kind: "primary",
-    });
-    return { work };
-  });
+  server.post(
+    "/api/works",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = (request.body || {}) as {
+        intent?: string;
+        goal?: string;
+        sessionId?: string;
+      };
+      if (!body.intent?.trim()) {
+        reply.code(400).send({ error: "Missing required parameter: intent" });
+        return;
+      }
+      const work = runtime.works.create({
+        intent: body.intent.trim(),
+        goal: body.goal,
+        sessionId: body.sessionId,
+        kind: "primary",
+      });
+      return { work };
+    },
+  );
 
   // GET /api/works/:id — Work 详情
-  server.get("/api/works/:id", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const work = runtime.works.get(id);
-    if (!work) {
-      reply.code(404).send({ error: `Work '${id}' not found` });
-      return;
-    }
-    return { work };
-  });
+  server.get(
+    "/api/works/:id",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const work = runtime.works.get(id);
+      if (!work) {
+        reply.code(404).send({ error: `Work '${id}' not found` });
+        return;
+      }
+      return { work };
+    },
+  );
 
   // PATCH /api/works/:id — 更新 Work（status / title / goal）
-  server.patch("/api/works/:id", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const body = (request.body || {}) as {
-      title?: string;
-      status?: import("@hachimi/core").WorkStatus;
-      goal?: string;
-    };
-    const updated = runtime.works.update(id, {
-      ...(body.title ? { title: body.title } : {}),
-      ...(body.status ? { status: body.status } : {}),
-      ...(body.goal ? { goal: body.goal } : {}),
-    });
-    if (!updated) {
-      reply.code(404).send({ error: `Work '${id}' not found` });
-      return;
-    }
-    return { work: updated };
-  });
+  server.patch(
+    "/api/works/:id",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const body = (request.body || {}) as {
+        title?: string;
+        status?: import("@hachimi/core").WorkStatus;
+        goal?: string;
+      };
+      const updated = runtime.works.update(id, {
+        ...(body.title ? { title: body.title } : {}),
+        ...(body.status ? { status: body.status } : {}),
+        ...(body.goal ? { goal: body.goal } : {}),
+      });
+      if (!updated) {
+        reply.code(404).send({ error: `Work '${id}' not found` });
+        return;
+      }
+      return { work: updated };
+    },
+  );
 
   // DELETE /api/works/:id — 删除 Work 及其绑定的 Session
   server.delete("/api/works/:id", async (request: FastifyRequest) => {
@@ -567,66 +760,172 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
     return { success: deleted, id };
   });
 
+  // W2.2: POST /api/works/:id/cancel — 取消正在运行的 Work（设置状态 + 写入 error 事件 + steer 停止）
+  server.post(
+    "/api/works/:id/cancel",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const body = (request.body || {}) as { reason?: string };
+      const work = runtime.works.get(id);
+      if (!work) {
+        reply.code(404).send({ error: `Work '${id}' not found` });
+        return;
+      }
+
+      const reason = (body.reason || "user_cancelled").trim();
+      const sessionId = work.sessionIds[0] || id;
+
+      // 1) 状态变更为 failed
+      const updated = runtime.works.update(id, { status: "failed" });
+
+      // 2) 写一条 error/steer 事件留痕
+      try {
+        await runtime.events.append({
+          id: generateId("evt_"),
+          sessionId,
+          type: "error",
+          timestamp: new Date().toISOString(),
+          payload: {
+            message: `Work 已取消: ${reason}`,
+            phase: "work_cancel",
+          },
+        });
+      } catch {
+        /* ignore */
+      }
+
+      // 3) 如果当前在执行中，steer 注入取消提示以阻止下一轮 LLM 决策
+      const steered = runtime.agent.isRunning()
+        ? runtime.steer(
+            `[用户已取消当前 Work，理由: ${reason}]。请立即停止进一步的工具调用或操作，向用户说明已取消。`
+          )
+        : false;
+
+      return {
+        success: !!updated,
+        status: updated?.status ?? "failed",
+        steered,
+        workId: id,
+        reason,
+      };
+    },
+  );
+
+  // W2.6: GET /api/works/:id/events — 按 Work（即其 sessionIds）查询事件流，支持 ?type= 过滤
+  server.get(
+    "/api/works/:id/events",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const query = request.query as {
+        limit?: string;
+        cursor?: string;
+        type?: string;
+      };
+      const work = runtime.works.get(id);
+      if (!work) {
+        reply.code(404).send({ error: `Work '${id}' not found` });
+        return;
+      }
+
+      const limit = Math.min(Number(query.limit || 50), 200);
+      const cursor = query.cursor;
+      const types = query.type
+        ? (query.type.split(",") as import("@hachimi/core").RuntimeEventType[])
+        : undefined;
+
+      // Work → 1:N sessionIds（默认 1:1，兼容未来多 session）
+      const sessionIds = work.sessionIds.length > 0 ? work.sessionIds : [id];
+      const merged: Array<import("@hachimi/core").RuntimeEvent> = [];
+      let total = 0;
+      for (const sid of sessionIds) {
+        const r = await runtime.events.list(sid, { limit, cursor, types });
+        merged.push(...r.events);
+        total += r.total;
+      }
+      merged.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+      const page = merged.slice(0, limit);
+      const nextCursor = merged.length > limit ? page[page.length - 1]?.id : undefined;
+
+      return {
+        events: page,
+        nextCursor,
+        total,
+        workId: id,
+        sessionIds,
+      };
+    },
+  );
+
   // GET /api/works/:id/activities — Activity 分页列表（投影自事件）
-  server.get("/api/works/:id/activities", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const query = request.query as { limit?: string; cursor?: string };
-    const limit = Number(query.limit || 50);
-    const cursor = query.cursor;
+  server.get(
+    "/api/works/:id/activities",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const query = request.query as { limit?: string; cursor?: string };
+      const limit = Number(query.limit || 50);
+      const cursor = query.cursor;
 
-    const work = runtime.works.get(id);
-    if (!work) {
-      reply.code(404).send({ error: `Work '${id}' not found` });
-      return;
-    }
+      const work = runtime.works.get(id);
+      if (!work) {
+        reply.code(404).send({ error: `Work '${id}' not found` });
+        return;
+      }
 
-    const result = await runtime.works.listActivities(id, { limit, cursor });
-    return result;
-  });
+      const result = await runtime.works.listActivities(id, { limit, cursor });
+      return result;
+    },
+  );
 
   // POST /api/works/:id/steer — 对当前 Work 的意图干预
-  server.post("/api/works/:id/steer", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const body = (request.body || {}) as { prompt?: string };
-    const prompt = (body.prompt || "").trim();
-    if (!prompt) {
-      reply.code(400).send({ error: "Missing required parameter: prompt" });
-      return;
-    }
+  server.post(
+    "/api/works/:id/steer",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const body = (request.body || {}) as { prompt?: string };
+      const prompt = (body.prompt || "").trim();
+      if (!prompt) {
+        reply.code(400).send({ error: "Missing required parameter: prompt" });
+        return;
+      }
 
-    const work = runtime.works.get(id);
-    if (!work) {
-      reply.code(404).send({ error: `Work '${id}' not found` });
-      return;
-    }
+      const work = runtime.works.get(id);
+      if (!work) {
+        reply.code(404).send({ error: `Work '${id}' not found` });
+        return;
+      }
 
-    const steered = runtime.steer(prompt);
+      const steered = runtime.steer(prompt);
 
-    // W0: 写入 steer 事件
-    if (work.sessionIds[0]) {
-      await runtime.events.append({
-        id: generateId("evt_"),
-        sessionId: work.sessionIds[0],
-        type: "steer",
-        timestamp: new Date().toISOString(),
-        payload: { prompt },
-      });
-    }
+      // W0: 写入 steer 事件
+      if (work.sessionIds[0]) {
+        await runtime.events.append({
+          id: generateId("evt_"),
+          sessionId: work.sessionIds[0],
+          type: "steer",
+          timestamp: new Date().toISOString(),
+          payload: { prompt },
+        });
+      }
 
-    return { success: steered, prompt, workId: id };
-  });
+      return { success: steered, prompt, workId: id };
+    },
+  );
 
   // GET /api/works/:id/children — 子任务列表
-  server.get("/api/works/:id/children", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const work = runtime.works.get(id);
-    if (!work) {
-      reply.code(404).send({ error: `Work '${id}' not found` });
-      return;
-    }
-    const children = runtime.works.listChildren(id);
-    return { children };
-  });
+  server.get(
+    "/api/works/:id/children",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const work = runtime.works.get(id);
+      if (!work) {
+        reply.code(404).send({ error: `Work '${id}' not found` });
+        return;
+      }
+      const children = runtime.works.listChildren(id);
+      return { children };
+    },
+  );
 
   // 5. GET /api/memory
   server.get("/api/memory", async (request: FastifyRequest) => {
@@ -653,7 +952,9 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
             metadata: { requestId },
             options: {
               onChunk: (chunk) => {
-                socket.send(JSON.stringify({ type: "chunk", chunk, requestId }));
+                socket.send(
+                  JSON.stringify({ type: "chunk", chunk, requestId }),
+                );
               },
             },
           });
@@ -664,20 +965,30 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
               sessionId: output.sessionId,
               content: output.content,
               requestId,
-            })
+            }),
           );
         } else if (payload.type === "steer" && payload.prompt) {
           const steered = runtime.steer(payload.prompt);
-          socket.send(JSON.stringify({ type: "steer_ack", success: steered, requestId }));
+          socket.send(
+            JSON.stringify({ type: "steer_ack", success: steered, requestId }),
+          );
         } else if (payload.type === "followup" && payload.prompt) {
           runtime.followUp(payload.prompt);
-          socket.send(JSON.stringify({ type: "followup_ack", success: true, requestId }));
+          socket.send(
+            JSON.stringify({ type: "followup_ack", success: true, requestId }),
+          );
         } else if (payload.type === "ping") {
-          socket.send(JSON.stringify({ type: "pong", timestamp: Date.now(), requestId }));
+          socket.send(
+            JSON.stringify({ type: "pong", timestamp: Date.now(), requestId }),
+          );
         }
       } catch (err: any) {
         socket.send(
-          JSON.stringify({ type: "error", message: err?.message || String(err), requestId })
+          JSON.stringify({
+            type: "error",
+            message: err?.message || String(err),
+            requestId,
+          }),
         );
       }
     });
@@ -690,8 +1001,10 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
     scheduler,
     fastify: server,
     async listen() {
-      const port = options.port || Number(process.env.HACHIMI_PORT || DAEMON_DEFAULT_PORT);
-      const host = options.host || process.env.HACHIMI_HOST || DAEMON_DEFAULT_HOST;
+      const port =
+        options.port || Number(process.env.HACHIMI_PORT || DAEMON_DEFAULT_PORT);
+      const host =
+        options.host || process.env.HACHIMI_HOST || DAEMON_DEFAULT_HOST;
       const address = await server.listen({ port, host });
       log("info", `🚀 Hachimi Daemon Server running at ${address}`, {
         authRequired,
