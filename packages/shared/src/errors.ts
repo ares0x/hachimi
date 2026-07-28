@@ -1,4 +1,5 @@
 // packages/shared/src/errors.ts
+import { i18n } from "./i18n";
 
 export class HachimiError extends Error {
   public readonly code: string;
@@ -23,7 +24,10 @@ export class ProviderError extends HachimiError {
 export class ToolRejectedError extends HachimiError {
   constructor(toolName: string, reason?: string) {
     super(
-      `[用户/策略拒绝] 工具 ${toolName} 未获执行授权${reason ? `: ${reason}` : ""}`,
+      i18n().t("error.permission_denied", {
+        toolName,
+        reason: reason ? `: ${reason}` : "",
+      }),
       "TOOL_REJECTED",
       403,
       { toolName, reason }
@@ -33,17 +37,19 @@ export class ToolRejectedError extends HachimiError {
 
 export class ToolTimeoutError extends HachimiError {
   constructor(toolName: string, timeoutMs: number) {
-    super(`[沙箱/工具超时] 工具 ${toolName} 执行超时 (${timeoutMs}ms)`, "TOOL_TIMEOUT", 408, {
-      toolName,
-      timeoutMs,
-    });
+    super(
+      i18n().t("error.tool_timeout", { toolName, timeoutMs }),
+      "TOOL_TIMEOUT",
+      408,
+      { toolName, timeoutMs }
+    );
   }
 }
 
 export class CircuitBreakerError extends HachimiError {
   constructor(toolName: string, failureCount: number) {
     super(
-      `[工具熔断] 工具 ${toolName} 已连续失败 ${failureCount} 次，已被自动暂停`,
+      i18n().t("error.tool_circuit_broken", { toolName, failureCount }),
       "CIRCUIT_BREAKER_TRIPPED",
       429,
       { toolName, failureCount }

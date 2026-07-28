@@ -47,3 +47,6 @@ data-test*
 *.db-shm
 *.db-wal
 *.sqlite
+.alma-snapshots
+
+Dockerfile

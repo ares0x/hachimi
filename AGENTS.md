@@ -1,95 +1,146 @@
-# Hachimi
+# AGENTS.md — Guidelines for AI Coding Assistants
 
-Local-first **personal AI assistant harness** (TypeScript monorepo, pnpm).
-One `HarnessRuntime` serves TUI, CLI, Web, Telegram, sub-agents, and schedulers — multi-surface, single brain.
-
-Not a coding-only agent and not a multi-tenant cloud platform.
-The assistant may model the user; it must not impersonate the user or silently rewrite identity.
-
-Long-form design: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · Public API: [`docs/API.md`](docs/API.md) · Human product: [`docs/PROJECT.md`](docs/PROJECT.md) · Design System: [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md)
+This file defines conventions and rules for AI agents (Copilot, Cursor, Claude, etc.) working on this codebase. Follow these or your PR gets rejected.
 
 ---
 
-## Commands
+## 0. Language Policy (CRITICAL)
 
-```bash
-pnpm install
-pnpm typecheck
-pnpm test
-pnpm smoke:mock
+**New features and code MUST default to English.** This applies to:
+
+- Source code comments (JSDoc, inline)
+- Commit messages
+- PR descriptions
+- Tool descriptions and user-facing strings in `packages/core/src/tools/`
+- Error messages in `packages/shared/src/errors.ts` and `packages/shared/src/constants/messages.ts`
+- CLI output strings in `packages/channels/cli/`
+- TUI text in `apps/tui/`
+- Documentation in `docs/`
+- All new files
+
+**When Chinese is acceptable:**
+- Test fixtures that represent Chinese user input
+- The `README_CN.md` file (Chinese-only README)
+- Comments explaining culturally-specific behavior (e.g., "Chinese date format differs from ISO")
+
+### i18n Synchronization
+
+When adding user-facing strings, you MUST use the i18n module:
+
+```typescript
+import { i18n } from "@hachimi/shared/i18n";  // or relative path as needed
+
+// ✅ Correct — locale-aware
+const msg = i18n().t("tool.my_tool.description");
+
+// ❌ Wrong — hardcoded Chinese
+const msg = "这是一个工具的描述";
 ```
 
-App entrypoints follow root `package.json` / README (`dev:server`, `dev:tui`, filters, etc.). Prefer documented scripts over ad-hoc `tsx` paths.
+**Workflow for adding new strings:**
 
-Before finishing a change: **`pnpm typecheck` and `pnpm test` green**. Add or update tests for harness behavior you touch.
+1. Add the key to `packages/shared/src/i18n/types.ts` (`I18nDictionary` interface)
+2. Add English text to `packages/shared/src/i18n/locales/en.ts`
+3. Add Chinese text to `packages/shared/src/i18n/locales/zh-CN.ts`
+4. Use `i18n().t("your.key")` in code
 
----
-
-## Hard rules (architecture)
-
-1. **Single brain** — Channels call `HarnessRuntime.execute()` (or the documented factory). Do not create a second Agent + Memory stack per surface.
-2. **Public imports only** — From `apps/*` and `packages/channels/*`, import `@hachimi/core` public exports only. No deep `@hachimi/core/src/...` imports.
-3. **Tool pipeline** — All tool runs go through `ToolRegistry.execute` (circuit breaker → arg check → permission/`confirm` → pre-hook → timeout sandbox → post-hook). Agent must pass `{ confirm, onToolApproval, hooks, sessionId }`. Never bypass the registry from the agent loop.
-4. **Permissions** — `safe` / `needs_confirm` / `dangerous`. Non-TUI channels need an explicit policy (deny / allow-safe / allowlist), not assumed human approval.
-5. **Context** — Keep ContextBuilder static prefix stable (identity → skills → tools); put volatile facts (e.g. current time) in the dynamic region; truncate tail-only.
-6. **Capability growth** — Skill proposals stay pending until explicit accept. No silent skill install. No automatic SOUL/identity rewrite.
-7. **Sub-agents** — Narrow delegation only: prefer tool allowlists, block nested `delegate_subagent`, set budgets; return summaries to the parent. Not a swarm framework.
-8. **Sandbox honesty** — In-process timeout + buffer + PathJail are real; do not claim process/docker isolation unless implemented and tested. Wire PathJail into any new filesystem tools.
-9. **Memory defaults** — No demo/seed memory unless `--demo` or explicit env. Portable Bundle schema and merge semantics are product features — do not break them casually.
-10. **Design System single source of truth** — All Web/Desktop GUI surfaces must conform to [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) tokens (Light theme default, Ink-Teal accent `--primary: oklch(0.48 0.09 198)`, document-flow assistant messages, control heights 32/40/48, quiet hairline borders). No radial dark gradients or glassmorphism AI chrome in production UI.
+**If you skip i18n and hardcode Chinese**, your PR will be flagged. The only exception is rapid prototyping where you mark the string with `// TODO: i18n`.
 
 ---
 
-## Documentation workflow (TASK / ROADMAP / archive)
+## 1. Architecture Rules
 
-Agents **may** update planning docs when the user asks to complete a phase, close a milestone, or explicitly maintain backlog. Do not churn docs on every tiny commit.
+### Channels are thin
 
-| File | Role |
-|------|------|
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phase-level plan and intended order |
-| [`docs/TASK.md`](docs/TASK.md) | **Active** backlog only (current focus) |
-| [`docs/archive/`](docs/archive/) | Completed phase write-ups |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Stable design; update when behavior/contracts change |
+```
+Channel adapter (CLI/Web/Telegram) → input parse → runtime.execute() → output render
+```
 
-**When a phase or major checklist item is actually done (code + tests):**
+Never put business logic in channel adapters. All intelligence lives in `@hachimi/core`.
 
-1. Ensure acceptance criteria are met (`pnpm test`, relevant smoke/evals if applicable).
-2. Move the completed phase section from `TASK.md` into a new or existing file under `docs/archive/` (e.g. `PHASE_H_TASK.md`), with a short “what shipped / known limits” note — mark **MVP** vs hardened honestly.
-3. Check off the matching items in `ROADMAP.md` (or add a one-line status if the roadmap structure differs).
-4. **Pull the next priorities from `ROADMAP.md` into `TASK.md`** as the new active list; keep `TASK.md` short.
-5. If public API or harness contracts changed, update `docs/API.md` and/or `ARCHITECTURE.md` in the same effort.
-6. Do not leave `TASK.md` and `ROADMAP.md` contradicting each other.
+### No deep imports
 
-**If code and docs disagree:** trust **code + tests**, then fix docs. Never implement a feature solely because an outdated checkbox says so.
+External consumers import only from package top-level:
 
----
+```typescript
+// ✅ OK
+import { HarnessRuntime } from "@hachimi/core";
 
-## Coding standards
+// ❌ Forbidden
+import { Agent } from "@hachimi/core/src/agent/agent.js";
+```
 
-- **Language:** TypeScript, ESM, pnpm workspaces. Match existing naming and file layout in the package you edit.
-- **Style:** Follow repo Biome/tsc settings; do not invent a parallel formatter config in-tree without need.
-- **Exports:** New core capabilities surface through `packages/core/src/index.ts` (or the package’s public entry) when apps must use them.
-- **Errors:** Prefer controlled failure messages inside `HarnessRuntime.execute`; do not take down the daemon on a single turn error.
-- **Logging:** Prefer clear English for new logs and internal diagnostics; user-visible assistant copy may be Chinese where the product is Chinese.
-- **Tests:** Vitest colocated as `*.test.ts`. Harness changes (permissions, hooks, circuit breaker, runtime.execute) should include or extend unit tests.
-- **Comments:** Explain non-obvious invariants (“why”), not narration of obvious code. Avoid large commented-out blocks.
-- **Dependencies:** Do not add dependencies unless required; prefer existing workspace packages.
+### Core is the single source of truth
+
+`packages/core/` owns:
+- Agent orchestration
+- Memory management
+- Tool registry & execution
+- Extension systems (hooks, skills, MCP)
+- Portable memory
 
 ---
 
-## Security checklist (when touching tools / server / channels)
+## 2. Code Style
 
-- Non-interactive paths must not auto-approve `dangerous` without an explicit policy.
-- Filesystem tools: resolve paths through PathJail (or equivalent); default deny workspace escape.
-- Daemon: prefer authenticated API (secret); do not weaken CORS to “reflect any origin” for convenience.
-- Bundles may be backups — avoid writing secrets into export payloads without review.
+- **Formatter**: Biome (`pnpm format`)
+- **Linter**: Biome (`pnpm lint`)
+- **TypeScript**: strict mode, no `any` unless genuinely unavoidable (document why)
+- **Naming**: camelCase for variables/functions, PascalCase for classes/types, kebab-case for files
+- **Imports**: no default exports except for locale dictionaries and React components
+
+---
+
+## 3. Testing
+
+- New features require tests
+- Bug fixes require regression tests
+- Run `pnpm test` before pushing
+- Smoke tests (`pnpm smoke:mock`) must pass — these test the full agent loop without real API calls
 
 ---
 
-## Good targets vs avoid
+## 4. Commits & PRs
 
-**Good:** permission policies for channels; sub-agent allowlist/budget; honest scheduler/cron; F5 accept E2E; context clock; default API secret; bundle fixtures; eval cases in `packages/evals`; thin assistant tools with PathJail; minimal SOUL/Profile injection with human control.
-
-**Avoid unless requested:** Desktop client (F1); multi-tenant remote daemon; full multi-agent swarm; silent skill install; auto SOUL edits; deep core imports from apps; documenting unimplemented isolation as done.
+- Commit messages in English, imperative mood: "Add tool sandbox timeout" not "Added tool sandbox timeout"
+- PR descriptions: what changed, why, testing notes
+- Keep PRs focused — one feature or fix per PR
 
 ---
+
+## 5. Tools & Capabilities
+
+New built-in tools go in `packages/core/src/tools/builtin/`. External/custom tools use `CapabilitySource<T>` registration.
+
+All tools must declare a permission level:
+- `"safe"` — auto-execute
+- `"needs_confirm"` — ask user once
+- `"dangerous"` — sandboxed with timeout + buffer cap
+
+---
+
+## 6. File Organization
+
+```
+packages/core/src/
+├── agent/          # Agent loop, steer(), followUp()
+├── extensions/     # CapabilitySource, HookRegistry, McpClient, SkillPackage
+├── portable/       # Memory export/import/migration
+├── runtime/        # HarnessRuntime orchestrator
+├── sandbox/        # ToolSandbox
+└── tools/          # Built-in tool implementations
+    └── builtin/    # calc, datetime, fs (read/write/delete/list), shell
+```
+
+---
+
+## 7. Quick Checklist Before Submitting
+
+- [ ] `pnpm lint` passes
+- [ ] `pnpm typecheck` passes
+- [ ] `pnpm test` passes
+- [ ] `pnpm smoke:mock` passes
+- [ ] New user-facing strings use i18n (English default + Chinese locale)
+- [ ] No deep imports added
+- [ ] Commit messages in English
+- [ ] PR description explains what and why
