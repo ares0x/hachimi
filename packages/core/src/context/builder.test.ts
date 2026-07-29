@@ -59,4 +59,47 @@ describe("ContextBuilder Prompt-Cache stability and tail truncation", () => {
     const tokenCount = defaultTokenEstimator(built.systemPrompt);
     expect(tokenCount).toBeLessThanOrEqual(500);
   });
+
+  it("W5.1: truncates tool_result exceeding 8KB (toolResultMaxBytes) with summary notice", async () => {
+    const builder = new ContextBuilder();
+    const hugeOutput = "A".repeat(10000);
+    const history = [
+      {
+        id: "msg_large",
+        role: "assistant" as const,
+        content: hugeOutput,
+        timestamp: Date.now(),
+      },
+    ];
+
+    const built = await builder.build({
+      history,
+      options: { toolResultMaxBytes: 8192 },
+    });
+
+    expect(built.systemPrompt).toContain("[...工具输出超限已截断");
+    expect(built.systemPrompt).not.toContain(hugeOutput);
+  });
+
+  it("W5.2: performs rule-based compaction on messages exceeding 30 rounds while locking static prefix", async () => {
+    const builder = new ContextBuilder();
+    const longHistory = Array.from({ length: 70 }, (_, i) => ({
+      id: `msg_${i}`,
+      role: i % 2 === 0 ? ("user" as const) : ("assistant" as const),
+      content: `第 ${i} 轮对话内容详情`,
+      timestamp: Date.now(),
+    }));
+
+    const built = await builder.build({
+      history: longHistory,
+      options: { summaryThreshold: 20 },
+    });
+
+    expect(built.systemPrompt).toContain("【对话摘要】");
+    expect(built.systemPrompt).toContain("【最近消息】");
+    // 静态前缀锁定不动
+    expect(built.systemPrompt.indexOf("You are Hachimi")).toBeLessThan(
+      built.systemPrompt.indexOf("--- 动态上下文边界 ---"),
+    );
+  });
 });

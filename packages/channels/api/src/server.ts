@@ -277,6 +277,7 @@ export function createHachimiApiServer(
         prompt?: string;
         sessionId?: string;
         provider?: string;
+        channel?: string;
         stream?: boolean;
       };
 
@@ -300,7 +301,7 @@ export function createHachimiApiServer(
           const output = await runtime.execute({
             prompt,
             sessionId: body.sessionId,
-            channel: "web-sse",
+            channel: (body.channel as any) || "web-sse",
             providerOverride: body.provider,
             metadata: { requestId },
             options: {
@@ -368,7 +369,7 @@ export function createHachimiApiServer(
         const output = await runtime.execute({
           prompt,
           sessionId: body.sessionId,
-          channel: "api-json",
+          channel: (body.channel as any) || "api-json",
           providerOverride: body.provider,
           metadata: { requestId },
         });
@@ -507,41 +508,44 @@ export function createHachimiApiServer(
     },
   );
 
-  // Phase F5: GET /api/proposals & Accept / Reject
-  server.get("/api/proposals", async (request: FastifyRequest) => {
+  // Phase F5: GET /api/skills/proposals (and /api/proposals alias) & Accept / Reject
+  const getProposalsHandler = async (request: FastifyRequest) => {
     const status = (request.query as any)?.status as
       | "pending"
       | "approved"
       | "rejected"
       | undefined;
     return { proposals: proposalManager.listProposals(status) };
-  });
+  };
 
-  server.post(
-    "/api/proposals/:id/accept",
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const { id } = request.params as { id: string };
-      const result = proposalManager.acceptProposal(id);
-      if (!result.success) {
-        reply.code(400).send(result);
-        return;
-      }
-      return result;
-    },
-  );
+  const acceptProposalHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const result = proposalManager.acceptProposal(id);
+    if (!result.success) {
+      reply.code(400).send(result);
+      return;
+    }
+    return result;
+  };
 
-  server.post(
-    "/api/proposals/:id/reject",
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const { id } = request.params as { id: string };
-      const result = proposalManager.rejectProposal(id);
-      if (!result.success) {
-        reply.code(400).send(result);
-        return;
-      }
-      return result;
-    },
-  );
+  const rejectProposalHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const result = proposalManager.rejectProposal(id);
+    if (!result.success) {
+      reply.code(400).send(result);
+      return;
+    }
+    return result;
+  };
+
+  server.get("/api/proposals", getProposalsHandler);
+  server.get("/api/skills/proposals", getProposalsHandler);
+
+  server.post("/api/proposals/:id/accept", acceptProposalHandler);
+  server.post("/api/skills/proposals/:id/accept", acceptProposalHandler);
+
+  server.post("/api/proposals/:id/reject", rejectProposalHandler);
+  server.post("/api/skills/proposals/:id/reject", rejectProposalHandler);
 
   // Phase F6: GET /api/triggers & POST /api/triggers & DELETE /api/triggers/:id
   server.get("/api/triggers", async () => {

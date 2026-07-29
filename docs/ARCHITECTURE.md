@@ -250,14 +250,37 @@ explicitly sequenced to land before the daemon becomes a second consumer of
 
 See `packages/core/src/types/index.ts` for current definitions.
 
+- `RuntimeEvent` — append-only execution truth event model (`session_started`, `user_message`, `assistant_message`, `tool_call`, `tool_result`, `approval_requested`, `approval_granted`, `approval_denied`, `steer`, `run_finished`, `error`)
+- `Work` — first-class work abstraction (`intent`, `status`, `plan`, `sessionId`)
 - `IncomingMessage` / `OutgoingMessage` — channel protocol boundary
 - `ToolDefinition` — tool registration + permission classification (unified
   `ToolPermission` type, Phase B1)
-- `SkillDefinition` / `SkillContent` — lazy skill contract
+- `SkillDefinition` / `SkillContent` — lazy skill contract (`source: "learned" | "builtin" | "external"`)
 - `MemoryAccess` / `MemoryEntry` — how the agent reads/writes memory
 - `ProviderTransport` / `ProviderTransportConfig` — multi-vendor model access
-- `CapabilitySource<T>` — proposed, not yet in code; the target shape Tools/
-  Skills/MCP converge on in Phase E
+
+## RuntimeEvent System (Truth Source)
+
+In Hachimi, execution truth is captured by an append-only `RuntimeEvent` store (`FileEventStore` / SQLite):
+
+- **Event Types**: Every state transition (`session_started`, `user_message`, `assistant_message`, `tool_call`, `tool_result`, `approval_requested`, `approval_granted`, `approval_denied`, `steer`, `run_finished`, `error`) is persisted as an immutable event.
+- **Crash Recovery & Resume**: When process or server restarts, `HarnessRuntime.execute` loads previous `RuntimeEvent` sequences for the target `sessionId` / `workId`, ensuring zero state loss and seamless execution resumption.
+- **Activity Projection**: UI and Inspector project `RuntimeEvent[]` into readable `ActivityStep` timelines on-the-fly without mutating raw history.
+
+## Work Data Model
+
+Work is a first-class citizen in Hachimi replacing plain chat sessions:
+
+- **1:1 Mapping**: Every primary `Work` maps 1:1 to a `sessionId` (`workId === sessionId`).
+- **Goal & Plan Tracking**: `Work` tracks intent, status (`idle`, `running`, `waiting_approval`, `completed`, `failed`), and structured `WorkPlan` (`steps: [{ id, title, status }]`).
+- **Tools Alignment**: Built-in tools like `update_work_plan` directly update `Work.plan` state.
+
+## Four Agent-Native Architecture Rules
+
+1. **Thin Channel Adapters**: Channel adapters (`apps/tui`, `apps/desktop`, `apps/web`, `packages/channels/*`) perform only protocol translation and rendering. All intelligence lives inside `@hachimi/core`.
+2. **Immutable Event Truth**: `RuntimeEvent` event store is the single source of truth for runtime state and activity projection.
+3. **Cross-Surface Permission Engine**: `PermissionPolicy` enforces surface-aware rules (`tui`: `allow-all`, `web`/`desktop`/`telegram`/`cli`/`api`: `allow-safe`) with zero bypass.
+4. **Human-in-the-Loop Evolution Loop**: Skill candidates extracted via `TrajectoryCompressor` are saved as `pending` proposals in `~/.hachimi/proposals/` and require explicit user confirmation (`acceptProposal`) before being loaded into `SkillRegistry`.
 
 ## Module Boundaries
 
@@ -268,8 +291,7 @@ See `packages/core/src/types/index.ts` for current definitions.
 - **Memory** (`core/src/memory`): four-layer state + Tier 1 consolidation.
 - **Session** (`core/src/session`): multi-turn history, separate from
   long-term memory by design.
-- **Skills / Tools** (`core/src/skills`, `core/src/tools`): converging on
-  `CapabilitySource`.
+- **Skills / Tools** (`core/src/skills`, `core/src/tools`): `TrajectoryCompressor`, `SkillProposalManager`, and `PermissionPolicy`.
 - **Channels** (`packages/channels/*`, `apps/tui`, `apps/server`): pure
   adapters. `apps/server` additionally hosts the daemon-mode canonical core
   instance, transport auth, and the tool-execution sandbox boundary.
@@ -279,12 +301,11 @@ See `packages/core/src/types/index.ts` for current definitions.
 See `ROADMAP.md` for the full phase plan and `docs/TASK.md` for the active
 task breakdown of the current phase.
 
-1. Phase A — Foundation~~ (done)
-2. Phase B — Foundation debt + SQLite/vector memory + token accounting~~ (done)
-3. Phase C — Provider transport (done) + embedded/headless modes + daemon
-   mode + minimum sandbox + transport auth *(in progress — see `TASK.md`)*
-4. Phase D — Portable memory bundle
-5. Phase E — Unified extension registry (tools/skills/MCP), hooks
-6. Phase F — Multi-surface clients (Desktop, web, Telegram) + Tier 2
-   personalization (self-directed skills, sub-agents, scheduling)
-7. Phase G — Hardening (sandbox maturity, auth completeness, bundle security)
+1. Phase A — Foundation (done)
+2. Phase B — Foundation debt + SQLite/vector memory + token accounting (done)
+3. Phase C — Provider transport + embedded/headless modes + daemon mode + minimum sandbox + transport auth (done)
+4. Phase D — Portable memory bundle (done)
+5. Phase E — Unified extension registry (tools/skills/MCP), hooks (done)
+6. Phase F — Multi-surface clients (Desktop, web, Telegram) + Tier 2 personalization (done)
+7. Phase W0–W5 — Work-first architecture, RuntimeEvent truth source, PermissionPolicy engine, Work-first UI, Evolution Loop F5, Context Compaction & Evals (done)
+

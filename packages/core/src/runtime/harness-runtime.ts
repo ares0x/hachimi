@@ -115,6 +115,7 @@ export class HarnessRuntime {
     // 1. Session 加载或获取
     const sessionObj = this.sessions.getOrCreate(input.sessionId);
     const sessionId = sessionObj.id;
+    const channel = input.channel ?? "api";
 
     // W0: 写入 session_started 事件（若首次）
     const isFirstRun = sessionObj.messages.length === 0;
@@ -124,7 +125,7 @@ export class HarnessRuntime {
         sessionId,
         type: "session_started",
         timestamp: new Date().toISOString(),
-        payload: { title: sessionObj.title, channel: input.channel as string },
+        payload: { title: sessionObj.title, channel },
       });
 
       // W1: 若是首次运行且无对应 Work，自动创建 Work（workId === sessionId）
@@ -152,7 +153,7 @@ export class HarnessRuntime {
       timestamp: new Date().toISOString(),
       payload: {
         content: input.prompt,
-        channel: input.channel as string,
+        channel,
         messageId: generateId("msg_"),
       },
     });
@@ -170,7 +171,7 @@ export class HarnessRuntime {
       content = await this.agent.run(input.prompt, history, {
         ...input.options,
         // 确保 channel 注入到 AgentRunOptions，使 PermissionPolicy 感知正确的 surface
-        channel: input.options?.channel ?? input.channel,
+        channel: input.options?.channel ?? channel,
         // sessionId 已由 sessions.getOrCreate 解析；此处传入确保 Agent 层工具调用携带正确 sessionId
         sessionId,
         // W1.3: Work 上下文，使 update_work_plan 等内置工具可以读写 Work.plan

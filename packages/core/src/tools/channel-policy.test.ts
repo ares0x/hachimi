@@ -113,6 +113,28 @@ describe("PermissionPolicy.decide — channel 矩阵裁决", () => {
     }
   });
 
+  it("未传 channel/undefined channel → 默认使用 api（allow-safe 策略）", () => {
+    expect(policy.decide(undefined as any, "write_file", "needs_confirm")).toBe("require_approval");
+    expect(policy.decide(undefined as any, "calculator", "safe")).toBe("allow");
+  });
+
+  it("完整 surface × permission 矩阵测试", () => {
+    const surfaces = ["tui", "web", "web-sse", "desktop", "telegram", "api", "api-json", "cli", "ws", "proactive-trigger", "system", "unknown"] as const;
+    for (const s of surfaces) {
+      // safe 工具全表面放行
+      expect(policy.decide(s, "calc", "safe")).toBe("allow");
+      // tui 放行 needs_confirm 与 dangerous (allow-all)
+      if (s === "tui") {
+        expect(policy.decide(s, "shell", "needs_confirm")).toBe("allow");
+        expect(policy.decide(s, "shell", "dangerous")).toBe("allow");
+      } else {
+        // 其余表面 allow-safe 策略：needs_confirm / dangerous 均要求 require_approval
+        expect(policy.decide(s, "shell", "needs_confirm")).toBe("require_approval");
+        expect(policy.decide(s, "shell", "dangerous")).toBe("require_approval");
+      }
+    }
+  });
+
   it("allowlist 策略：白名单外工具 → deny", () => {
     const customPolicy = new PermissionPolicy({
       custom_surface: {

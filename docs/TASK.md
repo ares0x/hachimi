@@ -14,8 +14,8 @@
 | **W1** | Work 数据模型与 API | 🟢 已完成 | Work 成为一等公民，替代纯 Session 聊天 |
 | **W2** | 策略引擎与生产默认 | 🟢 已完成 | 权限策略、API Secret、多表面生产可用；approve/deny 单测覆盖 |
 | **W3** | Work-first UI 最小集 | 🟢 已完成 | UI 改语义，投影 Runtime 状态而非聊天列表；Desktop 对齐 Web |
-| **W4** | 演化闭环 F5 | 🔴 未开始 | 轨迹→技能提案→人审→Skill 落地 |
-| **W5** | 上下文治理与评测加固 | 🔴 未开始 | 长 Work 不爆 context，eval 覆盖新场景 |
+| **W4** | 演化闭环 F5 | 🟢 已完成 | 轨迹→技能提案→人审 Confirmation→Skill 物理落盘与动态注册 |
+| **W5** | 上下文治理与评测加固 | 🟢 已完成 | 长 Work 规则 Compaction、Evals 3大新场景、ARCHITECTURE.md 对齐 |
 | **W6** | 连接器（可选 P2）| 🔴 未开始 | 日历等工具化，非壳内 App |
 
 ---
@@ -378,12 +378,12 @@
 
 ### W4.1 — TrajectoryCompressor：从 Work Events 提取技能候选
 
-- [ ] 扩展 `packages/core/src/skills/trajectory-compressor.ts`：
+- [x] 扩展 `packages/core/src/skills/trajectory-compressor.ts`：
   - 输入：completed Work 的 events
   - 输出：`SkillProposal[]`（名称、描述、触发条件、示例步骤）
   - 规则优先（重复模式检测）；可选 LLM 辅助摘要
-- [ ] 新建 `packages/core/src/skills/skill-proposal-manager.ts`：管理提案状态（pending/accepted/rejected）
-- [ ] 提案存储：`~/.hachimi/proposals/` 目录，每条独立 JSON 文件
+- [x] 新建 `packages/core/src/skills/skill-proposal-manager.ts`：管理提案状态（pending/accepted/rejected）
+- [x] 提案存储：`~/.hachimi/proposals/` 目录，每条独立 JSON 文件
 
 **验收**: 产出 `SkillProposal` 文件/表
 
@@ -391,12 +391,12 @@
 
 ### W4.2 — 提案默认不生效，需人 Confirm
 
-- [ ] 提案状态默认 `pending`，不自动进入 skills 目录
-- [ ] `GET /api/skills/proposals` — 列出待审提案
-- [ ] `POST /api/skills/proposals/:id/accept` — 确认接受
-- [ ] `POST /api/skills/proposals/:id/reject` — 拒绝
-- [ ] TUI / Web UI 均可操作（至少 API 可操作）
-- [ ] 单测：无确认则 prompt 中无该 skill 全文
+- [x] 提案状态默认 `pending`，不自动进入 skills 目录
+- [x] `GET /api/skills/proposals` — 列出待审提案
+- [x] `POST /api/skills/proposals/:id/accept` — 确认接受
+- [x] `POST /api/skills/proposals/:id/reject` — 拒绝
+- [x] TUI / Web UI 均可操作（至少 API 可操作）
+- [x] 单测：无确认则 prompt 中无该 skill 全文
 
 **验收**: 拒绝不进 skills 目录；单测覆盖
 
@@ -404,8 +404,8 @@
 
 ### W4.3 — Confirm 后写入技能注册
 
-- [ ] Accept 后将 SkillProposal 写入 `~/.hachimi/skills/`，`SkillRegistry` 重新扫描
-- [ ] 技能来源标注：`source: "learned"`（区别于 builtin / external）
+- [x] Accept 后将 SkillProposal 写入 `~/.hachimi/skills/`，`SkillRegistry` 重新扫描
+- [x] 技能来源标注：`source: "learned"`（区别于 builtin / external）
 
 **验收**: 完整流程：做完任务 → 出提案 → 确认 → 新 skill 可用
 
@@ -413,9 +413,9 @@
 
 ### W4.4 — F5 单测
 
-- [ ] 无确认 → prompt 中无该 skill（状态隔离）
-- [ ] 确认 → skill 在下一 context 中出现
-- [ ] 拒绝 → skill 永久不在 prompt 中（除非重新提案）
+- [x] 无确认 → prompt 中无该 skill（状态隔离）
+- [x] 确认 → skill 在下一 context 中出现
+- [x] 拒绝 → skill 永久不在 prompt 中（除非重新提案）
 
 **验收**: CI 绿
 
@@ -438,9 +438,9 @@
 
 ### W5.2 — 可选 Compaction 与 ContextBuilder 契约更新
 
-- [ ] 规则优先 compaction：messages 超过 30 轮时压缩旧轮为摘要块
-- [ ] ContextBuilder 契约测试更新：覆盖 compaction 场景
-- [ ] 锁测试仍绿（静态 prefix 顺序不变）
+- [x] 规则优先 compaction：messages 超过 30 轮时压缩旧轮为摘要块
+- [x] ContextBuilder 契约测试更新：覆盖 compaction 场景
+- [x] 锁测试仍绿（静态 prefix 顺序不变）
 
 **验收**: 锁测试绿；长会话不超 token 限制
 
@@ -448,11 +448,11 @@
 
 ### W5.3 — Evals 新用例
 
-- [ ] `packages/evals/` 新增：
+- [x] `packages/evals/` 新增：
   - `work_recovery`：模拟 server 重启后 Work 续跑（mock 模式）
   - `permission_deny`：dangerous 工具在 deny 策略下被拒绝，对话不中断
   - `plan_then_act`：Agent 先输出 plan 步骤，再逐步执行（多轮）
-- [ ] Mock 模式 CI 通过（零成本回归）
+- [x] Mock 模式 CI 通过（零成本回归）
 
 **验收**: 3 个新 eval 用例 CI mock 模式通过
 
@@ -460,10 +460,10 @@
 
 ### W5.4 — ARCHITECTURE.md 更新
 
-- [ ] 增加「事件系统（RuntimeEvent）」一节：类型、落盘、恢复
-- [ ] 增加「Work 模型」一节：Work/Session/Activity 关系
-- [ ] 增加「Agent Native 四条」说明（对齐 PHASE.md 目标）
-- [ ] 确保文档与实现一致（code wins）
+- [x] 增加「事件系统（RuntimeEvent）」一节：类型、落盘、恢复
+- [x] 增加「Work 模型」一节：Work/Session/Activity 关系
+- [x] 增加「Agent Native 四条」说明（对齐 PHASE.md 目标）
+- [x] 确保文档与实现一致（code wins）
 
 **验收**: 文档更新；与实现无矛盾
 

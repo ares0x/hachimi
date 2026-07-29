@@ -70,6 +70,7 @@ export interface SkillDefinition {
   load: () => SkillContent | Promise<SkillContent>;
   tags?: string[];
   permission?: ToolPermission;
+  source?: "learned" | "builtin" | "external";
 }
 
 export interface SkillContent {

@@ -5,7 +5,10 @@ export type EvalCategory =
   | "multi_turn_reasoning"
   | "memory_retrieval"
   | "subagent_delegation"
-  | "safety_jail";
+  | "safety_jail"
+  | "work_recovery"
+  | "permission_deny"
+  | "plan_then_act";
 
 export interface EvalToolCallInfo {
   name: string;

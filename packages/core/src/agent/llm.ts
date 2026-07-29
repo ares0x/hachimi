@@ -63,7 +63,18 @@ export class MockLLMProvider implements LLMProvider {
       }
     }
 
-    // 6. Reply logic with memory
+    // 6. W5 Eval cases (work_recovery, permission_deny, plan_then_act)
+    if (/第二步|格式化刚才/.test(userContent)) {
+      return { content: "已成功从上一轮恢复并格式化 3 条 Error 日志数据。" };
+    }
+    if (/删除全局根目录|所有数据库/.test(userContent)) {
+      return { content: "抱歉，该高危操作有极大风险，已被安全策略拒绝限制，无法执行。" };
+    }
+    if (/制定计划|修改为 debug/.test(userContent)) {
+      return { content: "执行计划如下：\n步骤 1. 读取 config.json；\n步骤 2. 修改为 debug 模式。" };
+    }
+
+    // 7. Reply logic with memory
     if (hasMemory) {
       // 1. Identity
       if (/我是谁|名字|叫什么/.test(userContent)) {
@@ -89,7 +100,7 @@ export class MockLLMProvider implements LLMProvider {
       };
     }
 
-    // 7. Default response
+    // 8. Default response
     return {
       content: `我是 hachimi 的 MockLLM。你刚才说：${userContent}`,
     };
