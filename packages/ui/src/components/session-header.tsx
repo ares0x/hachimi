@@ -1,12 +1,10 @@
 import {
   ChevronDown,
-  Command,
   GitBranch,
   Moon,
   OctagonX,
   PanelLeft,
   PanelRight,
-  Settings2,
   Sun,
 } from "lucide-react";
 import { cn } from "../lib/utils";
@@ -22,9 +20,10 @@ export function SessionHeader({
   contextOpen,
   onToggleContext,
   onToggleSidebar,
+  onCancelWork,
+  sidebarCollapsed = false,
   onOpenSettings,
   onOpenPalette,
-  onCancelWork,
 }: {
   title: string;
   /** 标题下方一行小字说明，例如状态或 subtitle */
@@ -36,18 +35,25 @@ export function SessionHeader({
   contextOpen: boolean;
   onToggleContext: () => void;
   onToggleSidebar: () => void;
+  onCancelWork?: () => void;
+  sidebarCollapsed?: boolean;
   onOpenSettings?: () => void;
   onOpenPalette?: () => void;
-  onCancelWork?: () => void;
 }) {
   return (
-    <header className="app-drag flex h-13 shrink-0 items-center justify-between border-b border-border bg-background px-4">
+    <header
+      className={cn(
+        "app-drag flex h-13 shrink-0 items-center justify-between border-b border-border bg-background transition-[padding] duration-200",
+        sidebarCollapsed ? "pl-[72px] pr-4" : "px-4"
+      )}
+    >
       <div className="flex min-w-0 items-center gap-2">
         <button
           type="button"
           onClick={onToggleSidebar}
-          className="app-no-drag grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground lg:hidden"
+          className="app-no-drag grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
           aria-label="切换侧栏"
+          title="切换侧边栏 (⌘B)"
         >
           <PanelLeft className="size-4" />
         </button>
@@ -72,25 +78,11 @@ export function SessionHeader({
           </button>
         )}
 
-        {/* Command Palette */}
-        {onOpenPalette && (
-          <button
-            type="button"
-            onClick={onOpenPalette}
-            className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-            title="命令面板 ⌘K"
-            aria-label="打开命令面板"
-          >
-            <Command className="size-3.5" />
-          </button>
-        )}
-
-        {/* Ghost Model Selector */}
+        {/* Ghost Model Selector (display only) */}
         <button
           type="button"
-          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 font-mono text-[12px] text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-          title={onOpenSettings ? "在设置中切换模型 ⌘," : "当前模型"}
-          onClick={() => onOpenSettings?.()}
+          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 font-mono text-[12px] text-muted-foreground"
+          title="当前模型"
         >
           <StatusDot status={running ? "running" : "done"} />
           <span>{model}</span>
@@ -120,19 +112,6 @@ export function SessionHeader({
             <Moon className="size-4" />
           )}
         </button>
-
-        {/* Settings */}
-        {onOpenSettings && (
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-            title="设置 ⌘,"
-            aria-label="打开设置"
-          >
-            <Settings2 className="size-3.5" />
-          </button>
-        )}
 
         {/* Ghost Inspector Toggle */}
         <button

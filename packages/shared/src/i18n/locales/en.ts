@@ -1,4 +1,4 @@
-import type { I18nDictionary } from "../types";
+import type { I18nDictionary } from "../types.js";
 
 const en: I18nDictionary = {
   "tool.rejected_by_user": "[User Rejected] Tool {toolName} execution was denied by the user.",

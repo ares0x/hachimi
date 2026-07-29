@@ -1,5 +1,5 @@
 // packages/shared/src/errors.ts
-import { i18n } from "./i18n";
+import { i18n } from "./i18n/index.js";
 
 export class HachimiError extends Error {
   public readonly code: string;

@@ -58,7 +58,7 @@ describe("W2.2: Approval end-to-end (approve & deny)", () => {
 
     expect(isToolExecuted()).toBe(false);
     // 回复中包含拒绝/拦截信息
-    expect(output.content).toMatch(/拦截|拒绝|cancelled|未授权|用户/i);
+    expect(output.content).toMatch(/拦截|拒绝|cancelled|denied|rejected|User Rejected|未授权|用户/i);
   });
 
   it("approve → approval_requested event + tool_call + tool_result written to event store", async () => {
@@ -120,7 +120,7 @@ describe("W2.2: Approval end-to-end (approve & deny)", () => {
       (e) => e.type === "tool_result",
     );
     expect(toolResultEvent?.payload.isError).toBe(true);
-    expect(toolResultEvent?.payload.result).toMatch(/拦截|拒绝/i);
+    expect(toolResultEvent?.payload.result).toMatch(/拦截|拒绝|denied|rejected|User Rejected/i);
   });
 
   it("approval_requested event contains correct toolName and permission", async () => {

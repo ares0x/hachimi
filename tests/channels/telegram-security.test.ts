@@ -31,7 +31,7 @@ describe("Telegram Channel E2E Security & Approval Policy Test", () => {
       channel: "telegram",
     });
 
-    expect(output.content).toContain("[用户拦截]");
+    expect(output.content).toMatch(/\[(用户拦截|User Rejected)\]/);
     expect(output.content).not.toContain("格式化完成");
   });
 });

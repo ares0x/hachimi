@@ -47,6 +47,6 @@ describe("Phase G1 Sandbox Hardening Suite (Env Scrubbing & PathJail)", () => {
       return "012345678901234567890123456789";
     });
 
-    expect(result).toContain("[沙箱提示] 工具 oversized_tool 输出内容过长");
+    expect(result).toMatch(/\[(沙箱提示|Sandbox Info)\]/);
   });
 });

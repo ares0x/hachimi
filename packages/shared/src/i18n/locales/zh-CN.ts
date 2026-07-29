@@ -1,4 +1,4 @@
-import type { I18nDictionary } from "../types";
+import type { I18nDictionary } from "../types.js";
 
 const zhCN: I18nDictionary = {
   // --- Circuit Breaker & Intercept Messages ---

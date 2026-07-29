@@ -580,6 +580,7 @@ export function App() {
             contextOpen={inspectorOpen}
             onToggleContext={() => setInspectorOpen((o) => !o)}
             onToggleSidebar={toggleSidebarCollapse}
+            sidebarCollapsed={sidebarCollapsed}
             onOpenSettings={() => setSettingsOpen(true)}
             onOpenPalette={() => setPaletteOpen(true)}
             onCancelWork={handleCancelWork}
@@ -595,6 +596,7 @@ export function App() {
               contextOpen={inspectorOpen}
               onToggleContext={() => setInspectorOpen((o) => !o)}
               onToggleSidebar={toggleSidebarCollapse}
+              sidebarCollapsed={sidebarCollapsed}
               onSelectPrompt={(p) => handleStartWork(p)}
               intentChips={INTENT_CHIPS}
               onOpenSettings={() => setSettingsOpen(true)}

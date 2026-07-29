@@ -32,7 +32,7 @@ describe("Daemon Server API E2E Security & Approval Policy Test", () => {
     const body = JSON.parse(response.payload);
 
     expect(body.success).toBe(true);
-    expect(body.content).toContain("[用户拦截]");
+    expect(body.content).toMatch(/\[(用户拦截|User Rejected)\]/);
     expect(body.content).not.toContain("数据库已删除");
 
     await apiServer.close();

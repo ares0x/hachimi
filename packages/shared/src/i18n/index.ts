@@ -1,10 +1,10 @@
-import type { I18nDictionary, I18nKey, Locale } from "./types";
+import type { I18nDictionary, I18nKey, Locale } from "./types.js";
 
-export type { I18nDictionary, I18nKey, Locale } from "./types";
+export type { I18nDictionary, I18nKey, Locale } from "./types.js";
 
 const localeLoaders: Record<Locale, () => Promise<{ default: I18nDictionary }>> = {
-  en: () => import("./locales/en"),
-  "zh-CN": () => import("./locales/zh-CN"),
+  en: () => import("./locales/en.js"),
+  "zh-CN": () => import("./locales/zh-CN.js"),
 };
 
 const cache = new Map<Locale, I18nDictionary>();

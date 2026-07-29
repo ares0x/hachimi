@@ -78,82 +78,13 @@ export function WorkList({
   };
 
   if (collapsed) {
-    return (
-      <aside className="flex h-full w-full flex-col border-r border-border bg-surface">
-        {/* Compact Draggable Top Spacer & Toggle */}
-        <div className="app-drag flex flex-col items-center gap-3 pt-9 pb-2">
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            className="app-no-drag grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-            title="展开侧边栏 (⌘B)"
-          >
-            <PanelLeft className="size-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={onNewWork}
-            className="app-no-drag grid size-8 place-items-center rounded-lg bg-surface-elevated border border-border/60 text-foreground transition-colors hover:bg-surface-hover hover:border-border-strong shadow-xs"
-            title="新建 Work"
-          >
-            <Plus className="size-4" />
-          </button>
-        </div>
-
-        {/* Compact Works List (Status Dots Only) */}
-        <div className="scroll-quiet mt-2 flex min-h-0 flex-1 flex-col items-center gap-1.5 overflow-y-auto px-1.5 py-1">
-          {works.map((w) => {
-            const active = w.id === activeWorkId;
-            const statusDotClass = STATUS_COLOR[w.status] || "bg-zinc-400";
-            return (
-              <button
-                key={w.id}
-                type="button"
-                onClick={() => onSelectWork(w.id)}
-                className={cn(
-                  "relative grid size-8 place-items-center rounded-lg transition-colors",
-                  active ? "bg-surface-active text-foreground" : "hover:bg-surface-hover text-muted-foreground"
-                )}
-                title={`${w.title} (${STATUS_LABEL[w.status]})`}
-              >
-                <span className={cn("size-2 rounded-full", statusDotClass)} />
-                {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-primary" />}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Compact Footer Icons */}
-        <div className="flex flex-col items-center gap-1 border-t border-border p-2">
-          <button
-            type="button"
-            onClick={onOpenPalette}
-            className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-            title="命令面板 (⌘K)"
-          >
-            <Command className="size-4" />
-          </button>
-          {onOpenSettings && (
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-              title="设置 (⌘,)"
-              aria-label="设置"
-            >
-              <Settings className="size-4" />
-            </button>
-          )}
-        </div>
-      </aside>
-    );
+    return null;
   }
 
   return (
     <aside className="flex h-full w-full flex-col border-r border-border bg-surface">
       {/* macOS Draggable Header & Traffic Light Clearance */}
-      <div className="app-drag flex items-center justify-between px-3.5 pt-9 pb-2">
+      <div className="app-drag flex h-13 shrink-0 items-center justify-between border-b border-border/60 bg-surface px-3.5 pl-[72px]">
         <div className="flex items-center gap-2">
           <Mark size={20} />
           <span className="wordmark text-[14px] font-semibold text-foreground">Hachimi</span>
@@ -168,17 +99,6 @@ export function WorkList({
           >
             <Plus className="size-4" />
           </button>
-          {onToggleCollapse && (
-            <button
-              type="button"
-              onClick={onToggleCollapse}
-              className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-              title="折叠侧边栏 (⌘B)"
-              aria-label="折叠侧边栏"
-            >
-              <PanelLeft className="size-4" />
-            </button>
-          )}
         </div>
       </div>
 

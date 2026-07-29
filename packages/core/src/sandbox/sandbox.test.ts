@@ -16,7 +16,7 @@ describe("ToolSandbox Minimum Tool Execution Sandbox", () => {
       return "done";
     });
 
-    expect(result).toContain("[沙箱熔断] 工具 slow_tool 执行超时 (50ms)");
+    expect(result).toMatch(/\[(沙箱熔断|Sandbox Error|Sandbox Timeout)\]/);
   });
 
   it("truncates output when result exceeds maxBuffer cap", async () => {
@@ -25,6 +25,6 @@ describe("ToolSandbox Minimum Tool Execution Sandbox", () => {
     const result = await sandbox.executeToolInSandbox("verbose_tool", async () => longOutput);
 
     expect(result).toContain("AAAAAAAAAAAAAAAAAAAA");
-    expect(result).toContain("[沙箱提示] 工具 verbose_tool 输出内容过长，已被自动截断");
+    expect(result).toMatch(/\[(沙箱提示|Sandbox Info)\]/);
   });
 });

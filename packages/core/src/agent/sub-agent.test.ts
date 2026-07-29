@@ -30,6 +30,6 @@ describe("F4 SubAgent Delegation Suite", () => {
       taskDescription: "评估依赖包安全性",
     });
 
-    expect(execResult).toContain("[子 Agent 运行完成");
+    expect(execResult).toMatch(/\[(子 Agent 运行完成|Sub-agent Completed)/);
   });
 });

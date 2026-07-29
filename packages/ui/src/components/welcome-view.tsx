@@ -2,12 +2,10 @@ import {
   ArrowRight,
   Brain,
   ChevronDown,
-  Command,
   Compass,
   Moon,
   PanelLeft,
   PanelRight,
-  Settings,
   ShieldCheck,
   Sparkles,
   Sun,
@@ -65,6 +63,7 @@ export function WelcomeView({
   intentChips,
   onOpenSettings,
   onOpenPalette,
+  sidebarCollapsed = false,
 }: {
   model?: string;
   theme: "light" | "dark";
@@ -77,11 +76,12 @@ export function WelcomeView({
   intentChips?: string[];
   onOpenSettings?: () => void;
   onOpenPalette?: () => void;
+  sidebarCollapsed?: boolean;
 }) {
   const actions: FeatureItem[] =
     intentChips && intentChips.length > 0
       ? intentChips.map((p, i) => {
-          const fallback = QUICK_ACTIONS[i] ?? QUICK_ACTIONS[0];
+          const fallback = QUICK_ACTIONS[i % QUICK_ACTIONS.length];
           return {
             id: `chip_${i}`,
             icon: fallback.icon,
@@ -95,22 +95,22 @@ export function WelcomeView({
   return (
     <div className="flex h-full w-full flex-col bg-background">
       {/* Ghost Top Toolbar */}
-      <header className="app-drag flex h-13 shrink-0 items-center justify-between border-b border-border/60 bg-background px-4">
+      <header
+        className={cn(
+          "app-drag flex h-13 shrink-0 items-center justify-between border-b border-border/60 bg-background transition-[padding] duration-200",
+          sidebarCollapsed ? "pl-[72px] pr-4" : "px-4"
+        )}
+      >
         <div className="flex items-center gap-2.5">
           <button
             type="button"
             onClick={onToggleSidebar}
-            className="app-no-drag grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground lg:hidden"
+            className="app-no-drag grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
             aria-label="切换侧栏"
+            title="切换侧边栏 (⌘B)"
           >
             <PanelLeft className="size-4" />
           </button>
-          <div className="flex items-center gap-2">
-            <Mark size={18} />
-            <span className="text-[14px] font-medium text-foreground">
-              Hachimi
-            </span>
-          </div>
         </div>
 
         <div className="app-no-drag flex items-center gap-1">
@@ -134,28 +134,6 @@ export function WelcomeView({
               <Moon className="size-4" />
             )}
           </button>
-          {onOpenPalette && (
-            <button
-              type="button"
-              onClick={onOpenPalette}
-              className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-              title="命令面板 (⌘K)"
-              aria-label="命令面板"
-            >
-              <Command className="size-4" />
-            </button>
-          )}
-          {onOpenSettings && (
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-              title="设置 (⌘,)"
-              aria-label="设置"
-            >
-              <Settings className="size-4" />
-            </button>
-          )}
           <button
             type="button"
             onClick={onToggleContext}

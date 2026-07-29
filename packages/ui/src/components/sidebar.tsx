@@ -99,85 +99,7 @@ export function Sidebar({
   };
 
   if (collapsed) {
-    return (
-      <aside className="flex h-full w-full flex-col border-r border-border bg-surface">
-        {/* Compact Top: Expand Toggle + New Session */}
-        <div className="app-drag flex flex-col items-center gap-3 px-2 pt-9 pb-2">
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            className="app-no-drag grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-            title="展开侧边栏 (⌘B)"
-            aria-label="展开侧边栏"
-          >
-            <PanelLeft className="size-4" />
-          </button>
-          <button
-            type="button"
-            onClick={onNewSession}
-            className="app-no-drag grid size-8 place-items-center rounded-lg border border-border/60 bg-surface-elevated text-foreground shadow-xs transition-colors hover:bg-surface-hover hover:border-border-strong"
-            title="新建会话"
-            aria-label="新建会话"
-          >
-            <Plus className="size-4" />
-          </button>
-        </div>
-
-        {/* Compact Session List (active dot + primary rail) */}
-        <div className="scroll-quiet mt-2 flex min-h-0 flex-1 flex-col items-center gap-1.5 overflow-y-auto px-1.5 py-1">
-          {sessions.map((s) => {
-            const active = s.id === activeSessionId;
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => onSelectSession(s.id)}
-                className={cn(
-                  "relative grid size-8 place-items-center rounded-lg transition-colors",
-                  active
-                    ? "bg-surface-active text-foreground"
-                    : "text-muted-foreground hover:bg-surface-hover"
-                )}
-                title={`${s.title}${s.mode ? ` (${s.mode})` : ""}`}
-                aria-label={s.title}
-              >
-                <span
-                  className={cn(
-                    "size-2 rounded-full",
-                    active ? "bg-primary" : "bg-border-strong"
-                  )}
-                />
-                {active && (
-                  <span className="absolute bottom-1.5 left-0 top-1.5 w-0.5 rounded-full bg-primary" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Compact Footer */}
-        <div className="flex flex-col items-center gap-1 border-t border-border p-2">
-          <button
-            type="button"
-            onClick={onOpenPalette}
-            className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-            title="命令面板 (⌘K)"
-            aria-label="命令面板"
-          >
-            <Command className="size-4" />
-          </button>
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-            title="设置"
-            aria-label="设置"
-          >
-            <Settings className="size-4" />
-          </button>
-        </div>
-      </aside>
-    );
+    return null;
   }
 
   return (
@@ -187,17 +109,6 @@ export function Sidebar({
           <Mark size={22} />
           <span className="wordmark text-[15px] font-semibold text-foreground">Hachimi</span>
         </div>
-        {onToggleCollapse && (
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            className="app-no-drag grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-            title="折叠侧边栏 (⌘B)"
-            aria-label="折叠侧边栏"
-          >
-            <PanelLeft className="size-4" />
-          </button>
-        )}
       </div>
 
       <div className="px-3 mt-1">

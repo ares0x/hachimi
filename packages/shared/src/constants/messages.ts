@@ -3,7 +3,7 @@
  * Hachimi Unified User-Facing Status, Rejection, Exception, and Interception Message Templates
  * Uses the i18n module for locale-aware messages. Default locale is "en".
  */
-import { i18n } from "../i18n";
+import { i18n } from "../i18n/index.js";
 
 /** User rejection message template */
 export function formatUserRejectionMessage(toolName: string): string {

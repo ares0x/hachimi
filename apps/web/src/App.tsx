@@ -84,7 +84,7 @@ interface LoadedWorkDetail {
   /** /works/:id/activities 返回的投影 */
   timeline: TimelineActivityStep[];
   /** /works/:id/events 的原始事件流 */
-  rawEvents?: { id: string; type: string; timestamp: string; summary?: string; payload?: any }[];
+  rawEvents?: { id: string; type: string; timestamp: string; summary: string; payload?: any }[];
   tokens?: number;
   maxTokens?: number;
   requestId?: string;
@@ -278,13 +278,15 @@ export function App() {
       summary:
         e.summary ||
         (typeof e.payload?.summary === "string" ? e.payload.summary : undefined) ||
-        describeEvent(e),
+        describeEvent(e) ||
+        e.type ||
+        "",
       payload: e.payload,
     }));
 
-    const pendingApproval = rawEvents.findLast((e: any) => e.type === "approval_requested");
-    const granted = rawEvents.findLast((e: any) => e.type === "approval_granted");
-    const denied = rawEvents.findLast((e: any) => e.type === "approval_denied");
+    const pendingApproval = findLastItem(rawEvents, (e: any) => e.type === "approval_requested");
+    const granted = findLastItem(rawEvents, (e: any) => e.type === "approval_granted");
+    const denied = findLastItem(rawEvents, (e: any) => e.type === "approval_denied");
     const awaiting: LoadedWorkDetail["awaitingApproval"] =
       pendingApproval &&
       (!granted || new Date(granted.timestamp) < new Date(pendingApproval.timestamp)) &&
@@ -570,7 +572,7 @@ export function App() {
       {/* Left Work List Rail */}
       <div
         className={`fixed inset-y-0 left-0 z-40 transition-[width,transform] duration-200 ease-out lg:static lg:z-auto lg:translate-x-0 ${
-          sidebarCollapsed ? "w-14" : "w-[264px]"
+          sidebarCollapsed ? "w-0 min-w-0 overflow-hidden" : "w-[264px]"
         } ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <WorkList
@@ -605,8 +607,7 @@ export function App() {
             contextOpen={inspectorOpen}
             onToggleContext={() => setInspectorOpen((o) => !o)}
             onToggleSidebar={toggleSidebarCollapse}
-            onOpenSettings={() => setSettingsOpen(true)}
-            onOpenPalette={() => setPaletteOpen(true)}
+            sidebarCollapsed={sidebarCollapsed}
             onCancelWork={handleCancelWork}
           />
         )}
@@ -620,6 +621,7 @@ export function App() {
               contextOpen={inspectorOpen}
               onToggleContext={() => setInspectorOpen((o) => !o)}
               onToggleSidebar={toggleSidebarCollapse}
+              sidebarCollapsed={sidebarCollapsed}
               onSelectPrompt={(p) => handleStartWork(p)}
               intentChips={INTENT_CHIPS}
               onOpenSettings={() => setSettingsOpen(true)}
@@ -885,7 +887,7 @@ function inferActiveToolsFromWork(work: LoadedWorkDetail | null): ContextPanelDa
         const name = typeof s.toolName === "string" ? s.toolName : "unknown";
         if (!tools.has(name)) {
           tools.set(name, {
-            permission: s.status === "failed" ? "needs_confirm" : "safe",
+            permission: s.isToolError ? "needs_confirm" : "safe",
             desc: "在当前 Work 中被调用过",
           });
         }
@@ -916,4 +918,11 @@ async function resolveApprovalForTimeline(
   }
   // 否则直接调用 API
   await approveTool(approvalId, decision);
+}
+
+function findLastItem<T>(arr: T[], predicate: (item: T) => boolean): T | undefined {
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (predicate(arr[i])) return arr[i];
+  }
+  return undefined;
 }
