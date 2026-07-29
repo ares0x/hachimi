@@ -10,13 +10,12 @@
 
 <h1 align="center">Hachimi (哈基米)</h1>
 
-<p align="center">面向 TypeScript & Node.js 的<b>本地优先、多终端协同、具备渐进式自我演化能力的个人 AI 助理 Harness 框架</b>。</p>
+<p align="center"><b>本地优先、模型无关的个人 Agent Runtime & Harness 引擎</b></p>
 
 配合教程：[build-personal-ai-assistant](https://github.com/ares0x/build-personal-ai-assistant)
 在线阅读：[https://ares0x.github.io/build-personal-ai-assistant/](https://ares0x.github.io/build-personal-ai-assistant/)
 
-> **定位**：可运行、可演进、高解耦的个人助理内核。
-> `tutorial` 分支对应教学 L1 Demo；`main` 面向工业级地基、多终端拓扑与插件生态。
+> **定位**：Hachimi 是一个<b>本地优先、模型无关的个人 Agent Runtime（Harness）</b>。它提供以 Work 目标、追加事件流 (`RuntimeEvent`)、工具策略 (`PermissionPolicy`) 和上下文治理为核心的底层引擎。多终端助理体验（Desktop、Web、TUI、Telegram）均为挂载在统一内核 (`@hachimi/core`) 之上的薄投影适配器。
 
 ---
 

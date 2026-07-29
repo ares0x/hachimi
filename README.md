@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <strong>Your personal AI assistant that runs anywhere, remembers everything, and grows with you.</strong>
+  <strong>Local-First, Model-Agnostic Personal Agent Runtime & Harness.</strong>
 </p>
 
 <p align="center">
@@ -20,17 +20,15 @@
   <strong>English</strong> | <a href="README_CN.md">中文</a>
 </p>
 
-<!-- _Demo GIF coming soon — [screenshot placeholder]_ -->
-
-> **tl;dr**: Hachimi is a local-first AI assistant framework. Chat with it in your terminal, web browser, or Telegram. It remembers your preferences, runs tools on your machine, and you own 100% of your data.
+> **tl;dr**: Hachimi is a **local-first, model-agnostic personal agent runtime (harness)**. It provides a robust engine for Work goals, append-only event execution (`RuntimeEvent`), tools, safety policy, and memory. Assistant experiences across Desktop, Web, TUI, and Telegram are thin projection adapters built on top of this single brain (`@hachimi/core`).
 
 ---
 
 ## Why Hachimi?
 
-Most AI assistants lock you into a cloud service. Hachimi runs **on your machine**, stores everything **locally**, and lets you **switch between LLM providers** anytime (DeepSeek, Claude, OpenAI, Qwen, Kimi, Ollama — or any OpenAI-compatible API).
+Most AI tools are cloud-bound chatbot shells. Hachimi is an **agent runtime & harness** running **on your machine**, storing execution events and memory **locally**, and keeping your control flow completely **model-agnostic** across providers (DeepSeek, Claude, OpenAI, Qwen, Kimi, Ollama — or any OpenAI-compatible API).
 
-It's not just a chatbot — it's a **harness**: a framework for building AI-powered workflows with tools, memory, and extensions. Think of it as the missing runtime between "raw LLM API calls" and "a full AI application."
+It provides the missing harness layer between raw LLM API calls and personal AI automation, featuring Work-centered execution, surface-aware permission policies, and human-in-the-loop skill evolution.
 
 ---
 
