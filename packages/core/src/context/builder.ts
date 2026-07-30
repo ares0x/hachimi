@@ -309,3 +309,42 @@ export class ContextBuilder {
     return currentPrompt;
   }
 }
+
+/**
+ * H3.2: 领域知觉结构化截断器 (Domain-Aware Structural Truncator)
+ * 针对 Git Diff、文件目录树和 Error Stack Trace 执行结构化保护截断，避免破坏代码语法或丢掉 Head 块信息
+ */
+export function truncateDomainContent(content: string, maxBytes = 8192): string {
+  if (Buffer.byteLength(content, "utf-8") <= maxBytes) {
+    return content;
+  }
+
+  // 1. Git Diff 结构化截断
+  if (content.includes("diff --git") || content.includes("--- a/") || content.includes("+++ b/")) {
+    const lines = content.split("\n");
+    const diffHeaders = lines.filter(
+      (l) => l.startsWith("diff --git") || l.startsWith("--- ") || l.startsWith("+++ ")
+    );
+    const hunkLines = lines.filter(
+      (l) => l.startsWith("@@") || l.startsWith("+") || l.startsWith("-")
+    );
+
+    const headHunks = hunkLines.slice(0, 40).join("\n");
+    const tailHunks = hunkLines.slice(-20).join("\n");
+    return `${diffHeaders.join("\n")}\n${headHunks}\n\n[...Git Diff 超长结构化折叠 (${lines.length} 行)...]\n\n${tailHunks}`;
+  }
+
+  // 2. 堆栈日志 Trace 截断
+  if (content.includes("Error:") || content.includes("at ") || content.includes("    at ")) {
+    const lines = content.split("\n");
+    const errorHead = lines.slice(0, 15).join("\n");
+    const stackTail = lines.slice(-10).join("\n");
+    return `${errorHead}\n\n[...中间调用栈折叠 (${lines.length - 25} 行)...]\n\n${stackTail}`;
+  }
+
+  // 3. 通用首尾保留截断 (前 300 字符 + 后 300 字符)
+  const total = content.length;
+  const head = content.slice(0, 300);
+  const tail = content.slice(-300);
+  return `${head}\n\n[...工具输出超限已截断 total_chars≈${total}...]\n\n${tail}`;
+}

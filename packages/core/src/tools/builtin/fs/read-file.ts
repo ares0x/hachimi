@@ -77,6 +77,8 @@ export const readFileTool: ToolDefinition = {
     "读取工作区内文本文件。按行分页：offset 为起始行（1-based），limit 为最多行数。" +
     "返回带行号内容；若 truncated=true，请提高 offset 继续读。",
   permission: "safe",
+  readOnly: true,
+  isIdempotent: true,
   parameters: {
     type: "object",
     properties: {

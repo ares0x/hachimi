@@ -14,6 +14,8 @@ export interface BaseRuntimeEvent {
   sessionId: string;
   /** ISO-8601 时间戳 */
   timestamp: string;
+  /** H3.3: 单调递增事件序列号 */
+  seq?: number;
 }
 
 // ─── 各事件类型 ───────────────────────────────────────────────────────────────

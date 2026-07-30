@@ -1,8 +1,8 @@
 # Hachimi Active Task Backlog (TASK.md)
 
-> **当前阶段**: Phase W5.5 — Harness 正确性前置修补
+> **当前阶段**: Phase H3 — Harness 工程化极效提升 (Harness Engineering Elevation)
 > **关联文档**: [`VISION.md`](./VISION.md) | [`ARCHITECTURE.md`](./ARCHITECTURE.md) | [`ROADMAP.md`](./ROADMAP.md) | [`API.md`](./API.md)
-> **前提**: Web/Desktop MVP 已可用；Phase W0-W5 基础设施已全面闭环
+> **前提**: Phase W0-W5.5 基础设施与 Harness 前置修补已全量闭环
 
 ---
 
@@ -17,56 +17,56 @@
 | **W4** | 演化闭环 F5 | 🟢 已完成 | 轨迹→技能提案→人审 Confirmation→Skill 物理落盘与动态注册 |
 | **W5** | 上下文治理与评测加固 | 🟢 已完成 | 长 Work 规则 Compaction、Evals 3大新场景、ARCHITECTURE.md 对齐 |
 | **W5.5** | Harness 正确性前置修补 | 🟢 已完成 | 修复二进制检测内存峰值、通道注入表、双重判定契约与记忆硬编码修补 |
+| **H3** | Harness 工程化极效提升 | 🟡 进行中 | 信号级级联打断、领域截断、单调递增 seq、工具属性扩充与遥测度量 |
 | **W6** | 连接器（可选 P2） | ⚪ 搁置 | 日历等工具化，非壳内 App |
 
 ---
 
-## Phase W5.5 — Harness 正确性前置修补（约 0.5–2 天，W6 之前必须清完）
+## Phase H3 — Harness 工程化极效提升 Backlog
 
-> **目标**: 修复会污染后续工具/loop 工作的具体正确性与安全问题。
+> **目标**: 对标 Claude Code, Pi, Maka-Agent 与 Grok-Build，建立工业级 Personal Agent Runtime 控制与防护体系。
 
-### W5.5.1 — 修 read_file 的二进制探测内存峰值
-- [x] `packages/core/src/tools/builtin/fs/read-file.ts` 中 `const fdHead = readFileSync(safePath).subarray(0, head.length)` 会把整个文件读进内存，只为了截取前 8000 字节做二进制判断——跟大文件时的 harness 安全目标直接矛盾。改成 `openSync` + `readSync` 只读前 8KB（不要动 `readTextFileByLine` 的流式行读取逻辑）。
-- [x] **验收**: 对 100MB+ 测试文件调用 `read_file`，内存不随文件大小线性增长；单测覆盖二进制探测与文本流式读取。
+### Tier 1 (P0) — 核心控制流与确定性上下文
 
----
+#### H3.1 — AbortSignal 级联打穿与毫秒级强杀死 (AbortSignal Cascade & Subprocess SIGKILL)
+- [ ] `ToolExecContext` 深度打通 `signal?: AbortSignal`，在 `run_command` 工具中监听 `signal.onabort` 并级联触发 `child_process.kill("SIGKILL")`。
+- [ ] 当用户触发 `steer()` / `cancelWork` / HTTP `abort` 时，强行毫秒级中断正在运行的 shell 子进程与网络请求，释放宿主机资源。
+- [ ] **验收**: 跑一个 `sleep 30` 子进程，触发 abort 命令后，子进程在 50ms 内被 `SIGKILL` 终止，无残留后台僵尸进程；单测覆盖。
 
-### W5.5.2 — 审计并补齐所有入口的 channel 注入
-- [x] 审计 `packages/channels/api/src/server.ts` 中 `steer` / `followup` 等端点，确保其使用显式 fallback。
-- [x] 确认 `apps/desktop` 在通过 `packages/ui/src/api/index.ts` 调用时显式传入 `channel: "desktop"`。
-- [x] 编写端点-channel 对照表并写在 `TASK.md` 中。
-- [x] **验收**: 单测覆盖“未传 channel 时不会静默通过策略检查”。
-
-#### 端点 - Channel 映射审计对照表
-
-| 端点 / 入口 | 处理函数 / 文件 | 允许 / 传入 Channel | 缺省 Fallback 策略 |
-|---|---|---|---|
-| `POST /api/chat` (SSE) | `server.ts` | `body.channel` | `"web-sse"` |
-| `POST /api/chat` (JSON) | `server.ts` | `body.channel` | `"api-json"` |
-| `POST /api/chat/steer` | `server.ts` | `body.channel` | `"web-sse"` / `"api-json"` |
-| `POST /api/works/:id/steer` | `server.ts` | `body.channel` | `"web"` |
-| `GET /api/ws` | `server.ts` | `payload.channel` | `"ws"` |
-| Desktop App SDK | `packages/ui/src/api/index.ts` | `"desktop"` | `"desktop"` |
-| Web App SDK | `packages/ui/src/api/index.ts` | `"web-sse"` | `"web-sse"` |
-| CLI Channel | `packages/channels/cli/src/index.ts` | `"cli"` | `"cli"` |
-| Telegram Channel | `packages/channels/telegram/src/bot.ts` | `"telegram"` | `"telegram"` |
-| TUI Application | `apps/tui/src/ui/app.ts` | `"tui"` | `"tui"` |
-| SubAgent Worker | `packages/core/src/agent/sub-agent.ts` | `"sub-agent"` | `"sub-agent"` |
-| Evals Framework | `packages/evals/src/runner.ts` | `"evals"` | `"evals"` |
+#### H3.2 — 结构化与领域感知输出压缩 (Structural & Domain-Aware Tool Truncation)
+- [ ] 升级 `ContextBuilder` 与 `tool_result` 截断逻辑，针对 `git diff`、文件目录树（`list_dir`）和编译堆栈日志实现结构化感知截断：
+  - `git diff`: 保留变更 File Header 与 Hunk 差异行，折叠无变更行
+  - `stack trace`: 保留 Error 头与首尾 3 行调用栈
+  - `tree/list_dir`: 保留顶级与第一层目录，摘要深层文件
+- [ ] **验收**: 大 Diff / 深度目录树在 >8KB 时保留结构化 Context，不破坏语法结构；单测覆盖。
 
 ---
 
-### W5.5.3 — 理清默认审批 handler 与 decide() 的双重判定关系
-- [x] `createAppContext` 默认 handler 走 `permissionPolicy.isAllowed()`（只有 allow 才为真，require_approval 视为拒绝），而 `agent.ts`（357行）和 `tools/registry.ts`（193行）各自独立调用一次 `policy.decide()`。
-- [x] 补齐回归测试（包含 headless 无 UI 回调 + require_approval 场景），并在代码里添加注释说明两层判定的用途与协同关系。
-- [x] **验收**: 新增测试覆盖 headless 无 UI 回调 + require_approval 权限组合，断言判定结果一致。
+### Tier 2 (P1) — 事件确定性与工具属性扩充
+
+#### H3.3 — 严格单调递增 Sequence ID 与事件无缝重放 (RuntimeEvent Monotonic `seq`)
+- [ ] `RuntimeEvent` 增加单调递增 `seq: number` 字段。
+- [ ] `FileEventStore` 与 `SQLiteEventStore` 在 `append` 时原子递增生成 `seq`，支持 API `/api/sessions/:id/events?sinceSeq=100`。
+- [ ] **验收**: 并发写入事件的 `seq` 严格单调递增；客户端通过 `sinceSeq` 可无缝增量重放；单测覆盖。
+
+#### H3.4 — 工具属性扩充与副作用/幂等性策略 (Tool Metadata: `readOnly` & `isIdempotency`)
+- [ ] `ToolDefinition` 增加 `readOnly?: boolean` 与 `isIdempotent?: boolean` 字段。
+- [ ] 更新 `PermissionPolicy`：声明为 `readOnly: true` 的 safe 工具允许并行并发调度与乐观 UI 响应。
+- [ ] **验收**: 只读工具与写操作工具在策略表中有清晰的并发/乐观响应区分；单测覆盖。
 
 ---
 
-### W5.5.4 — 处理 agent.ts 里 "请记住" 硬编码前缀快捷路径
-- [x] `agent.ts` 中的 `rememberPrefixes = ["请记住", "记住", "帮我记一下", "记一下"]` 快捷路径绕过了工具调用与 policy/channel 判定。
-- [x] 重构该快捷路径使其内部调用真正的 memory 工具，使其走同一套 policy 和 `RuntimeEvent` 事件记录路径。
-- [x] **验收**: 该路径产生的记忆写入在 `RuntimeEvent` 事件流中可查到对应记录。
+### Tier 3 (P2) — 子 Agent 动态配额与遥测度量
+
+#### H3.5 — 子 Agent 级联 Token 配额与事件流多路复用 (Sub-Agent Budget Cascading & Multiplexing)
+- [ ] 子 Agent 派生时继承父级动态预算配额（`maxTurns`, `maxTokens`），子 Agent 消耗实时从父级剩余总额扣减。
+- [ ] 子 Agent 产生的事件以 `parentWorkId.childEvent` 形式多路复用写入主事件总线并在 UI 中支持展开流式监控。
+- [ ] **验收**: 子 Agent 超预算自动熔断并归还控制权；UI 可流式观察子任务内部 Tool 执行。
+
+#### H3.6 — 遥测度量与 PTY / `tmux` TUI E2E 自动化测试 Harness (Cost Telemetry & PTY E2E Suite)
+- [ ] 每一轮对话统计 `input_tokens` / `output_tokens` / `cache_hit` 并实时计算估算美金开销（$）。
+- [ ] 新增 `scripts/tui-e2e.sh` 测试脚本，通过 `tmux` / PTY 仿真终端自动化测试 TUI 渲染与按键响应。
+- [ ] **验收**: 日志与 Activity 输出包含实时 Token 美金估算；`pnpm test:tui` 脚本可在 CI 运行。
 
 ---
 
@@ -80,7 +80,7 @@
 
 ---
 
-## 📜 历史阶段已完成任务归档 (W0 - W5)
+## 📜 历史阶段已完成任务归档 (W0 - W5.5)
 
 - **Phase W0** — 执行真相源与可恢复 (`RuntimeEvent`, `FileEventStore`, SSE event stream)
 - **Phase W1** — Work 数据模型与 API (`Work`, `WorkPlan`, `Activity` 投影, Works API, CLI `hachimi work`)
@@ -88,4 +88,5 @@
 - **Phase W3** — Work-first UI 最小集 (`WorkList`, Goal/Plan/Activity 三层主区, PermissionDock, Inspector)
 - **Phase W4** — 演化闭环 F5 (`TrajectoryCompressor`, `SkillProposalManager`, `~/.hachimi/proposals/`, Accept/Reject 人审)
 - **Phase W5** — 上下文治理与评测加固 (`tool_result` 8KB 截断, >30 轮规则 Compaction, 9 大 Eval benchmark 用例)
+- **Phase W5.5** — Harness 正确性前置修补 (二进制读取内存控制, Channel 映射表, 双重判定说明, `save_memory` 工具)
 - **Phase A–I 历史归档** — 见 `archive/` 目录

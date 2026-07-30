@@ -61,8 +61,11 @@ export class FileEventStore implements IEventStore {
   // ─── IEventStore 实现 ───────────────────────────────────────────────────────
 
   async append(event: RuntimeEvent): Promise<void> {
+    const existing = this.readAll(event.sessionId);
+    const seq = event.seq ?? existing.length + 1;
+    const eventWithSeq = { ...event, seq };
     const path = this.filePath(event.sessionId);
-    const line = `${JSON.stringify(event)}\n`;
+    const line = `${JSON.stringify(eventWithSeq)}\n`;
     try {
       appendFileSync(path, line, "utf-8");
     } catch (err) {

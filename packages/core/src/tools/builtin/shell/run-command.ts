@@ -36,28 +36,26 @@ export const runCommandTool: ToolDefinition = {
     try {
       let stdout = "";
       let stderr = "";
+      const options: any = {
+        cwd,
+        timeout: 30_000,
+        maxBuffer: 2 * 1024 * 1024,
+        encoding: "utf-8",
+        env: process.env,
+        signal: ctx?.signal,
+        killSignal: "SIGKILL",
+      };
+
       if (argv !== null) {
         // command 为可执行文件名 + args 数组（推荐用法，避免 shell 注入）
-        const r = await execFileAsync(command, argv, {
-          cwd,
-          timeout: 30_000,
-          maxBuffer: 2 * 1024 * 1024,
-          encoding: "utf-8",
-          env: process.env,
-        });
-        stdout = r.stdout ?? "";
-        stderr = r.stderr ?? "";
+        const r = await execFileAsync(command, argv, options);
+        stdout = String(r.stdout ?? "");
+        stderr = String(r.stderr ?? "");
       } else {
         // 兼容旧用法：整串 shell 命令，走 /bin/sh -c
-        const r = await execFileAsync("/bin/sh", ["-c", command], {
-          cwd,
-          timeout: 30_000,
-          maxBuffer: 2 * 1024 * 1024,
-          encoding: "utf-8",
-          env: process.env,
-        });
-        stdout = r.stdout ?? "";
-        stderr = r.stderr ?? "";
+        const r = await execFileAsync("/bin/sh", ["-c", command], options);
+        stdout = String(r.stdout ?? "");
+        stderr = String(r.stderr ?? "");
       }
 
       let out = [stdout, stderr].filter(Boolean).join("\n");

@@ -26,5 +26,9 @@ export type ToolDefinition = {
   description: string;
   permission: ToolPermission;
   parameters: Record<string, unknown>;
+  /** H3.4: 是否为无副作用的只读工具 */
+  readOnly?: boolean;
+  /** H3.4: 是否为重复执行幂等的工具 */
+  isIdempotent?: boolean;
   execute: (args: Record<string, unknown>, ctx?: ToolExecContext) => Promise<string>;
 };
