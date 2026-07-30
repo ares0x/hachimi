@@ -9,12 +9,45 @@ export interface ShellAuditResult {
   command: string;
 }
 
-const DANGEROUS_PATTERNS = [
-  /\brm\s+-[rRfF]*\s+\/(\s|$)/, // rm -rf /
-  /\bcurl\b.*\|\s*bash\b/, // curl ... | bash
-  /\bwget\b.*\|\s*sh\b/, // wget ... | sh
-  /\bchmod\s+777\s+\//, // chmod 777 /
-  /\b:\(\)\{\s*:\|:&\s*\};:/, // fork bomb
+const DANGEROUS_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
+  { pattern: /:\(\)\{\s*:\|:&\s*\};:/, reason: "Detected Fork Bomb attack vector." },
+  {
+    pattern:
+      /rm\s+(-[a-zA-Z]*r[a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*r)\s+(\/|~|\/\*|~\/\*|\.\.|\.\.\/\*)/i,
+    reason: "Blocked destructive root/home recursive deletion (rm -rf /).",
+  },
+  {
+    pattern: /rm\s+-rf\s+(\/|~|\/\*|\.\.)/i,
+    reason: "Blocked destructive root/home recursive deletion (rm -rf /).",
+  },
+  {
+    pattern: /(curl|wget)\s+.*\|\s*(bash|sh|zsh|python|perl|ruby)/i,
+    reason: "Blocked unverified remote script execution via pipe (curl | bash).",
+  },
+  {
+    pattern: /powershell.*-enc/i,
+    reason: "Blocked encoded PowerShell script execution.",
+  },
+  {
+    pattern:
+      /(cat|less|more|head|tail|grep)\s+.*(~|\/Users\/[^\/]+|\/home\/[^\/]+)\/\.(ssh|aws|gnupg|kube)\//i,
+    reason: "Blocked unauthorized reading of system secret files (~/.ssh, ~/.aws, ~/.kube).",
+  },
+  {
+    pattern: /cat\s+~\/\.ssh\/id_/i,
+    reason: "Blocked unauthorized reading of SSH private keys (~/.ssh/id_rsa).",
+  },
+  {
+    pattern:
+      /dd\s+if=\/dev\/(zero|null|urandom)\s+of=\/dev\/(sd[a-z]|hd[a-z]|nvme[0-9]n[0-9]|disk[0-9])/i,
+    reason: "Blocked low-level disk formatting command (dd).",
+  },
+  { pattern: /mkfs\./i, reason: "Blocked low-level filesystem formatting (mkfs)." },
+  {
+    pattern: /\bchmod\s+777\s+\//,
+    reason: "Blocked dangerous root permission override (chmod 777 /).",
+  },
+  { pattern: /\bsudo\s+/, reason: "Blocked elevated privilege execution (sudo)." },
 ];
 
 export function auditShellCommandAST(command: string): ShellAuditResult {
@@ -23,11 +56,11 @@ export function auditShellCommandAST(command: string): ShellAuditResult {
     return { allowed: true, command: trimmed };
   }
 
-  for (const pattern of DANGEROUS_PATTERNS) {
+  for (const { pattern, reason } of DANGEROUS_PATTERNS) {
     if (pattern.test(trimmed)) {
       return {
         allowed: false,
-        reason: `[安全预审拦截] 检测到高危 Shell 指令表达式 (${pattern.source})，禁止执行！`,
+        reason: `[Shell Safety Audit] ${reason}`,
         command: trimmed,
       };
     }

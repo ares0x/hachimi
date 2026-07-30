@@ -1,5 +1,6 @@
 // packages/core/src/context/builder.ts
 import { DEFAULT_TOKEN_BUDGET, MASTER_AGENT_SYSTEM_PROMPT } from "@hachimi/shared";
+import type { MemoryManager } from "../memory/manager.js";
 import type { SkillRegistry } from "../skills/registry.js";
 import type { ToolRegistry } from "../tools/registry.js";
 import type { MemoryEntry, Message } from "../types/index.js";
@@ -9,12 +10,27 @@ export interface ContextOptions {
   summaryThreshold?: number; // 历史消息超过多少条触发摘要
   mode?: "fast" | "normal" | "thoughtful"; // 模式影响摘要强度和细节保留
   enableTokenTruncation?: boolean;
-  toolResultMaxBytes?: number; // W5.1: tool_result 最大字节数限制（默认 8192）
+  toolResultMaxBytes?: number; // W5.1: tool_result 最大字节数限制（默认 4096）
+  /**
+   * Layer 1: Total byte budget for ALL tool results in message history.
+   * When the aggregate exceeds this, oldest tool results are trimmed with
+   * placeholders. Prevents 30+ file reads from silently filling the context.
+   * Default: 60000 (~60KB, ≈15-20 typical read_file results).
+   */
+  maxToolResultTotalBytes?: number;
+  /**
+   * P1: Hard cap on the number of memory entries injected into context.
+   * Beyond this limit, only the highest-importance entries are kept.
+   * Default: 20 (matching Claude Code's approach of capping memory to prevent
+   * context explosion).
+   */
+  maxMemoryEntries?: number;
 }
 
 export interface ContextBuildInput {
   userInput?: string;
   memories?: MemoryEntry[];
+  memoryManager?: MemoryManager;
   skills?: SkillRegistry;
   tools?: ToolRegistry;
   activeSkill?: string; // 按需加载的技能名
@@ -42,7 +58,9 @@ const DEFAULT_OPTIONS: Required<ContextOptions> = {
   summaryThreshold: 20,
   mode: "normal",
   enableTokenTruncation: true,
-  toolResultMaxBytes: 8192,
+  toolResultMaxBytes: 4096,
+  maxToolResultTotalBytes: 60000,
+  maxMemoryEntries: 20,
 };
 
 export class ContextBuilder {
@@ -67,33 +85,27 @@ export class ContextBuilder {
     }
     staticBlocks.push(skillsBlock);
 
+    // Slim tool list: function-calling schema carries full descriptions in the API call.
+    // System prompt only needs names + permissions for context awareness.
     let toolsBlock = "【可用工具】\n（无）";
     if (input.tools) {
       const list = input.tools.list();
       if (list.length > 0) {
-        toolsBlock =
-          "【可用工具】\n" +
-          list.map((t) => `- ${t.name} [${t.permission ?? "safe"}]: ${t.description}`).join("\n") +
-          "\n\n【高效工具使用原则】\n" +
-          "当你通过工具（如 list_dir、read_file）获取到关键信息后，必须立即在当前或下一轮直接总结并完整回答用户，禁止无休止地递归遍历所有子目录或重复调用工具导致耗尽轮次。";
+        const toolNames = list.map((t) => `- ${t.name} [${t.permission ?? "safe"}]`).join("\n");
+        toolsBlock = `【可用工具 (${list.length} 个)】\n${toolNames}`;
       }
     }
     staticBlocks.push(toolsBlock);
 
-    // 智能自主子 Agent 派发指南
+    // Sub-agent dispatch guide — keep it minimal
     if (input.tools && input.tools.get("delegate_subagent")) {
-      const subAgentRule =
-        "【自主子 Agent 派发指南】\n" +
-        "仅当评估用户的任务匹配以下场景时，方可主动调用 `delegate_subagent` 工具派发后台子 Agent 独立处理：\n" +
-        "1. 复杂技术调研 / 方案对比分析 (如比对技术 A 与 B 的差异)\n" +
-        "2. 复杂代码 / 长错误日志深度排查与提炼\n" +
-        "3. 属于独立子模块且细节繁重的长任务\n" +
-        "普通简单问答或一两句话可回答的问题，禁止派发子 Agent，直接回答即可。长耗时分析建议传入 `async: true` 开启非阻塞后台派发！";
-      staticBlocks.push(subAgentRule);
+      staticBlocks.push(
+        "【子 Agent 派发】复杂调研/对比分析/深度排查时可调用 delegate_subagent。简单问题直接回答。"
+      );
     }
 
     // --- 2. 动态变动区域 (Dynamic Region) ---
-    // 置于固定边界之后：系统本地时间 -> 激活的 Skill 详情 -> 相关记忆 -> 对话历史
+    // 置于固定边界之后：系统本地时间 -> 激活的 Skill 详情 -> 探索限制 -> 相关记忆 -> 对话历史
     const dynamicBlocks: string[] = [];
 
     const now = new Date();
@@ -115,11 +127,46 @@ export class ContextBuilder {
       }
     }
 
+    // Exploration guard: prevent infinite directory traversal.
+    // Placed BEFORE memories/history so it's the last behavioral rule the model sees.
+    dynamicBlocks.push(
+      '【探索限制】当你执行 "分析项目"、"了解架构" 等探索性任务时：' +
+        "list_dir/read_file 等数据收集工具最多使用 4-5 轮。" +
+        "之后必须停止收集新数据，基于已获取的信息直接输出结构化分析结论。" +
+        "禁止递归遍历每一个子目录。相信你已经收集了足够的信息。"
+    );
+
+    // H4.2: RAG 动态语义记忆检索装配
+    let effectiveMemories = input.memories ? [...input.memories] : [];
+    if (input.memoryManager && input.userInput) {
+      const ragMatches = input.memoryManager.searchSemanticMemories(input.userInput, {
+        topK: 5,
+        minScore: 0.25,
+      });
+      const existingIds = new Set(effectiveMemories.map((m) => m.id));
+      for (const m of ragMatches) {
+        if (!existingIds.has(m.id)) {
+          effectiveMemories.push(m);
+        }
+      }
+    }
+
     let memoriesBlock: string | undefined;
-    if (input.memories && input.memories.length > 0) {
+    if (effectiveMemories.length > 0) {
+      // P1: Apply hard cap — keep only top N highest-importance memories
+      const capped = [...effectiveMemories]
+        .sort((a, b) => (b.importance ?? 0) - (a.importance ?? 0))
+        .slice(0, opts.maxMemoryEntries);
+
+      if (capped.length < effectiveMemories.length) {
+        console.warn(
+          `[ContextBuilder] Memory entries capped: ${capped.length}/${effectiveMemories.length} kept (limit: ${opts.maxMemoryEntries})`
+        );
+      }
+
       memoriesBlock =
         "以下是与当前对话相关的记忆，请在回答时参考：\n" +
-        input.memories.map((m) => `- (${m.layer}) ${m.content}`).join("\n");
+        capped.map((m) => `- (${m.layer}) ${m.content}`).join("\n");
       dynamicBlocks.push(memoriesBlock);
     }
 
@@ -149,16 +196,54 @@ export class ContextBuilder {
     }
 
     if (input.tokenEstimator) {
-      const tokenCount = input.tokenEstimator(systemPrompt);
-      const ratio = ((tokenCount / opts.maxTokens) * 100).toFixed(1);
+      let tokenCount = input.tokenEstimator(systemPrompt);
+      let ratio = (tokenCount / opts.maxTokens) * 100;
 
       console.log(
-        `[ContextBuilder] Token 使用: ${tokenCount}/${opts.maxTokens} (${ratio}%) | 模式: ${opts.mode}`
+        `[ContextBuilder] Token 使用: ${tokenCount}/${opts.maxTokens} (${ratio.toFixed(1)}%) | 模式: ${opts.mode}`
       );
 
-      if (tokenCount > opts.maxTokens * 0.85) {
-        console.warn(`[ContextBuilder] Token 使用率较高 (${ratio}%)，建议注意对话长度`);
+      // Layer 3: Structural compaction at 95%+ — deterministic cut of old messages
+      if (ratio > 95 && input.history && input.history.length > 10) {
+        // Save reference to the OLD history block before replacing it
+        const oldHistoryBlock = historySummary;
+        const compacted = this.compactHistoryBlock(input.history, opts, input.tokenEstimator);
+
+        // Find and replace the history block in dynamic blocks
+        const histIdx = oldHistoryBlock ? dynamicBlocks.indexOf(oldHistoryBlock) : -1;
+        if (histIdx >= 0) {
+          dynamicBlocks[histIdx] = compacted;
+          historySummary = compacted;
+          systemPrompt = buildPrompt(dynamicBlocks);
+          tokenCount = input.tokenEstimator(systemPrompt);
+          ratio = (tokenCount / opts.maxTokens) * 100;
+
+          console.log(
+            `[ContextBuilder] Post-compaction: ${tokenCount}/${opts.maxTokens} (${ratio.toFixed(1)}%)`
+          );
+        }
       }
+
+      // Layer 2: Context pressure injection at 85%+
+      if (ratio > 85) {
+        const pressureNote =
+          "\n\n⚠️ 【上下文预算警告】当前上下文已使用 " +
+          `${ratio.toFixed(0)}% (${tokenCount}/${opts.maxTokens} tokens)。` +
+          "请立即停止探索和读取新文件，基于已收集的信息给出结论。如果还需要更多信息，简要说明需要什么，不要继续读取文件。";
+
+        systemPrompt = systemPrompt + pressureNote;
+
+        console.warn(
+          `[ContextBuilder] High token usage (${ratio.toFixed(1)}%) — injected context pressure note`
+        );
+      }
+    }
+
+    // Local helper for rebuilding prompt from dynamic blocks
+    function buildPrompt(dynamics: string[]) {
+      return dynamics.length > 0
+        ? `${staticPart}\n\n--- 动态上下文边界 ---\n\n${dynamics.join("\n\n")}`
+        : staticPart;
     }
 
     return {
@@ -179,14 +264,131 @@ export class ContextBuilder {
       this.sanitizeMessageContent(m, opts.toolResultMaxBytes)
     );
 
-    if (sanitizedHistory.length <= opts.summaryThreshold) {
-      return `【对话历史】\n${this.formatRecentMessages(sanitizedHistory)}`;
+    // Layer 1: Apply aggregate tool result budget
+    const trimmed = this.applyToolResultBudget(sanitizedHistory, opts.maxToolResultTotalBytes);
+
+    if (trimmed.length <= opts.summaryThreshold) {
+      return `【对话历史】\n${this.formatRecentMessages(trimmed)}`;
     }
 
-    const summary = this.summarizeHistory(sanitizedHistory, opts.mode);
-    const recent = this.formatRecentMessages(sanitizedHistory.slice(-10));
+    const summary = this.summarizeHistory(trimmed, opts.mode);
+    const recent = this.formatRecentMessages(trimmed.slice(-10));
 
     return `【对话摘要】\n${summary}\n\n【最近消息】\n${recent}`;
+  }
+
+  /**
+   * Layer 1: Cap the total byte size of tool result messages in history.
+   * When the aggregate exceeds the budget, oldest tool results are replaced
+   * with terse placeholders so the model knows a tool was called but doesn't
+   * see the stale output. Recent messages (last 10) are always preserved.
+   */
+  private applyToolResultBudget(messages: Message[], maxTotalBytes: number): Message[] {
+    if (messages.length === 0) return messages;
+
+    const RECENT_PRESERVE = 10; // always keep last N messages intact
+
+    // Find tool result messages outside the preserved tail
+    const toolResultIndices: number[] = [];
+    let totalBytes = 0;
+
+    for (let i = 0; i < messages.length; i++) {
+      const m = messages[i];
+      if (m.role === "tool" && m.content) {
+        const bytes = Buffer.byteLength(
+          typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+          "utf-8"
+        );
+        totalBytes += bytes;
+        if (i < messages.length - RECENT_PRESERVE) {
+          toolResultIndices.push(i);
+        }
+      }
+    }
+
+    if (totalBytes <= maxTotalBytes) return messages;
+
+    // Trim from oldest to newest until under budget
+    const result = [...messages];
+    let trimmedCount = 0;
+
+    for (const idx of toolResultIndices) {
+      if (totalBytes <= maxTotalBytes) break;
+
+      const m = result[idx];
+      const contentStr = typeof m.content === "string" ? m.content : JSON.stringify(m.content);
+      const removed = Buffer.byteLength(contentStr, "utf-8");
+
+      result[idx] = {
+        ...m,
+        content: `[Earlier tool result for ${m.name ?? "tool"}: content trimmed (${removed} bytes) to stay within context budget]`,
+      };
+
+      totalBytes -= removed;
+      trimmedCount++;
+    }
+
+    if (trimmedCount > 0) {
+      console.warn(
+        `[ContextBuilder] Tool result budget exceeded: trimmed ${trimmedCount} old tool result(s) (total: ${totalBytes}/${maxTotalBytes} bytes)`
+      );
+    }
+
+    return result;
+  }
+
+  /**
+   * Layer 3: Structural compaction using Pi's cut-point algorithm.
+   * Walks backward from newest messages, keeps most recent ~keepTokens
+   * worth of history. Old span is replaced with a structured placeholder.
+   * Never cuts at tool results — always at user/assistant boundaries.
+   */
+  private compactHistoryBlock(
+    history: Message[],
+    opts: Required<ContextOptions>,
+    estimator: (text: string) => number
+  ): string {
+    const keepTokens = 6000;
+    const TOOL_RESULT_ESTIMATE = 500; // rough token estimate per tool result
+
+    // Walk backward, accumulate tokens until we've kept enough
+    const kept: Message[] = [];
+    let accumulatedTokens = 0;
+
+    for (let i = history.length - 1; i >= 0; i--) {
+      const msg = history[i];
+      const contentStr =
+        typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content);
+      const est =
+        msg.role === "tool" ? TOOL_RESULT_ESTIMATE : estimator(`${msg.role}: ${contentStr}`);
+
+      if (accumulatedTokens + est > keepTokens && kept.length > 3) {
+        // Reached budget — cut here, but never at a tool result
+        if (msg.role === "tool") {
+          // Include this tool result (it belongs to its tool call above)
+          kept.unshift(msg);
+        }
+        break;
+      }
+
+      accumulatedTokens += est;
+      kept.unshift(msg);
+    }
+
+    const cutCount = history.length - kept.length;
+    if (cutCount <= 0) return this.formatRecentMessages(kept);
+
+    console.warn(
+      `[ContextBuilder] Structural compaction: dropped ${cutCount} oldest messages, keeping ${kept.length} (${accumulatedTokens} est. tokens)`
+    );
+
+    const placeholder =
+      `【更早的对话摘要】\n` +
+      `前面 ${cutCount} 条消息已被压缩以保持在上下文预算内。\n` +
+      `最近的 ${kept.length} 条消息完整保留如下。\n\n` +
+      `【最近消息】\n${this.formatRecentMessages(kept)}`;
+
+    return placeholder;
   }
 
   private sanitizeMessageContent(m: Message, maxBytes: number): Message {

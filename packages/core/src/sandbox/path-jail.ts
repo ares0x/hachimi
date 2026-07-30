@@ -6,25 +6,42 @@ import { ToolRejectedError } from "@hachimi/shared";
 export interface PathJailOptions {
   workspaceRoot?: string;
   allowOutsideWorkspace?: boolean;
+  allowOutsideRead?: boolean;
 }
 
 /**
  * G1.2: 工作区路径狱防护类 (PathJail)
- * 防止 Tool 越界读取/修改 workspace 外的宿主机敏感文件 (如 ~/.ssh, /etc/passwd)
+ * 防控 Tool 越界读取/修改 workspace 外的宿主机敏感文件 (如 ~/.ssh, /etc/passwd)
+ * 对标 Claude Code / Cursor / Windsurf 架构：
+ * - 系统敏感路径 (~/.ssh, ~/.aws, ~/.kube, /etc 等) 一律物理切断；
+ * - 工作区内部完全放行；
+ * - 针对非敏感的外部用户代码路径（如 ~/workspace/other-project），只读工具 (read_file, list_dir, grep_search) 允许安全读取，写入操作强拦截。
  */
 export class PathJail {
   private workspaceRoot: string;
   private allowOutsideWorkspace: boolean;
+  private allowOutsideRead: boolean;
+
+  private static SENSITIVE_PREFIXES = [
+    resolve(homedir(), ".ssh"),
+    resolve(homedir(), ".aws"),
+    resolve(homedir(), ".gnupg"),
+    resolve(homedir(), ".kube"),
+    "/etc",
+    "/var/root",
+    "/private/etc",
+  ];
 
   constructor(options: PathJailOptions = {}) {
     this.workspaceRoot = resolve(options.workspaceRoot || process.cwd());
     this.allowOutsideWorkspace = options.allowOutsideWorkspace ?? false;
+    this.allowOutsideRead = options.allowOutsideRead ?? true;
   }
 
   /**
-   * 校验并安全解析路径，若企图越界且未开启 allowOutsideWorkspace 则拦截
+   * 校验并安全解析路径
    */
-  assertPathInJail(targetPath: string, actionName = "访问文件"): string {
+  assertPathInJail(targetPath: string, actionName = "访问文件", isReadOnly = false): string {
     if (!targetPath) {
       throw new ToolRejectedError("targetPath", "路径不能为空");
     }
@@ -38,24 +55,43 @@ export class PathJail {
     const normalizedWorkspace = normalize(this.workspaceRoot);
     const normalizedTarget = normalize(resolved);
 
+    // 1. 物理硬化：系统敏感路径一律无条件硬拦截
+    const isSensitive = PathJail.SENSITIVE_PREFIXES.some(
+      (prefix) =>
+        normalizedTarget === prefix ||
+        normalizedTarget.startsWith(`${prefix}/`) ||
+        normalizedTarget.startsWith(`${prefix}\\`)
+    );
+    if (isSensitive) {
+      throw new ToolRejectedError(
+        actionName,
+        `[沙箱拦截: 路径越界保护] 企图访问系统敏感目录 '${targetPath}' 被拒绝。`
+      );
+    }
+
     if (this.allowOutsideWorkspace) {
       return normalizedTarget;
     }
 
-    // 检查 target 是否在 workspaceRoot 目录下 (包含子目录或精准匹配)
+    // 2. 检查 target 是否在 workspaceRoot 目录下 (包含子目录或精准匹配)
     const isInside =
       normalizedTarget === normalizedWorkspace ||
       normalizedTarget.startsWith(`${normalizedWorkspace}/`) ||
       normalizedTarget.startsWith(`${normalizedWorkspace}\\`);
 
-    if (!isInside) {
-      throw new ToolRejectedError(
-        actionName,
-        `[沙箱拦截: 路径越界保护] 尝试访问工作区以外敏感路径 '${targetPath}' (解析为 '${normalizedTarget}') 被拒绝。工作区根目录: '${normalizedWorkspace}'`
-      );
+    if (isInside) {
+      return normalizedTarget;
     }
 
-    return normalizedTarget;
+    // 3. 对只读工具（如 read_file, list_dir, grep_search），在非敏感路径且开启 allowOutsideRead 时允许安全读取
+    if (isReadOnly && this.allowOutsideRead) {
+      return normalizedTarget;
+    }
+
+    throw new ToolRejectedError(
+      actionName,
+      `[沙箱拦截: 路径越界保护] 尝试对工作区以外路径 '${targetPath}' (解析为 '${normalizedTarget}') 执行修改/写入操作被拒绝。工作区根目录: '${normalizedWorkspace}'`
+    );
   }
 
   getWorkspaceRoot(): string {

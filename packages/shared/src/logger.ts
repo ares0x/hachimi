@@ -1,6 +1,4 @@
 // packages/shared/src/logger.ts
-import { appendFileSync, mkdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
 
 export type LogLevel = "debug" | "info" | "warn" | "error" | "silent";
 
@@ -12,10 +10,34 @@ const LOG_LEVEL_MAP: Record<LogLevel, number> = {
   silent: 100,
 };
 
-let currentLevel: LogLevel = (process.env.HACHIMI_LOG_LEVEL as LogLevel) || "info";
-let isSilent = process.env.HACHIMI_LOG_SILENT === "true";
-let logFormat: "text" | "json" = (process.env.HACHIMI_LOG_FORMAT as "json") || "text";
-let logFilePath: string | null = process.env.HACHIMI_LOG_FILE || null;
+let currentLevel: LogLevel =
+  typeof process !== "undefined" && process.env?.HACHIMI_LOG_LEVEL
+    ? (process.env.HACHIMI_LOG_LEVEL as LogLevel)
+    : "info";
+
+let isSilent = typeof process !== "undefined" && process.env?.HACHIMI_LOG_SILENT === "true";
+
+let logFormat: "text" | "json" =
+  typeof process !== "undefined" && process.env?.HACHIMI_LOG_FORMAT === "json" ? "json" : "text";
+
+let logFilePath: string | null =
+  typeof process !== "undefined" && process.env?.HACHIMI_LOG_FILE
+    ? process.env.HACHIMI_LOG_FILE
+    : null;
+
+function appendToLogFile(filePath: string, text: string) {
+  try {
+    if (typeof process !== "undefined" && process.versions && process.versions.node) {
+      // Lazy load node modules only when running in Node.js
+      const fs = require("node:fs");
+      const path = require("node:path");
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      fs.appendFileSync(filePath, text, "utf-8");
+    }
+  } catch {
+    /* ignore file write errors in browser / restricted environments */
+  }
+}
 
 export function setLogLevel(level: LogLevel) {
   currentLevel = level;
@@ -32,42 +54,28 @@ export function setLogFormat(format: "text" | "json") {
 export function setLogFile(filePath: string | null) {
   logFilePath = filePath;
   if (filePath) {
-    try {
-      mkdirSync(dirname(resolve(filePath)), { recursive: true });
-    } catch {
-      /* ignore */
-    }
+    appendToLogFile(filePath, "");
   }
-}
-
-export interface LoggerOptions {
-  scope?: string;
-  metadata?: Record<string, unknown>;
 }
 
 export class Logger {
   private scope?: string;
   private metadata?: Record<string, unknown>;
 
-  constructor(options: LoggerOptions = {}) {
-    this.scope = options.scope;
-    this.metadata = options.metadata;
+  constructor(scope?: string, metadata?: Record<string, unknown>) {
+    this.scope = scope;
+    this.metadata = metadata;
   }
 
-  child(scopeOrOptions: string | LoggerOptions): Logger {
-    const opts: LoggerOptions =
-      typeof scopeOrOptions === "string" ? { scope: scopeOrOptions } : scopeOrOptions;
-    return new Logger({
-      scope: opts.scope || this.scope,
-      metadata: { ...this.metadata, ...opts.metadata },
-    });
+  child(subScope: string, extraMeta?: Record<string, unknown>): Logger {
+    const newScope = this.scope ? `${this.scope}:${subScope}` : subScope;
+    const newMeta = { ...this.metadata, ...extraMeta };
+    return new Logger(newScope, newMeta);
   }
 
   private shouldLog(level: LogLevel): boolean {
     if (isSilent) return false;
-    const targetVal = LOG_LEVEL_MAP[level] || 20;
-    const currentVal = LOG_LEVEL_MAP[currentLevel] || 20;
-    return targetVal >= currentVal;
+    return LOG_LEVEL_MAP[level] >= LOG_LEVEL_MAP[currentLevel];
   }
 
   private writeLog(level: LogLevel, msg: string, extra?: unknown) {
@@ -88,11 +96,7 @@ export class Logger {
       const jsonLine = JSON.stringify(jsonPayload);
       console[level === "debug" ? "log" : level === "silent" ? "log" : level](jsonLine);
       if (logFilePath) {
-        try {
-          appendFileSync(logFilePath, `${jsonLine}\n`, "utf-8");
-        } catch {
-          /* ignore */
-        }
+        appendToLogFile(logFilePath, `${jsonLine}\n`);
       }
       return;
     }
@@ -106,15 +110,9 @@ export class Logger {
     }
 
     if (logFilePath) {
-      try {
-        const fileContent =
-          extra !== undefined
-            ? `${formattedLine} ${JSON.stringify(extra)}\n`
-            : `${formattedLine}\n`;
-        appendFileSync(logFilePath, fileContent, "utf-8");
-      } catch {
-        /* ignore */
-      }
+      const fileContent =
+        extra !== undefined ? `${formattedLine} ${JSON.stringify(extra)}\n` : `${formattedLine}\n`;
+      appendToLogFile(logFilePath, fileContent);
     }
   }
 
@@ -137,17 +135,11 @@ export class Logger {
 
 export const logger = new Logger();
 
-/**
- * 快捷主日志函数（完全向后兼容旧版 log(level, msg, extra)）
- */
 export function log(level: LogLevel, msg: string, extra?: unknown) {
   if (level === "silent") return;
   logger[level](msg, extra);
 }
 
-/**
- * 工厂函数：创建带特定 Scope 模块前缀的子 Logger 实例
- */
 export function createScopedLogger(scope: string): Logger {
   return logger.child(scope);
 }

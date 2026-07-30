@@ -27,6 +27,7 @@ export type WorkStatus =
   | "waiting" // 等待用户输入或审批
   | "blocked" // 策略拒绝或错误需人处理
   | "completed" // 正常结束
+  | "cancelled" // 用户取消
   | "failed" // 失败结束
   | "archived"; // 用户归档
 

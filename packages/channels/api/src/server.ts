@@ -686,19 +686,18 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
     const reason = (body.reason || "user_cancelled").trim();
     const sessionId = work.sessionIds[0] || id;
 
-    // 1) 状态变更为 failed
-    const updated = runtime.works.update(id, { status: "failed" });
+    // 1) 状态变更为 cancelled
+    const updated = runtime.works.update(id, { status: "cancelled" });
 
-    // 2) 写一条 error/steer 事件留痕
+    // 2) 写一条 steer 事件留痕（标识为用户手动取消而非系统故障）
     try {
       await runtime.events.append({
         id: generateId("evt_"),
         sessionId,
-        type: "error",
+        type: "steer",
         timestamp: new Date().toISOString(),
         payload: {
-          message: `Work 已取消: ${reason}`,
-          phase: "work_cancel",
+          prompt: `Work 已取消: ${reason}`,
         },
       });
     } catch {

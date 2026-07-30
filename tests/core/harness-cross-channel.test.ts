@@ -58,8 +58,8 @@ describe("Cross-Channel HarnessRuntime Consistency Verification", () => {
     expect(sessionIds).toContain("telegram_998877");
 
     // 5. 验证事件与 Activity 在跨通道执行后完全收敛一致
-    const activity = runtime.getWorkActivity("shared-session-001");
+    const activity = await runtime.getWorkActivity("shared-session-001");
     expect(activity).toBeDefined();
-    expect(activity?.events.length).toBeGreaterThan(0);
+    expect(activity?.activities.length).toBeGreaterThan(0);
   }, 15000);
 });

@@ -44,7 +44,7 @@ export const grepSearchTool: ToolDefinition = {
 
     try {
       if (!ctx?.jail) throw new Error("ToolExecContext.jail is required");
-      const safePath = ctx.jail.assertPathInJail(searchPath, "grep_search");
+      const safePath = ctx.jail.assertPathInJail(searchPath, "grep_search", true);
       if (!existsSync(safePath)) return `[Path Not Found] ${searchPath}`;
 
       let regex: RegExp;

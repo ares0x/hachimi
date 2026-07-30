@@ -27,7 +27,7 @@
 
 ## Phase H3 — Harness 工程化极效提升 Backlog
 
-> **目标**: 对标 Claude Code, Pi, Maka-Agent 与 Grok-Build，建立工业级 Personal Agent Runtime 控制与防护体系。
+> **目标**: 对标 Claude Code, Pi 与 Grok-Build，建立工业级 Personal Agent Runtime 控制与防护体系。
 
 ### Tier 1 (P0) — 核心控制流与确定性上下文
 
@@ -75,7 +75,7 @@
 
 ## Phase H4 — 向量语义记忆与 RAG 上下文索引 Backlog (Tier 1 / P0)
 
-> **目标**: 对标 Mem0 / Maka-Agent，实现基于向量余弦相似度的跨会话 Memory 语义检索与 RAG 动态 Context 注入。
+> **目标**: 对标 Mem0，实现基于向量余弦相似度的跨会话 Memory 语义检索与 RAG 动态 Context 注入。
 
 - [ ] **H4.1 向量语义相似度检索**: 在 `MemoryManager` 中整合 `cosineSimilarity`，实现 `searchSemanticMemories(query: string, topK = 5, minScore = 0.4)` 接口。
 - [ ] **H4.2 RAG 上下文装配**: `ContextBuilder` 支持传入语义搜索结果，根据用户输入的特征动态检索注入 Top-K 记忆，提高 Prompt 精确度与 Cache 命中率。
@@ -95,7 +95,7 @@
 
 ## Phase H6 — 多 Worker 并发 DAG 与结果汇流 Backlog (Tier 3 / P2)
 
-> **目标**: 对标 Maka-Agent / AutoGen，实现树状 Work DAG 状态机与多 Worker 并发派生与结果 Join 汇流。
+> **目标**: 对标   AutoGen，实现树状 Work DAG 状态机与多 Worker 并发派生与结果 Join 汇流。
 
 - [ ] **H6.1 树状 Work DAG 状态机**: 扩展 `Work` 数据结构支持 `parentWorkId` 关联的子 Work 树状 DAG 状态管理。
 - [ ] **H6.2 多 Worker 并发派生与结果 Join 汇流**: `SubAgentDelegator` 支持 `runParallelSubAgents([tasks])` 并发派生多个 Worker，自动追踪汇总并行执行结果。

@@ -28,6 +28,7 @@ config.json
 # System & OS
 .DS_Store
 Thumbs.db
+_analysis/
 
 # IDE & Editor
 .idea/

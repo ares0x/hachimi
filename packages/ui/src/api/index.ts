@@ -305,7 +305,7 @@ export async function exportBundle(): Promise<any | null> {
 export interface WorkItem {
   id: string;
   title: string;
-  status: "active" | "waiting" | "blocked" | "completed" | "failed" | "archived";
+  status: "active" | "waiting" | "blocked" | "completed" | "cancelled" | "failed" | "archived";
   kind: "primary" | "worker";
   goal?: string;
   planTotal: number;

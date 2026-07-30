@@ -1,5 +1,6 @@
 // packages/core/src/index.ts
 
+export type { CompletionRequirement } from "./agent/agent.js";
 export { Agent } from "./agent/agent.js";
 export { MockLLMProvider } from "./agent/llm.js";
 export { createLLMFromConfig } from "./agent/llm-factory.js";
@@ -16,8 +17,12 @@ export { ContextBuilder } from "./context/builder.js";
 export type { EventListOptions, EventListResult, IEventStore } from "./events/event-store.js";
 export { FileEventStore } from "./events/file-event-store.js";
 export * from "./extensions/index.js";
+export * from "./extensions/contributor.js";
 export * from "./memory/index.js";
 export * from "./portable/index.js";
+// Run: Durable run ledger for crash recovery
+export { AgentRunStore } from "./run/agent-run-store.js";
+export type { AgentRun, AgentRunSummary, RunFailureClass, RunStatus } from "./run/index.js";
 export * from "./runtime/index.js";
 export type { PathJailOptions } from "./sandbox/path-jail.js";
 export { PathJail } from "./sandbox/path-jail.js";

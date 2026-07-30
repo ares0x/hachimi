@@ -117,10 +117,20 @@ export interface ErrorEvent extends BaseRuntimeEvent {
 export interface RunFinishedEvent extends BaseRuntimeEvent {
   type: "run_finished";
   payload: {
+    /** Durable run identifier — links this event to an AgentRun record */
+    runId?: string;
     durationMs: number;
     success: boolean;
     summary?: string;
     usage?: NormalizedUsage & { costUsd?: number };
+  };
+}
+
+export interface ThinkingEvent extends BaseRuntimeEvent {
+  type: "thinking";
+  payload: {
+    content: string;
+    durationMs?: number;
   };
 }
 
@@ -130,6 +140,7 @@ export type RuntimeEvent =
   | SessionStartedEvent
   | UserMessageEvent
   | AssistantMessageEvent
+  | ThinkingEvent
   | ToolCallEvent
   | ToolResultEvent
   | ApprovalRequestedEvent
@@ -143,7 +154,14 @@ export type RuntimeEventType = RuntimeEvent["type"];
 
 // ─── 投影：Activity（UI 展示层的统一视图） ────────────────────────────────────
 
-export type ActivityType = "message" | "tool" | "approval" | "steer" | "error" | "system";
+export type ActivityType =
+  | "message"
+  | "tool"
+  | "approval"
+  | "steer"
+  | "error"
+  | "system"
+  | "thinking";
 
 export interface Activity {
   id: string;
@@ -159,6 +177,8 @@ export interface Activity {
   toolArgs?: Record<string, unknown>;
   toolResult?: string;
   isToolError?: boolean;
+  /** 执行耗时 (ms) */
+  durationMs?: number;
   /** 审批相关字段 */
   approvalId?: string;
   approvalDecision?: "granted" | "denied" | "pending";

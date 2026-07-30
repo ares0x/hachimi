@@ -119,7 +119,7 @@ describe("HarnessRuntime Core Unified Orchestration Engine", () => {
     expect(work).not.toBeNull();
     expect(work?.id).toBe(sessionId); // 1:1 映射
     expect(work?.kind).toBe("primary");
-    expect(work?.status).toBe("active");
+    expect(work?.status).toBe("completed");
     expect(work?.title.toLowerCase()).toContain("周报");
   });
 });

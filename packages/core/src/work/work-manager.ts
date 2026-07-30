@@ -232,16 +232,16 @@ export class WorkManager {
     // 使用主 sessionId（初始阶段 1:1）
     const sessionId = work.sessionIds[0] || workId;
     const result = await this.eventStore.list(sessionId, {
-      limit: (options.limit || 50) * 3, // 预取更多以支持合并
+      limit: Math.max((options.limit || 50) * 10, 1000), // 预取全量事件以防多轮对话中 User 消息被截断
       cursor: options.cursor,
     });
 
     const activities = this.projectToActivities(result.events, sessionId);
 
     return {
-      activities: activities.slice(0, options.limit || 50),
+      activities,
       nextCursor: result.nextCursor,
-      total: result.total,
+      total: activities.length,
     };
   }
 
@@ -282,6 +282,18 @@ export class WorkManager {
             role: "assistant",
             timestamp: event.timestamp,
             content: event.payload.content,
+            sourceEventIds: [event.id],
+          });
+          break;
+
+        case "thinking":
+          activities.push({
+            id: event.id,
+            sessionId,
+            type: "thinking",
+            timestamp: event.timestamp,
+            content: event.payload.content,
+            durationMs: event.payload.durationMs,
             sourceEventIds: [event.id],
           });
           break;
@@ -328,31 +340,8 @@ export class WorkManager {
           break;
 
         case "approval_granted":
-          activities.push({
-            id: event.id,
-            sessionId,
-            type: "approval",
-            timestamp: event.timestamp,
-            content: `已批准：${event.payload.toolName}`,
-            toolName: event.payload.toolName,
-            approvalId: event.payload.approvalId,
-            approvalDecision: "granted",
-            sourceEventIds: [event.id],
-          });
-          break;
-
         case "approval_denied":
-          activities.push({
-            id: event.id,
-            sessionId,
-            type: "approval",
-            timestamp: event.timestamp,
-            content: `已拒绝：${event.payload.toolName}${event.payload.reason ? ` (${event.payload.reason})` : ""}`,
-            toolName: event.payload.toolName,
-            approvalId: event.payload.approvalId,
-            approvalDecision: "denied",
-            sourceEventIds: [event.id],
-          });
+          // Skip pushing redundant standalone approved/denied cards into timeline
           break;
 
         case "steer":
@@ -395,12 +384,12 @@ export class WorkManager {
         type: "tool",
         timestamp: callEvent.timestamp,
         content: `工具调用中：${callEvent.payload.toolName}`,
-        toolName: callEvent.payload.toolName,
-        toolArgs: callEvent.payload.args,
         sourceEventIds: [callEvent.id],
       });
     }
 
+    // Sort activities by timestamp to ensure chronological display in UI
+    activities.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     return activities;
   }
 

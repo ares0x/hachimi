@@ -11,13 +11,41 @@ import type { MemoryManager } from "../memory/manager.js";
 import type { SkillRegistry } from "../skills/registry.js";
 import type { SurfaceType } from "../tools/policy.js";
 import type { ToolRegistry } from "../tools/registry.js";
-import type { ChannelType, LLMProvider, Message, ToolPermission } from "../types/index.js";
+import type {
+  ChannelType,
+  LLMProvider,
+  Message,
+  ToolCall,
+  ToolPermission,
+} from "../types/index.js";
 import type { WorkManager } from "../work/work-manager.js";
+
+/**
+ * P1: Completion requirement — harness-level enforcement that the agent
+ * MUST call a specific tool before finishing. If the agent stops without
+ * calling it, the harness injects a reminder and retries (up to maxRetries).
+ */
+export interface CompletionRequirement {
+  /** Tool name that must be called (e.g. "complete_task") */
+  tool: string;
+  /** Reminder injected when agent stops without calling the tool */
+  reminder: string;
+  /** Max retries, default 3 */
+  maxRetries?: number;
+}
 
 export interface AgentRunOptions {
   onChunk?: (chunk: string) => void;
-  onToolStart?: (name: string, args: Record<string, unknown>) => void;
-  onToolEnd?: (name: string, result: string, durationMs: number, success: boolean) => void;
+  onThinking?: (reasoningContent: string) => void;
+  onIntermediateMessage?: (content: string) => void;
+  onToolStart?: (name: string, args: Record<string, unknown>, toolCallId?: string) => void;
+  onToolEnd?: (
+    name: string,
+    result: string,
+    durationMs: number,
+    success: boolean,
+    toolCallId?: string
+  ) => void;
   hooks?: HookRegistry;
   sessionId?: string;
   /**
@@ -49,6 +77,12 @@ export interface AgentRunOptions {
     args: Record<string, unknown>;
     permission: string;
   }) => void | Promise<void>;
+  /**
+   * P1: Completion requirement — harness enforces that the agent must call
+   * the specified tool before finishing. If the agent stops without it,
+   * the harness injects the reminder and retries.
+   */
+  completionRequirement?: CompletionRequirement;
 }
 
 export interface AgentOptions {
@@ -59,6 +93,10 @@ export interface AgentOptions {
   contextBuilder?: ContextBuilder;
   hooks?: HookRegistry;
   maxToolRounds?: number;
+  /** Context budget — fed from config.context */
+  maxTokens?: number;
+  summaryThreshold?: number;
+  mode?: "fast" | "normal" | "thoughtful";
   onToolApproval?: (
     toolName: string,
     args: Record<string, unknown>,
@@ -79,6 +117,9 @@ export class Agent {
   private contextBuilder: ContextBuilder;
   private hooks?: HookRegistry;
   private maxToolRounds: number;
+  private contextMaxTokens: number;
+  private contextMode: "fast" | "normal" | "thoughtful";
+  private contextSummaryThreshold: number;
   private activeSkill?: string;
   private running = false;
   private pendingSteerPrompt: string | null = null;
@@ -105,6 +146,9 @@ export class Agent {
     this.contextBuilder = options.contextBuilder ?? new ContextBuilder();
     this.hooks = options.hooks;
     this.maxToolRounds = options.maxToolRounds ?? DEFAULT_MAX_TOOL_ROUNDS;
+    this.contextMaxTokens = options.maxTokens ?? 12000;
+    this.contextMode = options.mode ?? "normal";
+    this.contextSummaryThreshold = options.summaryThreshold ?? 25;
     this.onToolApproval = options.onToolApproval;
     this.onToolStart = options.onToolStart;
     this.onToolEnd = options.onToolEnd;
@@ -177,12 +221,16 @@ export class Agent {
     }
   }
 
+  /** P1: Tools called during the current run — used for completion requirement enforcement */
+  private toolsCalledThisRun: Set<string> = new Set();
+
   private async executeRun(
     userInput: string,
     history: Message[] = [],
     options?: AgentRunOptions
   ): Promise<string> {
     const input = userInput.trim();
+    this.toolsCalledThisRun = new Set(); // reset per-run
 
     // 1. 自然语言记住 (W5.5.4: 经过标准 ToolRegistry 管道与 RuntimeEvent 留痕)
     const rememberPrefixes = ["请记住", "记住", "帮我记一下", "记一下"];
@@ -253,9 +301,9 @@ export class Agent {
       activeSkill: this.activeSkill,
       history,
       options: {
-        maxTokens: 12000,
-        mode: "normal",
-        summaryThreshold: 25,
+        maxTokens: this.contextMaxTokens,
+        mode: this.contextMode,
+        summaryThreshold: this.contextSummaryThreshold,
       },
       tokenEstimator: defaultTokenEstimator,
     });
@@ -301,8 +349,42 @@ export class Agent {
         ? await this.llm.chatStream(messages, toolDefs, options?.onChunk)
         : await this.llm.chat(messages, toolDefs);
 
+      if (response.reasoning_content) {
+        if (options?.onThinking) {
+          options.onThinking(response.reasoning_content);
+        }
+      }
+
       if (!response.tool_calls || response.tool_calls.length === 0) {
         const finalContent = response.content ?? "";
+
+        // P1: Completion requirement enforcement — harness-level contract
+        const completion = options?.completionRequirement;
+        const completionRetries = (options as any)?._completionRetries ?? 0;
+        if (
+          completion &&
+          !this.toolsCalledThisRun.has(completion.tool) &&
+          completionRetries < (completion.maxRetries ?? 3)
+        ) {
+          const reminder = completion.reminder;
+          console.log(
+            `[Agent] Completion requirement not met — tool '${completion.tool}' not called. ` +
+              `Retry ${completionRetries + 1}/${completion.maxRetries ?? 3}. Injecting reminder.`
+          );
+          messages.push({
+            id: generateId("msg_"),
+            role: "user",
+            content: reminder,
+            timestamp: Date.now(),
+          });
+          // Pass incremented retry count through options
+          const retryOptions = {
+            ...options,
+            _completionRetries: completionRetries + 1,
+          };
+          return await this.executeRun(reminder, messages, retryOptions);
+        }
+
         messages.push({
           id: generateId("msg_"),
           role: "assistant",
@@ -331,7 +413,12 @@ export class Agent {
         response.tool_calls.map((c) => `${c.name}(${JSON.stringify(c.arguments)})`)
       );
 
-      // 有工具调用
+      // 有工具调用：如果包含中间助手回答文本，触发回调通知记录
+      const interContent = (response.content || "").trim();
+      if (interContent && options?.onIntermediateMessage) {
+        options.onIntermediateMessage(interContent);
+      }
+
       messages.push({
         id: generateId("msg_"),
         role: "assistant",
@@ -340,117 +427,18 @@ export class Agent {
         timestamp: Date.now(),
       });
 
-      for (const call of response.tool_calls) {
-        const toolDef = this.tools.get(call.name);
-        const permission = (toolDef?.permission ?? "safe") as ToolPermission;
+      // P1: Partition tool calls into concurrent-safe and serial batches.
+      // Read-only + safe tools can run in parallel; write/dangerous tools run serially.
+      const { concurrent, serial } = this.partitionToolCalls(response.tool_calls);
 
-        const startTime = Date.now();
-        // per-call 优先，回退到构造时注入
-        const toolStartHandler = options?.onToolStart ?? this.onToolStart;
-        const toolEndHandler = options?.onToolEnd ?? this.onToolEnd;
-        if (toolStartHandler) {
-          toolStartHandler(call.name, call.arguments);
-        }
+      // Execute concurrent batch in parallel
+      const concurrentResults = await Promise.all(
+        concurrent.map((call) => this.executeOneTool(call, messages, options))
+      );
 
-        let approved = true;
-        const approvalHandler = options?.onToolApproval ?? this.onToolApproval;
-
-        // W5.5.3: 【双重判定契约 - 第一层 (Agent 决策层)】
-        // 此处在 Agent 循环中调用 PermissionPolicy.decide() 决定是否需要交互式审批 (onToolApproval)；
-        // 第二层判定位于 ToolRegistry.execute() 内部（作为基础防御与单独 API 调用的安全闸口），
-        // 当 Agent 取得用户同意后会向 ToolRegistry 传入 confirm: true，两层判定结果保持 100% 规则一致。
-        const surface = (options?.channel ?? "api") as SurfaceType;
-        const policyDecision = this.tools
-          .getPermissionPolicy()
-          .decide(surface, call.name, toolDef?.permission ?? "safe");
-
-        if (policyDecision === "deny") {
-          // 策略直接拒绝（如 deny surface 或 allowlist 不含此工具）
-          approved = false;
-        } else if (policyDecision === "require_approval") {
-          // 拒绝熔断：同一工具被拒达到上限后短路，防止 agent 死循环重试
-          const priorRejections = this.rejectionCounts.get(call.name) || 0;
-          if (priorRejections >= this.maxRejectionsPerTool) {
-            this.totalRejections++;
-            const stopMsg = `[已停止] 工具 ${call.name} 已被拒绝 ${priorRejections} 次，请停止重试并向用户说明，或改用其他方式。`;
-            messages.push({
-              id: generateId("msg_"),
-              role: "tool",
-              content: stopMsg,
-              tool_call_id: call.id,
-              name: call.name,
-              timestamp: Date.now(),
-            });
-            if (toolEndHandler) {
-              toolEndHandler(call.name, stopMsg, 0, false);
-            }
-            if (this.totalRejections >= this.maxTotalRejections) {
-              const halt = "\n\n⚠️ [多次工具被拒，已停止本轮执行]";
-              if (options?.onChunk) options.onChunk(halt);
-              return halt;
-            }
-            continue;
-          }
-
-          // 优先使用 per-call 交互式审批 handler（如 API server 的 SSE confirm_required），
-          // 回退到构造时的 this.onToolApproval（适用于非交互表面的 CI/自动化场景）
-          if (approvalHandler) {
-            // W2.2: 先触发 onApprovalRequested，写入 approval_requested 事件
-            if (options?.onApprovalRequested) {
-              const approvalId = `apr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-              try {
-                await options.onApprovalRequested({
-                  approvalId,
-                  toolName: call.name,
-                  args: call.arguments,
-                  permission,
-                });
-              } catch {
-                /* 事件写入失败不阻断审批流程 */
-              }
-            }
-            approved = await approvalHandler(call.name, call.arguments, permission);
-          } else {
-            // 安全绝杀：无 handler 且 policy 要求审批 → 默认拒绝
-            approved = false;
-          }
-          if (!approved) {
-            this.rejectionCounts.set(call.name, priorRejections + 1);
-            this.totalRejections++;
-          }
-        }
-        // policyDecision === "allow"：直接进入执行，不需要审批回调
-
-        const result = approved
-          ? await this.tools.execute(call.name, call.arguments, {
-              confirm: approved,
-              onToolApproval: approvalHandler,
-              hooks: options?.hooks || this.hooks,
-              sessionId: options?.sessionId,
-              channel: options?.channel,
-              workId: options?.workId,
-              workManager: options?.workManager,
-            })
-          : formatUserRejectionMessage(call.name);
-
-        console.log(
-          `[Agent ToolLoop Round ${rounds}] Tool '${call.name}' result:`,
-          result.slice(0, 150)
-        );
-
-        const durationMs = Date.now() - startTime;
-        if (toolEndHandler) {
-          toolEndHandler(call.name, result, durationMs, approved);
-        }
-
-        messages.push({
-          id: generateId("msg_"),
-          role: "tool",
-          content: result,
-          tool_call_id: call.id,
-          name: call.name,
-          timestamp: Date.now(),
-        });
+      // Execute serial batch one at a time
+      for (const call of serial) {
+        await this.executeOneTool(call, messages, options);
       }
     }
 
@@ -459,6 +447,127 @@ export class Agent {
       options.onChunk(stopMsg);
     }
     return stopMsg;
+  }
+
+  // ── P1: Tool Concurrency Partitioning ──────────────────────────────
+
+  /** Derive concurrency safety: explicit flag > readOnly+safe heuristic > false */
+  private isToolConcurrencySafe(toolName: string): boolean {
+    const tool = this.tools.get(toolName);
+    if (!tool) return false;
+    if (tool.isConcurrencySafe !== undefined) return tool.isConcurrencySafe;
+    return tool.readOnly === true && tool.permission === "safe";
+  }
+
+  /** Split tool calls into concurrent-safe and serial batches */
+  private partitionToolCalls(calls: ToolCall[]): {
+    concurrent: ToolCall[];
+    serial: ToolCall[];
+  } {
+    const concurrent: ToolCall[] = [];
+    const serial: ToolCall[] = [];
+    for (const call of calls) {
+      if (this.isToolConcurrencySafe(call.name)) {
+        concurrent.push(call);
+      } else {
+        serial.push(call);
+      }
+    }
+    return { concurrent, serial };
+  }
+
+  /** Execute one tool call and append result to messages. Thread-safe for parallel calls. */
+  private async executeOneTool(
+    call: ToolCall,
+    messages: Message[],
+    options?: AgentRunOptions
+  ): Promise<void> {
+    this.toolsCalledThisRun.add(call.name);
+    const toolDef = this.tools.get(call.name);
+    const permission = (toolDef?.permission ?? "safe") as ToolPermission;
+
+    const startTime = Date.now();
+    const toolStartHandler = options?.onToolStart ?? this.onToolStart;
+    const toolEndHandler = options?.onToolEnd ?? this.onToolEnd;
+    if (toolStartHandler) {
+      toolStartHandler(call.name, call.arguments, call.id);
+    }
+
+    let approved = true;
+    const approvalHandler = options?.onToolApproval ?? this.onToolApproval;
+    const surface = (options?.channel ?? "api") as SurfaceType;
+    const policyDecision = this.tools
+      .getPermissionPolicy()
+      .decide(surface, call.name, toolDef?.permission ?? "safe");
+
+    if (policyDecision === "deny") {
+      approved = false;
+    } else if (policyDecision === "require_approval") {
+      const priorRejections = this.rejectionCounts.get(call.name) || 0;
+      if (priorRejections >= this.maxRejectionsPerTool) {
+        this.totalRejections++;
+        const stopMsg = `[已停止] 工具 ${call.name} 已被拒绝 ${priorRejections} 次，请停止重试并向用户说明，或改用其他方式。`;
+        messages.push({
+          id: generateId("msg_"),
+          role: "tool",
+          content: stopMsg,
+          tool_call_id: call.id,
+          name: call.name,
+          timestamp: Date.now(),
+        });
+        if (toolEndHandler) toolEndHandler(call.name, stopMsg, 0, false, call.id);
+        return;
+      }
+
+      if (approvalHandler) {
+        if (options?.onApprovalRequested) {
+          const approvalId = `apr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+          try {
+            await options.onApprovalRequested({
+              approvalId,
+              toolName: call.name,
+              args: call.arguments,
+              permission,
+            });
+          } catch {
+            /* non-blocking */
+          }
+        }
+        approved = await approvalHandler(call.name, call.arguments, permission);
+      } else {
+        approved = false;
+      }
+      if (!approved) {
+        this.rejectionCounts.set(call.name, priorRejections + 1);
+        this.totalRejections++;
+      }
+    }
+
+    const result = approved
+      ? await this.tools.execute(call.name, call.arguments, {
+          confirm: approved,
+          onToolApproval: approvalHandler,
+          hooks: options?.hooks || this.hooks,
+          sessionId: options?.sessionId,
+          channel: options?.channel,
+          workId: options?.workId,
+          workManager: options?.workManager,
+        })
+      : formatUserRejectionMessage(call.name);
+
+    const durationMs = Date.now() - startTime;
+    if (toolEndHandler) {
+      toolEndHandler(call.name, result, durationMs, approved, call.id);
+    }
+
+    messages.push({
+      id: generateId("msg_"),
+      role: "tool",
+      content: result,
+      tool_call_id: call.id,
+      name: call.name,
+      timestamp: Date.now(),
+    });
   }
 
   getMemory(): MemoryManager {

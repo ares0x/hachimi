@@ -41,7 +41,7 @@ export const listDirTool: ToolDefinition = {
 
     try {
       if (!ctx?.jail) throw new Error("ToolExecContext.jail is required");
-      const safePath = ctx.jail.assertPathInJail(dirPath, "list_dir");
+      const safePath = ctx.jail.assertPathInJail(dirPath, "list_dir", true);
       if (!existsSync(safePath)) return `[Directory Not Found] ${dirPath}`;
       if (!statSync(safePath).isDirectory()) return `[Not a Directory] ${dirPath}`;
 

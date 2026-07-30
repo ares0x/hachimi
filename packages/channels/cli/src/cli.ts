@@ -68,6 +68,7 @@ const STATUS_LABEL: Record<WorkStatus, string> = {
   waiting: "等待中",
   blocked: "阻塞中",
   completed: "已完成",
+  cancelled: "已取消",
   failed: "已失败",
   archived: "已归档",
 };
@@ -77,6 +78,7 @@ const STATUS_COLOR: Record<WorkStatus, string> = {
   waiting: "\x1b[33m",
   blocked: "\x1b[31m",
   completed: "\x1b[32m",
+  cancelled: "\x1b[90m",
   failed: "\x1b[35m",
   archived: "\x1b[90m",
 };

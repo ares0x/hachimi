@@ -112,6 +112,7 @@ export function App() {
   const [works, setWorks] = useState<WorkItem[]>([]);
   const [activeWorkId, setActiveWorkId] = useState<string | null>(null);
   const [workDetail, setWorkDetail] = useState<LoadedWorkDetail | null>(null);
+  const [daemonStatus, setDaemonStatus] = useState<any>(null);
 
   const [input, setInput] = useState("");
   const [running, setRunning] = useState(false);
@@ -250,6 +251,10 @@ export function App() {
       fetchStatus(),
     ]);
 
+    if (status) {
+      setDaemonStatus(status);
+    }
+
     const plan: PlanStepRaw[] = Array.isArray(work?.plan)
       ? work.plan.map((p: any, i: number) => ({
           id: String(p.id ?? `s_${i}`),
@@ -290,18 +295,51 @@ export function App() {
           }
         : undefined;
 
-    setWorkDetail({
-      id: workId,
-      title: work?.title ?? sess?.title ?? `Work ${workId.slice(0, 8)}`,
-      goal: typeof work?.goal === "string" ? work.goal : undefined,
-      status: work?.status ?? "active",
-      plan,
-      timeline: (activities || []) as TimelineActivityStep[],
-      rawEvents,
-      tokens: status?.context?.tokens ?? work?.tokens ?? 0,
-      maxTokens: status?.context?.maxTokens ?? 12000,
-      requestId: sess?.requestId ?? work?.requestId ?? undefined,
-      awaitingApproval: awaiting,
+    setWorkDetail((prev) => {
+      let timeline = (activities || []) as TimelineActivityStep[];
+      if (prev?.id === workId) {
+        // 1. Preserve optimistic user prompt (pending_...) if server activities don't have it yet
+        const pendingUserMsgs = prev.timeline.filter((t) => t.id.startsWith("pending_"));
+        for (const userMsg of pendingUserMsgs) {
+          const userTime = new Date(userMsg.timestamp).getTime();
+          const hasServerUserMsg = timeline.some(
+            (t) => t.role === "user" && new Date(t.timestamp).getTime() >= userTime - 2000
+          );
+          if (!hasServerUserMsg) {
+            timeline.push(userMsg);
+          }
+        }
+
+        // 2. Preserve optimistic streaming assistant response (assistant_streaming_...)
+        const streamingAssistantMsg = prev.timeline.find((t) =>
+          t.id.startsWith("assistant_streaming_")
+        );
+        if (streamingAssistantMsg) {
+          const streamingTime = new Date(streamingAssistantMsg.timestamp).getTime();
+          const hasServerAssistantMsg = timeline.some(
+            (t) => t.role === "assistant" && new Date(t.timestamp).getTime() >= streamingTime - 2000
+          );
+          if (!hasServerAssistantMsg) {
+            timeline.push(streamingAssistantMsg);
+          }
+        }
+      }
+
+      timeline.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      return {
+        id: workId,
+        title: work?.title ?? sess?.title ?? `Work ${workId.slice(0, 8)}`,
+        goal: typeof work?.goal === "string" ? work.goal : undefined,
+        status: work?.status ?? "active",
+        plan,
+        timeline,
+        rawEvents,
+        tokens: status?.context?.tokens ?? work?.tokens ?? 0,
+        maxTokens: status?.context?.maxTokens ?? 12000,
+        requestId: sess?.requestId ?? work?.requestId ?? undefined,
+        awaitingApproval: awaiting,
+      };
     });
   }, []);
 
@@ -410,11 +448,43 @@ export function App() {
 
     const targetWorkId = workIdToUse || String(Date.now());
 
+    // Optimistically show user's message in the timeline immediately
+    const optimisticUserMsg = {
+      id: `pending_${Date.now()}`,
+      type: "message" as const,
+      role: "user" as const,
+      timestamp: new Date().toISOString(),
+      content: intentText.trim(),
+    };
+    setWorkDetail((prev) =>
+      prev ? { ...prev, timeline: [...prev.timeline, optimisticUserMsg] } : prev
+    );
+
+    const assistantMsgId = `assistant_streaming_${Date.now()}`;
     await streamChatPrompt(
       intentText,
       targetWorkId,
-      () => {
-        // noop — 真实聊天渲染走 timeline
+      (chunk: string) => {
+        setWorkDetail((prev) => {
+          if (!prev) return prev;
+          const timeline = [...prev.timeline];
+          const lastIdx = timeline.findIndex((t) => t.id === assistantMsgId);
+          if (lastIdx >= 0) {
+            timeline[lastIdx] = {
+              ...timeline[lastIdx],
+              content: timeline[lastIdx].content + chunk,
+            };
+          } else {
+            timeline.push({
+              id: assistantMsgId,
+              type: "message",
+              role: "assistant",
+              timestamp: new Date().toISOString(),
+              content: chunk,
+            });
+          }
+          return { ...prev, timeline };
+        });
       },
       (confirmInfo) => {
         setApprovalQueue(confirmInfo);
@@ -507,6 +577,15 @@ export function App() {
         workDetail.plan[workDetail.plan.length - 1])
       : undefined;
 
+    const rawTools = daemonStatus?.tools || [];
+    const activeTools = Array.isArray(rawTools)
+      ? rawTools.map((t: any) => ({
+          name: typeof t === "string" ? t : t.name || "tool",
+          permission: (typeof t === "object" && t.permission) || "safe",
+          description: (typeof t === "object" && t.description) || "",
+        }))
+      : [];
+
     return {
       currentStep: currentPlanStep
         ? {
@@ -516,15 +595,15 @@ export function App() {
             description: currentPlanStep.description,
           }
         : undefined,
-      memories: [],
-      activeTools: [],
+      memories: daemonStatus?.memories || [],
+      activeTools,
       awaitingApproval: workDetail?.awaitingApproval,
       rawRecentEvents: workDetail?.rawEvents,
-      tokens: workDetail?.tokens ?? 0,
-      maxTokens: workDetail?.maxTokens ?? 12000,
+      tokens: daemonStatus?.context?.estimatedTokens ?? workDetail?.tokens ?? 0,
+      maxTokens: daemonStatus?.context?.maxTokens ?? workDetail?.maxTokens ?? 16000,
       requestId: workDetail?.requestId,
     };
-  }, [workDetail]);
+  }, [workDetail, daemonStatus]);
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
@@ -627,6 +706,7 @@ export function App() {
               <div>
                 <ActivityTimeline
                   activities={workDetail?.timeline ?? []}
+                  isRunning={running}
                   onApprove={(id) =>
                     resolveApprovalForTimeline(id, "approve", resolveApproval, approvalQueue)
                   }
@@ -772,6 +852,8 @@ function workStatusLabel(s: WorkItem["status"]): string {
       return "阻塞";
     case "completed":
       return "已完成";
+    case "cancelled":
+      return "已取消";
     case "failed":
       return "失败";
     case "archived":

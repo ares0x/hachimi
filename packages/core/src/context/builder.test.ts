@@ -30,8 +30,9 @@ describe("ContextBuilder Prompt-Cache stability and tail truncation", () => {
     });
 
     const prompt = built.systemPrompt;
-    expect(prompt.indexOf("你是 hachimi")).toBeLessThan(prompt.indexOf("【可用工具】"));
-    expect(prompt.indexOf("【可用工具】")).toBeLessThan(prompt.indexOf("--- 动态上下文边界 ---"));
+    expect(prompt.indexOf("You are Hachimi")).toBeGreaterThan(-1);
+    expect(prompt.indexOf("You are Hachimi")).toBeLessThan(prompt.indexOf("【可用工具"));
+    expect(prompt.indexOf("【可用工具")).toBeLessThan(prompt.indexOf("--- 动态上下文边界 ---"));
     expect(prompt.indexOf("--- 动态上下文边界 ---")).toBeLessThan(prompt.indexOf("用户喜欢咖啡"));
   });
 

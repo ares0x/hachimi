@@ -48,7 +48,7 @@ function genericFallback(toolName: string, args: Record<string, unknown>): ToolA
   for (const [k, v] of entries) {
     const raw = typeof v === "string" ? v : JSON.stringify(v);
     const { text, truncated } = truncateText(raw, 120, 3);
-    oneLineParts.push(`${k}=${truncated ? text + "…" : text}`);
+    oneLineParts.push(`${k}=${truncated ? `${text}…` : text}`);
     const { text: fieldText, truncated: fieldTrunc } = truncateText(
       raw,
       MAX_PREVIEW_CHARS,
@@ -57,7 +57,7 @@ function genericFallback(toolName: string, args: Record<string, unknown>): ToolA
     fields.push({
       key: k,
       label: k,
-      value: fieldText + (fieldTrunc ? "\n…[已截断]" : ""),
+      value: fieldText + (fieldTrunc ? "\n...[truncated]" : ""),
       truncated: fieldTrunc,
       mono: true,
     });
@@ -74,28 +74,28 @@ export function summarizeToolArgs(toolName: string, args: Record<string, unknown
 
   switch (toolName) {
     case "write_file": {
-      const path = String(safeArgs.path ?? "");
+      const path = String(safeArgs.path ?? "?");
       const content = String(safeArgs.content ?? "");
       const bytes = Buffer.byteLength(content, "utf-8");
       const lines = countLines(content);
       const { text: preview, truncated } = truncateText(content);
 
       return {
-        oneLine: `写入文件 ${path}  (${formatBytes(bytes)}, ${lines} 行)`,
+        oneLine: `Wrote ${path} (${formatBytes(bytes)}, ${lines} lines)`,
         fields: [
-          { key: "path", label: "目标路径", value: path, mono: true },
+          { key: "path", label: "Path", value: path, mono: true },
           {
             key: "size",
-            label: "文件大小",
-            value: `${formatBytes(bytes)}  ·  ${lines} 行`,
+            label: "Size",
+            value: `${formatBytes(bytes)} · ${lines} lines`,
           },
           {
             key: "content",
-            label: "内容预览",
+            label: "Preview",
             value:
               preview +
               (truncated
-                ? `\n…[仅预览前 ${MAX_PREVIEW_LINES} 行 / ${MAX_PREVIEW_CHARS} 字符，完整内容 ${formatBytes(bytes)}]`
+                ? `\n...[preview first ${MAX_PREVIEW_LINES} lines / ${MAX_PREVIEW_CHARS} chars, total ${formatBytes(bytes)}]`
                 : ""),
             truncated,
             code: true,
@@ -105,32 +105,32 @@ export function summarizeToolArgs(toolName: string, args: Record<string, unknown
     }
 
     case "delete_file": {
-      const path = String(safeArgs.path ?? "");
+      const path = String(safeArgs.path ?? "?");
       return {
-        oneLine: `删除文件 ${path}`,
+        oneLine: `Deleted ${path}`,
         fields: [
-          { key: "path", label: "目标路径", value: path, mono: true },
+          { key: "path", label: "Path", value: path, mono: true },
           {
             key: "warn",
-            label: "注意",
-            value: "此操作将永久删除该文件（不可恢复目录）",
+            label: "Note",
+            value: "Permanently deleted file",
           },
         ],
       };
     }
 
     case "read_file": {
-      const path = String(safeArgs.path ?? "");
+      const path = String(safeArgs.path ?? safeArgs.file ?? "?");
       const offset = safeArgs.offset !== undefined ? Number(safeArgs.offset) : 1;
       const limit = safeArgs.limit !== undefined ? Number(safeArgs.limit) : undefined;
       return {
-        oneLine: `读取文件 ${path}${limit ? `  (第 ${offset}-${offset + limit - 1} 行)` : ""}`,
+        oneLine: `Read ${path}${limit ? ` (lines ${offset}-${offset + limit - 1})` : ""}`,
         fields: [
-          { key: "path", label: "路径", value: path, mono: true },
+          { key: "path", label: "Path", value: path, mono: true },
           {
             key: "range",
-            label: "范围",
-            value: `offset=${offset}, limit=${limit ?? "(默认)"}`,
+            label: "Range",
+            value: `offset=${offset}, limit=${limit ?? "(default)"}`,
           },
         ],
       };
@@ -139,8 +139,28 @@ export function summarizeToolArgs(toolName: string, args: Record<string, unknown
     case "list_dir": {
       const path = String(safeArgs.path ?? ".");
       return {
-        oneLine: `列出目录 ${path}`,
-        fields: [{ key: "path", label: "目录", value: path, mono: true }],
+        oneLine: `Listed entries in ${path}`,
+        fields: [{ key: "path", label: "Directory", value: path, mono: true }],
+      };
+    }
+
+    case "grep_search": {
+      const query = String(safeArgs.query ?? safeArgs.pattern ?? "");
+      const path = String(safeArgs.path ?? ".");
+      return {
+        oneLine: `Searched for "${query}" in ${path}`,
+        fields: [
+          { key: "query", label: "Query", value: query, mono: true },
+          { key: "path", label: "Path", value: path, mono: true },
+        ],
+      };
+    }
+
+    case "replace_file_content": {
+      const path = String(safeArgs.path ?? "?");
+      return {
+        oneLine: `Replaced content in ${path}`,
+        fields: [{ key: "path", label: "Path", value: path, mono: true }],
       };
     }
 
@@ -151,14 +171,14 @@ export function summarizeToolArgs(toolName: string, args: Record<string, unknown
       const { text: preview, truncated } = truncateText(fullCmd, 300, 4);
 
       return {
-        oneLine: `执行命令 ${truncated ? preview + "…" : preview}`,
+        oneLine: `Ran command: ${truncated ? `${preview}…` : preview}`,
         fields: [
-          { key: "command", label: "可执行文件", value: command, mono: true },
+          { key: "command", label: "Executable", value: command, mono: true },
           ...(cmdArgs
             ? [
                 {
                   key: "args",
-                  label: "参数列表",
+                  label: "Args",
                   value: cmdArgs.join(" "),
                   mono: true,
                   truncated: cmdArgs.join(" ").length > 200,
@@ -167,8 +187,8 @@ export function summarizeToolArgs(toolName: string, args: Record<string, unknown
             : []),
           {
             key: "cmdline",
-            label: "完整命令行",
-            value: preview + (truncated ? " …[过长截断]" : ""),
+            label: "CommandLine",
+            value: preview + (truncated ? " ...[truncated]" : ""),
             truncated,
             code: true,
           },
@@ -178,25 +198,40 @@ export function summarizeToolArgs(toolName: string, args: Record<string, unknown
 
     case "update_work_plan": {
       const workId = String(safeArgs.workId ?? "");
-      const plan = String(safeArgs.plan ?? "");
-      const { text: preview, truncated } = truncateText(plan, 500, 15);
       return {
-        oneLine: `更新 Work 计划: ${workId || "(未指定)"}`,
+        oneLine: `Updated Work plan: ${workId || "(current)"}`,
         fields: [
           {
             key: "workId",
             label: "Work ID",
-            value: workId || "(当前)",
-            mono: true,
-          },
-          {
-            key: "plan",
-            label: "计划内容",
-            value: preview + (truncated ? "\n…[内容已截断]" : ""),
-            truncated,
+            value: workId || "(current)",
             mono: true,
           },
         ],
+      };
+    }
+
+    case "delegate_subagent": {
+      const desc = String(safeArgs.taskDescription ?? "");
+      return {
+        oneLine: `Dispatched Sub-Agent: ${desc.slice(0, 50)}${desc.length > 50 ? "…" : ""}`,
+        fields: [{ key: "taskDescription", label: "Task", value: desc }],
+      };
+    }
+
+    case "check_subagent_status": {
+      const taskId = String(safeArgs.taskId ?? "?");
+      return {
+        oneLine: `Checked Sub-Agent status: ${taskId}`,
+        fields: [{ key: "taskId", label: "Task ID", value: taskId, mono: true }],
+      };
+    }
+
+    case "activate_skill": {
+      const skillName = String(safeArgs.skill_name ?? "?");
+      return {
+        oneLine: `Activated skill: ${skillName}`,
+        fields: [{ key: "skill_name", label: "Skill", value: skillName, mono: true }],
       };
     }
 

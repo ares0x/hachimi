@@ -16,7 +16,8 @@
     "noUnusedParameters": false,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@hachimi/shared": ["../shared/src/index.ts"]
     }
   },
   "include": ["src"]

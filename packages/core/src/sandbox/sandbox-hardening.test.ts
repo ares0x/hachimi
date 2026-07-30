@@ -34,9 +34,13 @@ describe("Phase G1 Sandbox Hardening Suite (Env Scrubbing & PathJail)", () => {
       jail.assertPathInJail("../../.ssh/id_rsa");
     }).toThrow("[沙箱拦截: 路径越界保护]");
 
-    // 拦截绝对路径越界企图
+    // 允许非敏感外部路径的只读操作 (read_file / list_dir)
+    const extRead = jail.assertPathInJail("/Users/jace/workspace/other-repo/src", "list_dir", true);
+    expect(extRead).toBe("/Users/jace/workspace/other-repo/src");
+
+    // 拒绝非敏感外部路径的写/删操作 (write_file / delete_file)
     expect(() => {
-      jail.assertPathInJail("/etc/passwd");
+      jail.assertPathInJail("/Users/jace/workspace/other-repo/src", "write_file", false);
     }).toThrow("[沙箱拦截: 路径越界保护]");
   });
 
@@ -48,5 +52,15 @@ describe("Phase G1 Sandbox Hardening Suite (Env Scrubbing & PathJail)", () => {
     });
 
     expect(result).toMatch(/\[(沙箱提示|Sandbox Info)\]/);
+  });
+
+  it("G1.4: ToolSandbox allows read_file / list_dir on external non-sensitive paths", async () => {
+    const sandbox = new ToolSandbox({ workspaceRoot: "/workspace/my-app" });
+
+    const result = await sandbox.executeToolInSandbox("list_dir", async () => "dir_contents", {
+      args: { path: "/Users/jace/workspace/other-repo" },
+    });
+
+    expect(result).toBe("dir_contents");
   });
 });

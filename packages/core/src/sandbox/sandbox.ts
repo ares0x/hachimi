@@ -72,6 +72,14 @@ export class ToolSandbox {
   ): Promise<string> {
     // 1. PathJail 工作区越界与敏感文件访问拦截 (PathJail 物理断点硬化)
     if (options.args) {
+      const READ_ONLY_TOOLS = new Set([
+        "read_file",
+        "list_dir",
+        "grep_search",
+        "view_file",
+        "find_files",
+      ]);
+      const isReadOnly = READ_ONLY_TOOLS.has(toolName);
       const pathArgKeys = ["path", "filepath", "targetfile", "file", "dir", "dest", "src"];
       for (const [key, val] of Object.entries(options.args)) {
         if (typeof val === "string") {
@@ -80,7 +88,7 @@ export class ToolSandbox {
 
           if (isPathKey || isPathValue) {
             try {
-              this.pathJail.assertPathInJail(val);
+              this.pathJail.assertPathInJail(val, toolName, isReadOnly);
             } catch (err: any) {
               return formatSandboxPathJailMessage(toolName, err?.message || String(err));
             }

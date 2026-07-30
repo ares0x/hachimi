@@ -14,6 +14,7 @@ import type {
   ImportBundleOptions,
   ImportBundleResult,
 } from "../portable/types.js";
+import { AgentRunStore } from "../run/agent-run-store.js";
 import type { SessionManager } from "../session/manager.js";
 import type { SkillRegistry } from "../skills/registry.js";
 import type { SurfaceType } from "../tools/policy.js";
@@ -25,8 +26,16 @@ import { createAppContext } from "./context.js";
 
 export interface RuntimeInputOptions {
   onChunk?: (chunk: string) => void;
-  onToolStart?: (name: string, args: Record<string, unknown>) => void;
-  onToolEnd?: (name: string, result: string, durationMs: number, success: boolean) => void;
+  onToolStart?: (name: string, args: Record<string, unknown>, toolCallId?: string) => void;
+  onToolEnd?: (
+    name: string,
+    result: string,
+    durationMs: number,
+    success: boolean,
+    toolCallId?: string
+  ) => void;
+  onThinking?: (reasoningContent: string) => void;
+  onIntermediateMessage?: (content: string) => void;
   onToolApproval?: (
     toolName: string,
     args: Record<string, unknown>,
@@ -82,6 +91,8 @@ export class HarnessRuntime {
   public readonly events: IEventStore;
   /** W1: Work manager */
   public readonly works: WorkManager;
+  /** Run: Durable run ledger for crash recovery */
+  public readonly runs: AgentRunStore;
 
   constructor(options: CreateAppContextOptions | AppContext = {}) {
     if ("memory" in options && "agent" in options) {
@@ -100,6 +111,15 @@ export class HarnessRuntime {
     this.skillLoader = this.context.skillLoader;
     this.events = this.context.events;
     this.works = this.context.works;
+    this.runs = new AgentRunStore(this.context.config.paths?.dataDir ?? "./data");
+
+    // Startup recovery: repair any runs left in non-terminal state by a previous crash
+    const recovered = this.runs.recoverStaleRuns();
+    if (recovered > 0) {
+      log("warn", `Recovered ${recovered} stale run(s) from previous session.`, {
+        component: "AgentRunStore",
+      });
+    }
 
     // Automatically register sub-agent delegation and status check tools
     this.subAgentDelegator = new SubAgentDelegator(this);
@@ -117,11 +137,21 @@ export class HarnessRuntime {
    */
   async execute(input: RuntimeInput): Promise<RuntimeOutput> {
     const startTime = Date.now();
+    const runId = generateId("run_");
 
     // 1. Session 加载或获取
     const sessionObj = this.sessions.getOrCreate(input.sessionId);
     const sessionId = sessionObj.id;
     const channel = input.channel ?? "api";
+
+    // Run: create durable run record
+    this.runs.createRun({
+      runId,
+      sessionId,
+      workId: sessionId,
+      status: "running",
+      startedAt: new Date().toISOString(),
+    });
 
     // W0: 写入 session_started 事件（若首次）
     const isFirstRun = sessionObj.messages.length === 0;
@@ -183,11 +213,22 @@ export class HarnessRuntime {
         // W1.3: Work 上下文，使 update_work_plan 等内置工具可以读写 Work.plan
         workId,
         workManager: this.works,
+        onIntermediateMessage: async (interContent) => {
+          void (await this.events.append({
+            id: generateId("evt_"),
+            sessionId,
+            type: "assistant_message",
+            timestamp: new Date().toISOString(),
+            payload: { content: interContent },
+          }));
+          if (input.options?.onIntermediateMessage) {
+            input.options.onIntermediateMessage(interContent);
+          }
+        },
         // W0 / W2.2: 写入 tool_call / tool_result / approval_requested 事件
-        onToolStart: async (toolName, args) => {
-          const callId = generateId("call_");
-          pendingToolCalls.set(toolName + "_" + Date.now(), callId);
-          pendingToolCalls.set("__last__", callId);
+        onToolStart: async (toolName, args, toolCallId) => {
+          const callId = toolCallId || generateId("call_");
+          pendingToolCalls.set(callId, toolName);
           void (await this.events.append({
             id: generateId("evt_"),
             sessionId,
@@ -195,11 +236,11 @@ export class HarnessRuntime {
             timestamp: new Date().toISOString(),
             payload: { toolCallId: callId, toolName, args },
           }));
-          if (input.options?.onToolStart) input.options.onToolStart(toolName, args);
+          if (input.options?.onToolStart) input.options.onToolStart(toolName, args, callId);
         },
-        onToolEnd: async (toolName, result, durationMs, success) => {
-          const callId = pendingToolCalls.get("__last__") || generateId("call_");
-          pendingToolCalls.delete("__last__");
+        onToolEnd: async (toolName, result, durationMs, success, toolCallId) => {
+          const callId = toolCallId || pendingToolCalls.get(toolName) || generateId("call_");
+          pendingToolCalls.delete(callId);
           void (await this.events.append({
             id: generateId("evt_"),
             sessionId,
@@ -214,8 +255,18 @@ export class HarnessRuntime {
             },
           }));
           if (input.options?.onToolEnd) {
-            input.options.onToolEnd(toolName, result, durationMs, success);
+            input.options.onToolEnd(toolName, result, durationMs, success, callId);
           }
+        },
+        onThinking: async (reasoningContent) => {
+          void (await this.events.append({
+            id: generateId("evt_"),
+            sessionId,
+            type: "thinking",
+            timestamp: new Date().toISOString(),
+            payload: { content: reasoningContent },
+          }));
+          if (input.options?.onThinking) input.options.onThinking(reasoningContent);
         },
         onApprovalRequested: async ({ approvalId, toolName, args, permission }) => {
           void (await this.events.append({
@@ -276,14 +327,23 @@ export class HarnessRuntime {
         sessionId,
         type: "run_finished",
         timestamp: new Date().toISOString(),
-        payload: { durationMs, success: true },
+        payload: { runId, durationMs, success: true },
       });
+
+      // Run: mark as completed
+      this.runs.completeRun(runId, "completed");
+      if (workId) {
+        this.works.update(workId, { status: "completed" });
+      }
 
       // 6. 更新与保存 Session
       this.sessions.save(sessionObj);
     } catch (err: any) {
       isError = true;
       errorDetail = err?.message || String(err);
+      if (workId) {
+        this.works.update(workId, { status: "failed" });
+      }
       log("error", `❌ [HarnessRuntime Execution Error] SessionId: ${sessionId}`, {
         channel: input.channel,
         error: errorDetail,
@@ -293,6 +353,12 @@ export class HarnessRuntime {
       if (input.options?.onChunk) {
         input.options.onChunk(content);
       }
+
+      // Run: mark as failed
+      this.runs.completeRun(runId, "failed", {
+        failureClass: "error",
+        errorMessage: errorDetail,
+      });
 
       // W0: 写入 error 事件
       await this.events
@@ -362,6 +428,10 @@ export class HarnessRuntime {
    */
   getStatus() {
     return this.context.getStatus();
+  }
+
+  async getWorkActivity(workId: string) {
+    return await this.works.listActivities(workId);
   }
 
   /**

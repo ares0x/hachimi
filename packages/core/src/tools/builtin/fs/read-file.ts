@@ -97,7 +97,7 @@ export const readFileTool: ToolDefinition = {
 
     try {
       const jail = requireJail(ctx);
-      const safePath = jail.assertPathInJail(filePath, "读取文件");
+      const safePath = jail.assertPathInJail(filePath, "read_file", true);
 
       if (!existsSync(safePath)) {
         return `[文件不存在] ${filePath}`;

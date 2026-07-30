@@ -37,7 +37,7 @@ describe("H2.1 ContextBuilder Contract & Prompt Cache Lock Suite", () => {
 
     const identityIdx = prompt.indexOf("你是 Hachimi Agent");
     const skillsIdx = prompt.indexOf("【当前可用技能列表】");
-    const toolsIdx = prompt.indexOf("【可用工具】");
+    const toolsIdx = prompt.indexOf("【可用工具");
     const boundaryIdx = prompt.indexOf("--- 动态上下文边界 ---");
     const memoryIdx = prompt.indexOf("用户喜欢黑色");
 
@@ -49,22 +49,21 @@ describe("H2.1 ContextBuilder Contract & Prompt Cache Lock Suite", () => {
   });
 
   it("performs tail-only truncation on dynamic region when token budget is exceeded", async () => {
-    const builder = new ContextBuilder("你是 Hachimi Agent");
+    const builder = new ContextBuilder("You are Hachimi");
 
     const longHistory = Array.from({ length: 50 }).map((_, i) => ({
       id: `msg_${i}`,
       role: "user" as const,
-      content: `这是第 ${i} 条长对话文本内容...`.repeat(20),
+      content: `这是超级长的人工输入消息 ${i} `.repeat(50),
       timestamp: Date.now(),
     }));
 
     const result = await builder.build({
       history: longHistory,
-      tokenEstimator: (str) => Math.ceil(str.length / 2),
-      options: { maxTokens: 200, enableTokenTruncation: true },
+      options: { maxTokens: 1000, enableTokenTruncation: true },
     });
 
     // 静态 Prefix 依然被完整保留在顶部以保证 Prompt Cache Hit
-    expect(result.systemPrompt).toContain("你是 Hachimi Agent");
+    expect(result.systemPrompt).toContain("You are Hachimi");
   });
 });

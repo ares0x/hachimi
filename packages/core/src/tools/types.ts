@@ -30,5 +30,17 @@ export type ToolDefinition = {
   readOnly?: boolean;
   /** H3.4: 是否为重复执行幂等的工具 */
   isIdempotent?: boolean;
+  /**
+   * P1: 是否可以与其他工具并发执行。
+   * 仅对 readOnly 工具默认为 true；write/delete/dangerous 工具默认为 false。
+   * Agent 循环的 tool batching 依赖此字段进行动态分批。
+   */
+  isConcurrencySafe?: boolean;
+  /** P1: 是否为破坏性/高危工具（如强制删除、改写主配置），触发双重安全确认 */
+  isDestructive?: boolean;
+  /** P1: 工具入参前置校验机制，在沙箱执行前由 Preflight Gate 预检 */
+  validateInput?: (args: Record<string, unknown>) => { valid: boolean; reason?: string };
+  /** P1: 结构化渲染器，将工具原始输出转换为 UI 极简摘要 */
+  renderToolResultMessage?: (result: unknown) => string;
   execute: (args: Record<string, unknown>, ctx?: ToolExecContext) => Promise<string>;
 };

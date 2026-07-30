@@ -194,6 +194,7 @@ export class OpenAICompatibleProvider implements ProviderTransport {
     const reader = (res.body as any).getReader();
     const decoder = new TextDecoder("utf-8");
     let accumulatedContent = "";
+    let accumulatedReasoning = "";
     const toolCallsMap: Record<number, { id: string; name: string; argumentsStr: string }> = {};
     let buffer = "";
 
@@ -215,6 +216,12 @@ export class OpenAICompatibleProvider implements ProviderTransport {
             const data = JSON.parse(trimmed.substring(6));
             const delta = data.choices?.[0]?.delta;
             if (!delta) continue;
+
+            const reasoningChunk =
+              delta.reasoning_content || delta.reasoning || delta.thinking || null;
+            if (reasoningChunk) {
+              accumulatedReasoning += reasoningChunk;
+            }
 
             if (delta.content) {
               accumulatedContent += delta.content;
@@ -256,12 +263,14 @@ export class OpenAICompatibleProvider implements ProviderTransport {
     if (toolCallsList.length > 0) {
       return {
         content: accumulatedContent || null,
+        reasoning_content: accumulatedReasoning || null,
         tool_calls: toolCallsList,
       };
     }
 
     return {
-      content: accumulatedContent,
+      content: accumulatedContent || "",
+      reasoning_content: accumulatedReasoning || null,
     };
   }
 }

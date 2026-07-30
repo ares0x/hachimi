@@ -146,6 +146,9 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
     contextBuilder,
     hooks,
     maxToolRounds: config.agent.maxToolRounds,
+    maxTokens: config.context.maxTokens,
+    mode: config.context.defaultMode,
+    summaryThreshold: config.context.summaryThreshold,
     onToolApproval: effectiveToolApproval,
   });
 

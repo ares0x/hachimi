@@ -14,6 +14,7 @@ export const CHANNELS = ["cli", "desktop", "api", "telegram", "wechat", "slack",
 
 export * from "./constants/index.js";
 export * from "./errors.js";
+export * from "./semantic-search.js";
 export type { LogLevel } from "./logger.js";
 export { createScopedLogger, log, setLogFormat, setLogLevel, setLogSilent } from "./logger.js";
 export {

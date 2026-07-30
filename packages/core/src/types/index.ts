@@ -8,6 +8,8 @@ export type SessionId = string;
 /** Unique identifier for a user (can be local or channel-specific) */
 export type UserId = string;
 
+export type { InvocationContext } from "./invocation-context.js";
+
 /** 已知的核心 Channel 标识符（仅用于编辑器自动补全） */
 export type KnownChannelType = "cli" | "desktop" | "api" | "telegram" | "system";
 
@@ -88,6 +90,21 @@ export interface ToolDefinition {
   execute: (args: Record<string, unknown>, ctx?: any) => Promise<string>;
   /** 工具风险等级；默认 safe。Registry 据此触发 PermissionPolicy 裁决 */
   permission?: ToolPermission;
+  /** H3.4: 是否为无副作用的只读工具 */
+  readOnly?: boolean;
+  /** H3.4: 是否为重复执行幂等的工具 */
+  isIdempotent?: boolean;
+  /**
+   * P1: 是否可以与其他工具并发执行。
+   * 仅对 readOnly 工具默认为 true；write/delete/dangerous 工具默认为 false。
+   */
+  isConcurrencySafe?: boolean;
+  /** P1: 是否为破坏性/高危工具 */
+  isDestructive?: boolean;
+  /** P1: 工具入参前置校验机制 */
+  validateInput?: (args: Record<string, unknown>) => { valid: boolean; reason?: string };
+  /** P1: 结构化渲染器，将工具原始输出转换为 UI 极简摘要 */
+  renderToolResultMessage?: (result: unknown) => string;
 }
 
 export interface ToolContext {
@@ -123,6 +140,7 @@ export interface OutgoingMessage {
 
 export interface LLMResponse {
   content: string | null;
+  reasoning_content?: string | null;
   tool_calls?: ToolCall[];
 }
 

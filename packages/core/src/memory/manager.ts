@@ -1,4 +1,10 @@
-import { cosineSimilarity, generateId, jaccardSimilarity, normalizeText } from "@hachimi/shared";
+import {
+  cosineSimilarity,
+  generateId,
+  jaccardSimilarity,
+  normalizeText,
+  searchSemanticRank,
+} from "@hachimi/shared";
 import type { JsonFileStore } from "@hachimi/storage";
 import { FileJsonStore } from "@hachimi/storage";
 import type { MemoryEntry, MemoryLayer } from "../types/index.js";
@@ -124,6 +130,29 @@ export class MemoryManager {
       e.lastAccessedAt = now;
       return e;
     });
+  }
+
+  /**
+   * H4.1: 基于向量余弦相似度的语义记忆检索
+   */
+  searchSemanticMemories(
+    query: string,
+    optionsOrTopK: number | { topK?: number; minScore?: number; layers?: MemoryLayer[] } = 5,
+    minScoreArg = 0.25
+  ): MemoryEntry[] {
+    const topK = typeof optionsOrTopK === "number" ? optionsOrTopK : (optionsOrTopK.topK ?? 5);
+    const minScore =
+      typeof optionsOrTopK === "number" ? minScoreArg : (optionsOrTopK.minScore ?? 0.25);
+    const layers =
+      typeof optionsOrTopK === "number"
+        ? ["working", "session", "long_term"]
+        : (optionsOrTopK.layers ?? ["working", "session", "long_term"]);
+
+    const candidates: MemoryEntry[] = [];
+    for (const layer of layers as MemoryLayer[]) {
+      candidates.push(...this.getLayerArray(layer));
+    }
+    return searchSemanticRank(candidates, query, (entry) => entry.content, topK, minScore);
   }
 
   // 获取某层所有记忆
@@ -279,22 +308,5 @@ export class MemoryManager {
         this.archival = [];
         break;
     }
-  }
-
-  /**
-   * H4.1: 基于语义与文本相似度的 RAG 检索
-   */
-  searchSemanticMemories(query: string, topK = 5, minScore = 0.25): MemoryEntry[] {
-    const all = this.list();
-    const scored = all.map((entry) => {
-      const score = jaccardSimilarity(query, entry.content);
-      return { entry, score };
-    });
-
-    return scored
-      .filter(({ score }) => score >= minScore)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, topK)
-      .map(({ entry }) => entry);
   }
 }

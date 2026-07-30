@@ -22,7 +22,7 @@ export function GoalPanel({
   /** 禁用所有编辑操作 */
   disabled?: boolean;
   /** 当前 Work 状态，用于视觉提示 */
-  status?: "active" | "waiting" | "blocked" | "completed" | "failed" | "archived";
+  status?: "active" | "waiting" | "blocked" | "completed" | "cancelled" | "failed" | "archived";
   defaultCollapsed?: boolean;
   className?: string;
 }) {
@@ -59,6 +59,7 @@ export function GoalPanel({
     waiting: "text-warning",
     blocked: "text-warning",
     completed: "text-success",
+    cancelled: "text-muted-foreground/80",
     failed: "text-danger",
     archived: "text-muted-foreground/60",
   };
@@ -155,7 +156,7 @@ export function GoalPanel({
 }
 
 function statusLabel(
-  s: "active" | "waiting" | "blocked" | "completed" | "failed" | "archived"
+  s: "active" | "waiting" | "blocked" | "completed" | "cancelled" | "failed" | "archived"
 ): string {
   switch (s) {
     case "active":
@@ -166,6 +167,8 @@ function statusLabel(
       return "阻塞";
     case "completed":
       return "已完成";
+    case "cancelled":
+      return "已取消";
     case "failed":
       return "失败";
     case "archived":

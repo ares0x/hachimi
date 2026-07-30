@@ -200,6 +200,14 @@ export class ToolRegistry {
     }
     // decision === "allow"：直接进入执行
 
+    // 3.5) Preflight Gate: 输入参数校验 (validateInput)
+    if (tool.validateInput) {
+      const valRes = tool.validateInput(args);
+      if (!valRes.valid) {
+        return `[Preflight Check Failed] Tool '${name}' validation failed: ${valRes.reason || "Invalid input parameters"}`;
+      }
+    }
+
     // 4) PreToolCall
     if (options?.hooks) {
       const preResult = await options.hooks.runPreToolCall({

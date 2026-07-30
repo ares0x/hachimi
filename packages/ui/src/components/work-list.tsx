@@ -4,13 +4,21 @@ import type { WorkItem } from "../api";
 import { cn, formatRelativeTime } from "../lib/utils";
 import { Mark, SectionLabel } from "./primitives";
 
-export type WorkStatus = "active" | "waiting" | "blocked" | "completed" | "failed" | "archived";
+export type WorkStatus =
+  | "active"
+  | "waiting"
+  | "blocked"
+  | "completed"
+  | "cancelled"
+  | "failed"
+  | "archived";
 
 const STATUS_COLOR: Record<WorkStatus, string> = {
   active: "bg-blue-500",
   waiting: "bg-amber-500",
   blocked: "bg-red-500",
   completed: "bg-emerald-500",
+  cancelled: "bg-zinc-500",
   failed: "bg-rose-500",
   archived: "bg-zinc-400",
 };
@@ -20,6 +28,7 @@ const STATUS_LABEL: Record<WorkStatus, string> = {
   waiting: "等待处理",
   blocked: "阻塞中",
   completed: "已完成",
+  cancelled: "已取消",
   failed: "已失败",
   archived: "已归档",
 };
