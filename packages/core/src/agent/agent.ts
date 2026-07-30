@@ -11,23 +11,13 @@ import type { MemoryManager } from "../memory/manager.js";
 import type { SkillRegistry } from "../skills/registry.js";
 import type { SurfaceType } from "../tools/policy.js";
 import type { ToolRegistry } from "../tools/registry.js";
-import type {
-  ChannelType,
-  LLMProvider,
-  Message,
-  ToolPermission,
-} from "../types/index.js";
+import type { ChannelType, LLMProvider, Message, ToolPermission } from "../types/index.js";
 import type { WorkManager } from "../work/work-manager.js";
 
 export interface AgentRunOptions {
   onChunk?: (chunk: string) => void;
   onToolStart?: (name: string, args: Record<string, unknown>) => void;
-  onToolEnd?: (
-    name: string,
-    result: string,
-    durationMs: number,
-    success: boolean,
-  ) => void;
+  onToolEnd?: (name: string, result: string, durationMs: number, success: boolean) => void;
   hooks?: HookRegistry;
   sessionId?: string;
   /**
@@ -47,7 +37,7 @@ export interface AgentRunOptions {
   onToolApproval?: (
     toolName: string,
     args: Record<string, unknown>,
-    permission: string,
+    permission: string
   ) => Promise<boolean>;
   /**
    * W2.2: 每次触发 onToolApproval 回调之前调用，用于写入 approval_requested 事件
@@ -72,15 +62,10 @@ export interface AgentOptions {
   onToolApproval?: (
     toolName: string,
     args: Record<string, unknown>,
-    permission: string,
+    permission: string
   ) => Promise<boolean>;
   onToolStart?: (name: string, args: Record<string, unknown>) => void;
-  onToolEnd?: (
-    name: string,
-    result: string,
-    durationMs: number,
-    success: boolean,
-  ) => void;
+  onToolEnd?: (name: string, result: string, durationMs: number, success: boolean) => void;
 }
 
 /**
@@ -107,15 +92,10 @@ export class Agent {
   private onToolApproval?: (
     toolName: string,
     args: Record<string, unknown>,
-    permission: string,
+    permission: string
   ) => Promise<boolean>;
   private onToolStart?: (name: string, args: Record<string, unknown>) => void;
-  private onToolEnd?: (
-    name: string,
-    result: string,
-    durationMs: number,
-    success: boolean,
-  ) => void;
+  private onToolEnd?: (name: string, result: string, durationMs: number, success: boolean) => void;
 
   constructor(options: AgentOptions) {
     this.llm = options.llm;
@@ -136,7 +116,7 @@ export class Agent {
           this.skills.getActivationTool((skillName) => {
             this.activeSkill = skillName;
             console.log(`[Skill] 显式激活技能: ${skillName}`);
-          }),
+          })
         );
       } catch {
         /* ignore if already registered */
@@ -158,9 +138,7 @@ export class Agent {
       return false;
     }
     this.pendingSteerPrompt = prompt.trim();
-    console.log(
-      `[Agent] 收到中途转向指令 (steer): "${this.pendingSteerPrompt}"`,
-    );
+    console.log(`[Agent] 收到中途转向指令 (steer): "${this.pendingSteerPrompt}"`);
     return true;
   }
 
@@ -187,7 +165,7 @@ export class Agent {
   async run(
     userInput: string,
     history: Message[] = [],
-    options?: AgentRunOptions,
+    options?: AgentRunOptions
   ): Promise<string> {
     this.running = true;
     this.rejectionCounts.clear();
@@ -202,7 +180,7 @@ export class Agent {
   private async executeRun(
     userInput: string,
     history: Message[] = [],
-    options?: AgentRunOptions,
+    options?: AgentRunOptions
   ): Promise<string> {
     const input = userInput.trim();
 
@@ -243,11 +221,7 @@ export class Agent {
             toolStartHandler("save_memory", { content });
           }
 
-          const reply = await this.tools.execute(
-            "save_memory",
-            { content },
-            { channel },
-          );
+          const reply = await this.tools.execute("save_memory", { content }, { channel });
 
           if (toolEndHandler) {
             toolEndHandler("save_memory", reply, 0, true);
@@ -256,8 +230,7 @@ export class Agent {
           if (options?.onChunk) options.onChunk(reply);
           return reply;
         } else {
-          const reply =
-            "请告诉我需要记住的具体内容，例如：请记住我喜欢喝手冲咖啡";
+          const reply = "请告诉我需要记住的具体内容，例如：请记住我喜欢喝手冲咖啡";
           if (options?.onChunk) options.onChunk(reply);
           return reply;
         }
@@ -355,9 +328,7 @@ export class Agent {
 
       console.log(
         `[Agent ToolLoop Round ${rounds}] ToolCalls:`,
-        response.tool_calls.map(
-          (c) => `${c.name}(${JSON.stringify(c.arguments)})`,
-        ),
+        response.tool_calls.map((c) => `${c.name}(${JSON.stringify(c.arguments)})`)
       );
 
       // 有工具调用
@@ -438,11 +409,7 @@ export class Agent {
                 /* 事件写入失败不阻断审批流程 */
               }
             }
-            approved = await approvalHandler(
-              call.name,
-              call.arguments,
-              permission,
-            );
+            approved = await approvalHandler(call.name, call.arguments, permission);
           } else {
             // 安全绝杀：无 handler 且 policy 要求审批 → 默认拒绝
             approved = false;
@@ -468,7 +435,7 @@ export class Agent {
 
         console.log(
           `[Agent ToolLoop Round ${rounds}] Tool '${call.name}' result:`,
-          result.slice(0, 150),
+          result.slice(0, 150)
         );
 
         const durationMs = Date.now() - startTime;

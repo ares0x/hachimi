@@ -75,8 +75,7 @@ describe("HarnessRuntime Core Unified Orchestration Engine", () => {
 
     // user_message payload 含内容与 channel
     const userMsg = list.events.find(
-      (e): e is Extract<RuntimeEvent, { type: "user_message" }> =>
-        e.type === "user_message"
+      (e): e is Extract<RuntimeEvent, { type: "user_message" }> => e.type === "user_message"
     );
     expect(userMsg?.payload.content).toBe("介绍一下 Hachimi");
     expect(userMsg?.payload.channel).toBe("web");
@@ -124,4 +123,3 @@ describe("HarnessRuntime Core Unified Orchestration Engine", () => {
     expect(work?.title.toLowerCase()).toContain("周报");
   });
 });
-

@@ -79,6 +79,7 @@
       "!**/coverage",
       "!**/data*",
       "!**/.gemini",
+      "!**/.alma-snapshots",
       "!**/demo",
       "!**/*.jsonl",
       "!**/*.db",

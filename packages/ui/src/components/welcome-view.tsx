@@ -128,11 +128,7 @@ export function WelcomeView({
             className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
             aria-label="切换主题"
           >
-            {theme === "light" ? (
-              <Sun className="size-4" />
-            ) : (
-              <Moon className="size-4" />
-            )}
+            {theme === "light" ? <Sun className="size-4" /> : <Moon className="size-4" />}
           </button>
           <button
             type="button"
@@ -141,7 +137,7 @@ export function WelcomeView({
               "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium transition-colors",
               contextOpen
                 ? "bg-surface-active text-foreground"
-                : "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
+                : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
             )}
           >
             <PanelRight className="size-4" />

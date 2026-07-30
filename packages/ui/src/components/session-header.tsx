@@ -1,12 +1,4 @@
-import {
-  ChevronDown,
-  GitBranch,
-  Moon,
-  OctagonX,
-  PanelLeft,
-  PanelRight,
-  Sun,
-} from "lucide-react";
+import { ChevronDown, GitBranch, Moon, OctagonX, PanelLeft, PanelRight, Sun } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Meta, StatusDot } from "./primitives";
 
@@ -58,9 +50,7 @@ export function SessionHeader({
           <PanelLeft className="size-4" />
         </button>
         <div className="min-w-0">
-          <h1 className="truncate text-[15px] font-medium text-foreground">
-            {title}
-          </h1>
+          <h1 className="truncate text-[15px] font-medium text-foreground">{title}</h1>
           {subtitle && <Meta className="mt-0.5">{subtitle}</Meta>}
         </div>
       </div>
@@ -106,11 +96,7 @@ export function SessionHeader({
           aria-label="切换主题"
           title={theme === "light" ? "切换至深色模式" : "切换至浅色模式"}
         >
-          {theme === "light" ? (
-            <Sun className="size-4" />
-          ) : (
-            <Moon className="size-4" />
-          )}
+          {theme === "light" ? <Sun className="size-4" /> : <Moon className="size-4" />}
         </button>
 
         {/* Ghost Inspector Toggle */}
@@ -121,7 +107,7 @@ export function SessionHeader({
             "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium transition-colors",
             contextOpen
               ? "bg-surface-active text-foreground"
-              : "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
+              : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
           )}
         >
           <PanelRight className="size-4" />

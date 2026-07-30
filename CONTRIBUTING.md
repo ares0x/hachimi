@@ -1,6 +1,25 @@
 # Contributing to Hachimi
 
-Thanks for your interest in contributing! Here's how to get started.
+Thanks for your interest in contributing to **Hachimi** — a local-first, model-agnostic personal agent runtime (harness).
+
+Please review these guidelines before submitting code or opening pull requests.
+
+---
+
+## Product Vision & Principles
+
+Hachimi is an **agent runtime and harness**, not just another chatbot UI shell.
+
+When proposing changes, evaluate them against these **4 Design Filters**:
+
+1. **Harness Leverage**: Enhance runtime loops, tool orchestration, context assembly, and policies so swapping LLM providers maintains full execution integrity.
+2. **Composability**: Keep capabilities (providers, tools, skills, connectors, channels) modular and pluggable.
+3. **Trust & Safety**: Enforce `PermissionPolicy`, `PathJail`, and audit logging. Never bypass tool permissions or sandbox checks.
+4. **Earned Understanding**: Memory & human-approved learned skills (trajectory proposals remain `pending` until explicit human acceptance).
+
+For full details, see [`docs/VISION.md`](./docs/VISION.md) and [`AGENTS.md`](./AGENTS.md).
+
+---
 
 ## Development Setup
 
@@ -13,17 +32,17 @@ Thanks for your interest in contributing! Here's how to get started.
 ### Getting Started
 
 ```bash
-# Clone the repo
+# Clone the repository
 git clone https://github.com/ares0x/hachimi.git
 cd hachimi
 
 # Install dependencies
 pnpm install
 
-# Run the TUI to verify everything works
+# Run the TUI to verify setup
 pnpm dev:tui
 
-# Run tests
+# Run test suite
 pnpm test
 ```
 
@@ -32,89 +51,84 @@ pnpm test
 ```text
 hachimi/
 ├── apps/
-│   ├── tui/          # Terminal UI (Ink + React)
-│   └── server/       # Daemon server (Fastify)
+│   ├── desktop/      # Desktop Shell (Electron + React)
+│   ├── web/          # Web SPA Client (React + Vite)
+│   ├── tui/          # Terminal UI (Readline + React)
+│   └── server/       # Daemon Server (Fastify + SSE + WS)
 ├── packages/
-│   ├── core/         # HarnessRuntime — the brain
+│   ├── core/         # HarnessRuntime — The brain (@hachimi/core)
 │   ├── config/       # Configuration & provider presets
-│   ├── shared/       # Shared utilities & types
-│   ├── storage/      # SQLite + File storage engines
-│   └── channels/     # CLI, API, Web, Telegram adapters
-├── docs/             # Design documents
+│   ├── shared/       # Shared i18n, logger, errors, types
+│   ├── storage/      # SQLite + File storage backends
+│   ├── ui/           # Shared React UI components (WorkList, ActivityTimeline)
+│   ├── evals/        # Tri-tier Benchmark Evals framework
+│   └── channels/     # Thin adapters (CLI, Telegram, API)
+├── docs/             # Vision, Architecture, and API specifications
 └── package.json      # pnpm workspace root
 ```
 
-Each package is a self-contained module. The `@hachimi/core` package is the central engine — most features start there.
+---
 
 ## Development Workflow
 
-### Code Style
+### 1. Language Policy (CRITICAL)
+
+- **Code, comments, commits, PRs, and tool descriptions MUST default to English**.
+- User-facing strings must use the i18n module (`packages/shared/src/i18n`).
+- Add keys to `I18nDictionary` (`types.ts`), English in `en.ts`, and Chinese in `zh-CN.ts`.
+
+### 2. Code Formatting & Linting
 
 We use [Biome](https://biomejs.dev/) for linting and formatting:
 
 ```bash
-# Lint
+# Lint code
 pnpm lint
 
 # Auto-fix lint issues
 pnpm lint:fix
 
-# Format
+# Format code
 pnpm format
 ```
 
-### Type Checking
+### 3. Type Checking
 
 ```bash
 pnpm typecheck
 ```
 
-### Running Tests
+### 4. Running Tests
 
 ```bash
 # Run all tests
 pnpm test
 
-# Watch mode (useful during development)
+# Watch mode
 pnpm test:watch
 
-# Smoke test (mock-only, no real API calls)
+# Smoke test (mock mode, zero API cost)
 pnpm smoke:mock
+
+# Benchmark Evals suite
+pnpm eval
 ```
 
-### Before Submitting a PR
+---
 
-1. Run `pnpm lint` and fix any issues
-2. Run `pnpm typecheck` and ensure no type errors
-3. Run `pnpm test` and ensure all tests pass
-4. Write or update tests for your changes
-5. Keep PRs focused — one feature or fix per PR
+## Pre-Submit Checklist
 
-## Pull Request Process
+Before submitting a Pull Request, verify:
 
-1. **Discuss first**: For significant changes, open an issue to discuss before coding.
-2. **Branch**: Create a feature branch from `main` — use a descriptive name like `feat/xxx` or `fix/yyy`.
-3. **Commit**: Write clear commit messages. Reference issues with `#123`.
-4. **Test**: Add tests for new functionality. Update existing tests if behavior changes.
-5. **PR description**: Explain what changed and why. Link related issues.
-6. **Review**: All PRs require at least one review before merging.
+- [ ] Code compiles cleanly with `pnpm typecheck`
+- [ ] Linter & Formatter pass with `pnpm lint`
+- [ ] Full test suite passes with `pnpm test`
+- [ ] Smoke tests pass with `pnpm smoke:mock`
+- [ ] No deep imports from internal package paths (import only from `@hachimi/core` top-level)
+- [ ] No execution path bypasses `PermissionPolicy` or `PathJail`
+- [ ] Commit message is written in English (imperative mood, e.g., `Add tool sandbox timeout`)
 
-## Architecture Conventions
-
-- **Channels are thin**: Channel adapters (CLI, Web, Telegram) parse input → call `runtime.execute()` → render output. They don't contain business logic.
-- **Core is the brain**: All agent logic, memory management, tool execution, and extension systems live in `@hachimi/core`.
-- **Tools are capabilities**: Custom tools implement the `Tool` interface and are registered via `CapabilitySource`.
-- **Storage is pluggable**: New storage backends implement the `Store` interface.
-
-## Reporting Bugs
-
-Use the [Bug Report](https://github.com/ares0x/hachimi/issues/new?template=bug_report.yml) template. Include:
-
-- Hachimi version
-- Channel (TUI / CLI / Web / Desktop / Telegram / API)
-- Steps to reproduce
-- Expected vs actual behavior
-- Any relevant logs or screenshots
+---
 
 ## Code of Conduct
 

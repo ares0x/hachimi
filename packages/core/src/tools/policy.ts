@@ -77,11 +77,7 @@ export class PermissionPolicy {
   /**
    * 核心裁决：allow | deny | require_approval
    */
-  decide(
-    surface: SurfaceType,
-    toolName: string,
-    permLevel: ToolPermission,
-  ): PolicyDecision {
+  decide(surface: SurfaceType, toolName: string, permLevel: ToolPermission): PolicyDecision {
     const level = permLevel ?? "safe";
     const rule = this.getPolicy(surface);
 
@@ -116,20 +112,12 @@ export class PermissionPolicy {
    * 兼容旧调用：仅表示「策略是否直接放行」。
    * require_approval → false（不等于最终拒绝，见 Registry）
    */
-  isAllowed(
-    surface: SurfaceType,
-    toolName: string,
-    permLevel: ToolPermission,
-  ): boolean {
+  isAllowed(surface: SurfaceType, toolName: string, permLevel: ToolPermission): boolean {
     return this.decide(surface, toolName, permLevel) === "allow";
   }
 
   /** 是否应走 UI/回调审批（而非直接拒绝） */
-  requiresApproval(
-    surface: SurfaceType,
-    toolName: string,
-    permLevel: ToolPermission,
-  ): boolean {
+  requiresApproval(surface: SurfaceType, toolName: string, permLevel: ToolPermission): boolean {
     return this.decide(surface, toolName, permLevel) === "require_approval";
   }
 

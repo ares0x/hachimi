@@ -1,4 +1,13 @@
-import { Check, ChevronDown, ChevronRight, Loader2, Play, Plus, SkipForward, Trash2 } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+  Play,
+  Plus,
+  SkipForward,
+  Trash2,
+} from "lucide-react";
 import { useCallback, useState } from "react";
 import { cn } from "../lib/utils";
 import { SectionLabel } from "./primitives";
@@ -53,7 +62,10 @@ export function PlanTracker({
 }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const canEdit = Boolean(editable && onChange);
-  const [localDraft, setLocalDraft] = useState<Record<string, { title?: string; description?: string; status?: PlanStepStatus }> | null>(null);
+  const [localDraft, setLocalDraft] = useState<Record<
+    string,
+    { title?: string; description?: string; status?: PlanStepStatus }
+  > | null>(null);
   const [saving, setSaving] = useState(false);
 
   const commit = useCallback(
@@ -84,12 +96,10 @@ export function PlanTracker({
           <button
             type="button"
             onClick={async () => {
-            const id = `s_${Date.now()}`;
-            const next: PlanStep[] = [
-              { id, title: "步骤 1：描述第一个步骤", status: "pending" },
-            ];
-            await commit(next);
-          }}
+              const id = `s_${Date.now()}`;
+              const next: PlanStep[] = [{ id, title: "步骤 1：描述第一个步骤", status: "pending" }];
+              await commit(next);
+            }}
             disabled={saving}
             className="mt-2 w-full rounded-md border border-dashed border-border/60 px-3 py-2 text-left text-[12px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground disabled:opacity-60"
           >
@@ -167,11 +177,7 @@ export function PlanTracker({
             const title = draft?.title ?? step.title;
             const status: PlanStepStatus = draft?.status ?? step.status;
             return (
-              <li
-                key={step.id}
-                className="relative"
-                onClick={() => onStepClick?.(step)}
-              >
+              <li key={step.id} className="relative" onClick={() => onStepClick?.(step)}>
                 {!isLast && status !== "done" && (
                   <span
                     className={cn(
@@ -196,7 +202,10 @@ export function PlanTracker({
                       const order: PlanStepStatus[] = ["pending", "running", "done", "skipped"];
                       const idx = order.indexOf(status);
                       const next = order[(idx + 1) % order.length];
-                      setLocalDraft((prev) => ({ ...(prev ?? {}), [step.id]: { ...(prev?.[step.id] ?? {}), status: next } }));
+                      setLocalDraft((prev) => ({
+                        ...(prev ?? {}),
+                        [step.id]: { ...(prev?.[step.id] ?? {}), status: next },
+                      }));
                       // 即时落盘（为了让切换状态能反映到 timeline 进度）
                       commit(steps.map((s) => (s.id === step.id ? { ...s, status: next } : s)));
                     }}
@@ -206,7 +215,10 @@ export function PlanTracker({
                     <Icon className={cn("size-3.5", STEP_ICON_TINT[status])} />
                   </button>
                   <div className="min-w-0 flex-1">
-                    {canEdit && localDraft && localDraft[step.id] && "title" in (localDraft[step.id] ?? {}) ? (
+                    {canEdit &&
+                    localDraft &&
+                    localDraft[step.id] &&
+                    "title" in (localDraft[step.id] ?? {}) ? (
                       <div className="flex items-center gap-1.5">
                         <input
                           autoFocus
@@ -220,9 +232,7 @@ export function PlanTracker({
                           }
                           onBlur={() =>
                             commit(
-                              steps.map((s) =>
-                                s.id === step.id ? { ...s, title, status } : s
-                              )
+                              steps.map((s) => (s.id === step.id ? { ...s, title, status } : s))
                             )
                           }
                           onKeyDown={(e) => {

@@ -1,24 +1,12 @@
 import {
   ActivityTimeline,
+  exportBundle as apiExportBundle,
+  importBundle as apiImportBundle,
+  approveTool,
   CommandPalette,
   Composer,
   ContextPanel,
   type ContextPanelData,
-  GoalPanel,
-  PermissionDock,
-  PlanTracker,
-  type PlanStep as PlanTrackerStep,
-  SessionHeader,
-  type ModelOption as SettingsModelOption,
-  SettingsPanel,
-  type ThemeTone,
-  type ActivityStep as TimelineActivityStep,
-  WelcomeView,
-  type WorkItem,
-  WorkList,
-  exportBundle as apiExportBundle,
-  importBundle as apiImportBundle,
-  approveTool,
   cancelWork,
   createWork,
   deleteSession,
@@ -30,15 +18,27 @@ import {
   fetchWorkActivities,
   fetchWorkEvents,
   fetchWorks,
+  GoalPanel,
   getApiSecret,
+  PermissionDock,
+  PlanTracker,
+  type PlanStep as PlanTrackerStep,
+  SessionHeader,
+  type ModelOption as SettingsModelOption,
+  SettingsPanel,
   sendSteerPrompt,
   setApiSecret,
   streamChatPrompt,
+  type ThemeTone,
+  type ActivityStep as TimelineActivityStep,
   updateDaemonConfig,
   updateWork,
   updateWorkGoal,
   updateWorkPlan,
   useTheme,
+  WelcomeView,
+  type WorkItem,
+  WorkList,
 } from "@hachimi/ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -568,11 +568,7 @@ export function App() {
         {activeWorkId && (
           <SessionHeader
             title={workDetail?.title ?? `Work ${activeWorkId.slice(0, 8)}…`}
-            subtitle={
-              workDetail?.status
-                ? workStatusLabel(workDetail.status)
-                : undefined
-            }
+            subtitle={workDetail?.status ? workStatusLabel(workDetail.status) : undefined}
             model={selectedModelId}
             running={running}
             theme={theme}

@@ -103,13 +103,11 @@ export class TrajectoryCompressor {
       const stepsDescription = toolCalls
         .map(
           (tc, idx) =>
-            `${idx + 1}. 调用 ${tc.payload.toolName} (参数: ${JSON.stringify(tc.payload.args)})`,
+            `${idx + 1}. 调用 ${tc.payload.toolName} (参数: ${JSON.stringify(tc.payload.args)})`
         )
         .join("\n");
 
-      const cleanName = `skill_${uniqueNames.join("_")}`
-        .toLowerCase()
-        .replace(/[^a-z0-9_-]/g, "_");
+      const cleanName = `skill_${uniqueNames.join("_")}`.toLowerCase().replace(/[^a-z0-9_-]/g, "_");
 
       candidates.push({
         name: cleanName,
@@ -131,7 +129,7 @@ export class TrajectoryCompressor {
             (se.payload as any)?.prompt ||
             (se.payload as any)?.content ||
             (se as any).summary ||
-            "用户人工干预",
+            "用户人工干预"
         )
         .join("; ");
 

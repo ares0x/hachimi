@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createHarnessRuntime } from "../runtime/harness-runtime.js";
 import { PathJail } from "../sandbox/path-jail.js";
 import { readFileTool } from "./builtin/fs/read-file.js";
-import { ToolRegistry } from "./registry.js";
 import { PermissionPolicy } from "./policy.js";
+import { ToolRegistry } from "./registry.js";
 import type { ToolExecContext } from "./types.js";
 
 describe("Phase W5.5 — Harness Correctness Pre-Patches Suite", () => {
@@ -39,10 +39,7 @@ describe("Phase W5.5 — Harness Correctness Pre-Patches Suite", () => {
     writeFileSync(largeBinaryPath, buf);
 
     const memBefore = process.memoryUsage().heapUsed;
-    const res = await readFileTool.execute(
-      { path: "large_binary.bin" },
-      execContext,
-    );
+    const res = await readFileTool.execute({ path: "large_binary.bin" }, execContext);
     const memAfter = process.memoryUsage().heapUsed;
 
     expect(res).toContain("[二进制文件]");
@@ -51,12 +48,14 @@ describe("Phase W5.5 — Harness Correctness Pre-Patches Suite", () => {
 
     // 建立大型纯文本文件 (5MB)
     const largeTextPath = join(testDir, "large_text.txt");
-    const textLines = Array.from({ length: 50000 }, (_, i) => `line ${i + 1}: Hello Hachimi`).join("\n");
+    const textLines = Array.from({ length: 50000 }, (_, i) => `line ${i + 1}: Hello Hachimi`).join(
+      "\n"
+    );
     writeFileSync(largeTextPath, textLines);
 
     const textRes = await readFileTool.execute(
       { path: "large_text.txt", offset: 1, limit: 10 },
-      execContext,
+      execContext
     );
     expect(textRes).toContain("path: large_text.txt");
     expect(textRes).toContain("line 1: Hello Hachimi");
@@ -116,14 +115,16 @@ describe("Phase W5.5 — Harness Correctness Pre-Patches Suite", () => {
     // 验证事件流中留有 save_memory 工具的 tool_call / tool_result 记录
     const eventsResult = await runtime.events.list(output.sessionId);
     const toolCallEvt = eventsResult.events.find(
-      (e) => e.type === "tool_call" && (e.payload as any).toolName === "save_memory",
+      (e) => e.type === "tool_call" && (e.payload as any).toolName === "save_memory"
     );
     const toolResultEvt = eventsResult.events.find(
-      (e) => e.type === "tool_result" && (e.payload as any).toolName === "save_memory",
+      (e) => e.type === "tool_result" && (e.payload as any).toolName === "save_memory"
     );
 
     expect(toolCallEvt).toBeDefined();
     expect(toolResultEvt).toBeDefined();
-    expect((toolCallEvt?.payload as any).args.content).toBe("我喜欢使用 TypeScript 开发 Agent 项目");
+    expect((toolCallEvt!.payload as any).args.content).toBe(
+      "我喜欢使用 TypeScript 开发 Agent 项目"
+    );
   });
 });

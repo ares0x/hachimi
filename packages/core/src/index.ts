@@ -26,9 +26,9 @@ export { ToolSandbox } from "./sandbox/sandbox.js";
 export { SessionManager } from "./session/manager.js";
 export * as builtinSkills from "./skills/builtin/index.js";
 export type { SkillDraft, SkillProposal, TrajectoryTurn } from "./skills/experience-extractor.js";
-export type { SkillProposalCandidate } from "./skills/trajectory-compressor.js";
 export { SkillProposalManager, TrajectoryCompressor } from "./skills/experience-extractor.js";
 export { SkillRegistry } from "./skills/registry.js";
+export type { SkillProposalCandidate } from "./skills/trajectory-compressor.js";
 export type { PolicyLevel, SurfaceType, ToolPolicyRule } from "./tools/policy.js";
 // W2.1: 权限策略矩阵
 export { defaultPermissionPolicy, PermissionPolicy } from "./tools/policy.js";

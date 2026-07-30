@@ -6,19 +6,21 @@
 
 <!-- Link related issues: Fixes #123, Closes #456 -->
 
-## Changes
+## Key Changes
 
 <!-- List the key changes in this PR -->
 
 - 
 
-## Checklist
+## Quality & Safety Checklist
 
 - [ ] Code follows project style (run `pnpm lint`)
 - [ ] TypeScript compiles without errors (run `pnpm typecheck`)
-- [ ] All tests pass (run `pnpm test`)
-- [ ] New tests added for changes
-- [ ] Documentation updated if needed
+- [ ] All unit & integration tests pass (run `pnpm test`)
+- [ ] Smoke tests pass (run `pnpm smoke:mock`)
+- [ ] No execution path bypasses `HarnessRuntime`, `PermissionPolicy`, or `PathJail`
+- [ ] Public API boundary respected (imports directly from `@hachimi/core` top-level without deep imports)
+- [ ] New user-facing strings added via `i18n().t(...)` (EN + zh-CN)
 
 ## Screenshots / Demos
 

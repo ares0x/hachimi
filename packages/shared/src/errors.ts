@@ -37,12 +37,10 @@ export class ToolRejectedError extends HachimiError {
 
 export class ToolTimeoutError extends HachimiError {
   constructor(toolName: string, timeoutMs: number) {
-    super(
-      i18n().t("error.tool_timeout", { toolName, timeoutMs }),
-      "TOOL_TIMEOUT",
-      408,
-      { toolName, timeoutMs }
-    );
+    super(i18n().t("error.tool_timeout", { toolName, timeoutMs }), "TOOL_TIMEOUT", 408, {
+      toolName,
+      timeoutMs,
+    });
   }
 }
 

@@ -3,9 +3,9 @@ import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { RuntimeEvent } from "../types/index.js";
+import { SkillRegistry } from "./registry.js";
 import { SkillProposalManager } from "./skill-proposal-manager.js";
 import { TrajectoryCompressor } from "./trajectory-compressor.js";
-import { SkillRegistry } from "./registry.js";
 
 describe("Phase W4 — 演化闭环 F5 (Trajectory -> Proposal -> Human Confirmation -> Skill Registration)", () => {
   const testDataDir = join(__dirname, "../../../data-test-w4");

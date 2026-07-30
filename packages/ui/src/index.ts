@@ -4,15 +4,15 @@ export * from "./components/activity-timeline";
 export * from "./components/command";
 export * from "./components/command-palette";
 export * from "./components/composer";
-export * from "./components/context-panel";
-export {
-  type ContextPanelData,
-  type CurrentStep,
-  type MemoryItem,
-  type ToolItem,
-  type ApprovalWait,
-  type DevActivityItem,
+export type {
+  ApprovalWait,
+  ContextPanelData,
+  CurrentStep,
+  DevActivityItem,
+  MemoryItem,
+  ToolItem,
 } from "./components/context-panel";
+export * from "./components/context-panel";
 export * from "./components/dialog";
 export * from "./components/goal-panel";
 export * from "./components/markdown";

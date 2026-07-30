@@ -99,7 +99,7 @@ describe("ContextBuilder Prompt-Cache stability and tail truncation", () => {
     expect(built.systemPrompt).toContain("【最近消息】");
     // 静态前缀锁定不动
     expect(built.systemPrompt.indexOf("You are Hachimi")).toBeLessThan(
-      built.systemPrompt.indexOf("--- 动态上下文边界 ---"),
+      built.systemPrompt.indexOf("--- 动态上下文边界 ---")
     );
   });
 });

@@ -45,10 +45,14 @@ describe("W2.2: approve → 工具继续执行", () => {
   it("confirm:true 直接放行，工具执行成功", async () => {
     const { registry, mark } = makeRegistry();
 
-    const result = await registry.execute("sensitive_op", {}, {
-      channel: APPROVE_SURFACE,
-      confirm: true, // 上游（API SSE handler / HITL UI）已获得用户许可
-    });
+    const result = await registry.execute(
+      "sensitive_op",
+      {},
+      {
+        channel: APPROVE_SURFACE,
+        confirm: true, // 上游（API SSE handler / HITL UI）已获得用户许可
+      }
+    );
 
     expect(mark.ran).toBe(true);
     expect(result).toBe("sensitive_op_executed");
@@ -58,10 +62,14 @@ describe("W2.2: approve → 工具继续执行", () => {
     const { registry, mark } = makeRegistry();
     const approvalHandler = vi.fn().mockResolvedValue(true);
 
-    const result = await registry.execute("sensitive_op", {}, {
-      channel: APPROVE_SURFACE,
-      onToolApproval: approvalHandler,
-    });
+    const result = await registry.execute(
+      "sensitive_op",
+      {},
+      {
+        channel: APPROVE_SURFACE,
+        onToolApproval: approvalHandler,
+      }
+    );
 
     // handler 被询问
     expect(approvalHandler).toHaveBeenCalledWith("sensitive_op", {}, "needs_confirm");
@@ -80,10 +88,14 @@ describe("W2.2: deny → 返回 cancelled 结果，工具不执行", () => {
     const { registry, mark } = makeRegistry();
     const approvalHandler = vi.fn().mockResolvedValue(false); // 用户拒绝
 
-    const result = await registry.execute("sensitive_op", {}, {
-      channel: APPROVE_SURFACE,
-      onToolApproval: approvalHandler,
-    });
+    const result = await registry.execute(
+      "sensitive_op",
+      {},
+      {
+        channel: APPROVE_SURFACE,
+        onToolApproval: approvalHandler,
+      }
+    );
 
     // 工具未执行
     expect(mark.ran).toBe(false);
@@ -94,10 +106,14 @@ describe("W2.2: deny → 返回 cancelled 结果，工具不执行", () => {
   it("无 confirm 且无 onToolApproval → 安全绝杀，返回取消消息", async () => {
     const { registry, mark } = makeRegistry();
 
-    const result = await registry.execute("sensitive_op", {}, {
-      channel: APPROVE_SURFACE,
-      // 不传 confirm，不传 onToolApproval
-    });
+    const result = await registry.execute(
+      "sensitive_op",
+      {},
+      {
+        channel: APPROVE_SURFACE,
+        // 不传 confirm，不传 onToolApproval
+      }
+    );
 
     // 工具未执行
     expect(mark.ran).toBe(false);
@@ -108,10 +124,14 @@ describe("W2.2: deny → 返回 cancelled 结果，工具不执行", () => {
   it("confirm:false 显式传入 → 不等同于批准，工具不执行", async () => {
     const { registry, mark } = makeRegistry();
 
-    const result = await registry.execute("sensitive_op", {}, {
-      channel: APPROVE_SURFACE,
-      confirm: false, // 显式为 false
-    });
+    const result = await registry.execute(
+      "sensitive_op",
+      {},
+      {
+        channel: APPROVE_SURFACE,
+        confirm: false, // 显式为 false
+      }
+    );
 
     // Boolean(false) === false → 不批准
     expect(mark.ran).toBe(false);
@@ -139,9 +159,13 @@ describe("W2.2: safe 工具绕过审批逻辑", () => {
       },
     });
 
-    const result = await registry.execute("read_status", {}, {
-      channel: "telegram", // 即使是 allow-safe surface，safe 工具直接放行
-    });
+    const result = await registry.execute(
+      "read_status",
+      {},
+      {
+        channel: "telegram", // 即使是 allow-safe surface，safe 工具直接放行
+      }
+    );
 
     expect(mark.ran).toBe(true);
     expect(result).toBe("ok");

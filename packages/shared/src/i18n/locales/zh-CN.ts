@@ -4,19 +4,24 @@ const zhCN: I18nDictionary = {
   // --- Circuit Breaker & Intercept Messages ---
   "tool.rejected_by_user": "[用户拦截] 工具 {toolName} 的执行请求已被用户拒绝。",
   "tool.sandbox_timeout": "[沙箱熔断] 工具 {toolName} 执行超时 ({timeoutMs}ms)",
-  "tool.sandbox_truncated": "[沙箱提示] 工具 {toolName} 输出内容过长，已被自动截断 (最大限制 {maxBuffer} 字节)",
+  "tool.sandbox_truncated":
+    "[沙箱提示] 工具 {toolName} 输出内容过长，已被自动截断 (最大限制 {maxBuffer} 字节)",
   "tool.sandbox_error": "[沙箱拦截] 工具 {toolName} 执行异常: {msg}",
   "tool.path_security_fail": "[沙箱拦截] 工具 {toolName} 路径安全校验失败: {reason}",
-  "tool.circuit_breaker": "[工具熔断] 工具 {toolName} 已连续失败 {failures} 次，已被自动熔断暂限执行。",
-  "agent.no_recursive_dispatch": "[系统安全拦截] 子 Agent 禁止再次递归派发子任务，以防止无限嵌套死锁与递归爆炸。",
+  "tool.circuit_breaker":
+    "[工具熔断] 工具 {toolName} 已连续失败 {failures} 次，已被自动熔断暂限执行。",
+  "agent.no_recursive_dispatch":
+    "[系统安全拦截] 子 Agent 禁止再次递归派发子任务，以防止无限嵌套死锁与递归爆炸。",
   "agent.max_steps_reached": "[系统拦截] 子 Agent 已达到最大步数限制 ({maxRounds} 轮)，自动退出。",
-  "agent.subagent_dispatched": "[异步派发成功] 子 Agent 任务已在后台启动 (TaskId: {taskId})。你可以随时使用 `check_subagent_status` 查询进度。",
+  "agent.subagent_dispatched":
+    "[异步派发成功] 子 Agent 任务已在后台启动 (TaskId: {taskId})。你可以随时使用 `check_subagent_status` 查询进度。",
   "agent.subagent_completed": "[子 Agent 运行完成 (Task ID: {taskId})]\n处理结果总结：\n{output}",
 
   // --- Error Classes ---
   "error.permission_denied": "[用户/策略拒绝] 工具 {toolName} 未获执行授权{reason}",
   "error.tool_timeout": "[沙箱/工具超时] 工具 {toolName} 执行超时 ({timeoutMs}ms)",
-  "error.tool_circuit_broken": "[工具熔断] 工具 {toolName} 已连续失败 {failureCount} 次，已被自动暂停",
+  "error.tool_circuit_broken":
+    "[工具熔断] 工具 {toolName} 已连续失败 {failureCount} 次，已被自动暂停",
 
   // --- Summary labels ---
   "summary.truncated": "…[已截断]",
@@ -53,7 +58,8 @@ const zhCN: I18nDictionary = {
   "tool.meta.datetime.utc_result": "[当前 UTC 时间]: {iso} (时区: {tz})",
   "tool.meta.datetime.local_result": "[当前本地时间]: {local} (时区: {tz})",
 
-  "tool.shell.description": "在工作区根目录执行命令。推荐 command + args 数组，避免 shell 拼接。（兼容旧用法：仅传 command 整串时走 /bin/sh -c，仍受超时与输出上限约束。）",
+  "tool.shell.description":
+    "在工作区根目录执行命令。推荐 command + args 数组，避免 shell 拼接。（兼容旧用法：仅传 command 整串时走 /bin/sh -c，仍受超时与输出上限约束。）",
   "tool.shell.command_param": "可执行文件名，或整串 shell（当未传 args）",
   "tool.shell.args_param": "参数列表",
   "tool.shell.empty_command": "command 不能为空",
@@ -61,7 +67,8 @@ const zhCN: I18nDictionary = {
   "tool.shell.output_truncated": "...[输出截断 total_chars≈{total}]",
   "tool.shell.command_failed": "[命令失败] {msg}",
 
-  "tool.fs.read_file.description": "读取工作区内文本文件。按行分页：offset 为起始行（1-based），limit 为最多行数。返回带行号内容；若 truncated=true，请提高 offset 继续读。",
+  "tool.fs.read_file.description":
+    "读取工作区内文本文件。按行分页：offset 为起始行（1-based），limit 为最多行数。返回带行号内容；若 truncated=true，请提高 offset 继续读。",
   "tool.fs.read_file.path_param": "相对工作区的文件路径",
   "tool.fs.read_file.offset_param": "起始行号（1-based），默认 1",
   "tool.fs.read_file.limit_param": "最多读取行数，默认 {default}",
@@ -73,7 +80,8 @@ const zhCN: I18nDictionary = {
   "tool.fs.read_file.truncated_note": "note: 单次返回超过 {max} 字符已截断",
   "tool.fs.read_file.error": "[读取拦截/失败]: {msg}",
 
-  "tool.fs.write_file.description": "向工作区写入文本（覆盖整文件），自动创建父目录。受 PathJail 保护。",
+  "tool.fs.write_file.description":
+    "向工作区写入文本（覆盖整文件），自动创建父目录。受 PathJail 保护。",
   "tool.fs.write_file.path_param": "相对工作区路径",
   "tool.fs.write_file.content_param": "文件全文",
   "tool.fs.write_file.label": "写入文件",
@@ -104,7 +112,8 @@ const zhCN: I18nDictionary = {
   "agent.remember_empty_prompt": "请告诉我需要记住的具体内容，例如：请记住我喜欢喝手冲咖啡",
   "agent.steer_prefix": "[用户中途转向修正指令]: {msg}",
   "agent.turn_log": "用户: {input}\n助手: {content}",
-  "agent.tool_stopped_rejected": "[已停止] 工具 {name} 已被拒绝 {count} 次，请停止重试并向用户说明，或改用其他方式。",
+  "agent.tool_stopped_rejected":
+    "[已停止] 工具 {name} 已被拒绝 {count} 次，请停止重试并向用户说明，或改用其他方式。",
   "agent.multiple_tools_rejected": "⚠️ [多次工具被拒，已停止本轮执行]",
   "agent.max_tool_rounds_reached": "⚠️ [达到最大工具调用轮次，已停止执行]",
 
@@ -119,7 +128,7 @@ const zhCN: I18nDictionary = {
   "cli.time.minutes_ago": "{min} 分钟前",
   "cli.time.hours_ago": "{hr} 小时前",
   "cli.time.days_ago": "{d} 天前",
-  "cli.work.no_works": "(尚无工作，创建一个: hachimi work create --intent \"...\")",
+  "cli.work.no_works": '(尚无工作，创建一个: hachimi work create --intent "...")',
   "cli.work.table_headers": ["ID", "状态", "标题", "更新于"],
   "cli.work.footer": "共 {count} 个主 Work。显示详情: hachimi work show <id>",
   "cli.work.not_found": "❌ Work '{id}' 不存在",
@@ -144,10 +153,10 @@ const zhCN: I18nDictionary = {
   "cli.work.audit_empty": "(尚无批准/拒绝记录，该 Work 可能不需要 HITL 工具。)",
   "cli.work.audit_table_headers": ["时间", "决策", "来源 surface", "工具"],
   "cli.work.audit_footer": "共 {count} 条审计记录。",
-  "cli.work.create_missing_intent": "❌ 创建 Work 需要提供 --intent \"...\" 或位置参数",
+  "cli.work.create_missing_intent": '❌ 创建 Work 需要提供 --intent "..." 或位置参数',
   "cli.work.create_success": "✅ Work 已创建: {id}",
   "cli.work.create_goal_label": "Goal : {goal}",
-  "cli.work.create_hint": "对其发言运行: hachimi -s {id} \"...\"",
+  "cli.work.create_hint": '对其发言运行: hachimi -s {id} "..."',
   "cli.work.show_usage": "❌ hachimi work show <workId>",
   "cli.work.audit_usage": "❌ hachimi work audit <workId>",
   "cli.work.unknown_subcommand": "❌ 未知 work 子命令: {sub}。支持 list / show / audit / create",
@@ -181,7 +190,8 @@ const zhCN: I18nDictionary = {
   "tui.provider.step1_title": "🤖 【Step 1/2】选择 LLM API 提供商 (Provider)",
   "tui.provider.step2_title": "🧠 【Step 2/2】选择 [{provider}] 模型 (Model)",
   "tui.provider.custom_model_prompt": "✏️ 请输入 [{provider}] 的自定义 Model 名称: ",
-  "tui.provider.api_key_prompt": "🔑 未检测到 [{provider}] 的 API Key，请输入 API Key (按 Enter 确定): ",
+  "tui.provider.api_key_prompt":
+    "🔑 未检测到 [{provider}] 的 API Key，请输入 API Key (按 Enter 确定): ",
   "tui.provider.updated": "✨ LLM 提供商与模型已成功更新为: [{provider}] ({model})",
   "tui.provider.select_model_title": "🧠 选择当前 [{provider}] 的模型 (Model)",
   "tui.provider.model_updated": "✨ [{provider}] 的 Model 已成功更新为: [{model}]",
@@ -215,7 +225,8 @@ const zhCN: I18nDictionary = {
   "tui.cmd.dashboard_line1": "🤖 LLM 提供者 : {provider} ({model})",
   "tui.cmd.dashboard_line2": "📐 Context 模式: {mode}",
   "tui.cmd.dashboard_line3": "⚡ Token 仪表  : {meter} ({est}/{max})",
-  "tui.cmd.dashboard_line4": "🧠 记忆统计    : 长期 {longTerm} 条 | 会话 {session} 条 (共 {total} 条)",
+  "tui.cmd.dashboard_line4":
+    "🧠 记忆统计    : 长期 {longTerm} 条 | 会话 {session} 条 (共 {total} 条)",
   "tui.cmd.dashboard_line5": "💬 当前 Session : ID [{id}] | 消息数: {msgs}",
   "tui.cmd.dashboard_line6": "🛠️ 可用 Skills  : {skills}",
   "tui.cmd.dashboard_line7": "🔧 注册 Tools   : {tools}",
@@ -244,7 +255,8 @@ const zhCN: I18nDictionary = {
   "tui.cmd.help_natural_language": "💬 自然语言唤醒：直接说「请记住我喜欢喝手冲咖啡」亦可写入记忆",
   "tui.cmd.help_panel_title": " 帮助与快捷键指南 (/help) ",
   "tui.cmd.slash_title": " 💡 Slash 命令指南 ",
-  "tui.cmd.slash_hint": "💡 提示: 可直接输入具体命令（如 /status, /config, /provider, /model 等）执行",
+  "tui.cmd.slash_hint":
+    "💡 提示: 可直接输入具体命令（如 /status, /config, /provider, /model 等）执行",
   "tui.cmd.unknown_command": "未知命令: {cmd}。输入 /help 查看可用命令列表。",
 };
 

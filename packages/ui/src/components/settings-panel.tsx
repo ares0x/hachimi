@@ -1,17 +1,7 @@
-import {
-  Check,
-  Download,
-  KeyRound,
-  Moon,
-  Palette,
-  Sparkles,
-  Sun,
-  Upload,
-  X,
-} from "lucide-react";
+import { Check, Download, KeyRound, Moon, Palette, Sparkles, Sun, Upload, X } from "lucide-react";
 import { useRef } from "react";
 import { cn } from "../lib/utils";
-import { SectionLabel, Meta } from "./primitives";
+import { Meta, SectionLabel } from "./primitives";
 
 export type ThemeTone = "light" | "dark";
 
@@ -120,9 +110,7 @@ export function SettingsPanel({
       >
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
-            <h3 className="text-[14.5px] font-medium tracking-tight text-foreground">
-              设置
-            </h3>
+            <h3 className="text-[14.5px] font-medium tracking-tight text-foreground">设置</h3>
             <Meta>外观 · 模型 · 授权 · 数据</Meta>
           </div>
           <button
@@ -159,9 +147,7 @@ export function SettingsPanel({
                   <div className="text-[13px] font-medium text-foreground">Light</div>
                   <Meta>默认，遵循设计系统</Meta>
                 </div>
-                {theme === "light" && (
-                  <Check className="ml-auto size-4 text-primary" />
-                )}
+                {theme === "light" && <Check className="ml-auto size-4 text-primary" />}
               </button>
               <button
                 type="button"
@@ -178,17 +164,13 @@ export function SettingsPanel({
                   <div className="text-[13px] font-medium text-foreground">Dark</div>
                   <Meta>高对比度夜间模式</Meta>
                 </div>
-                {theme === "dark" && (
-                  <Check className="ml-auto size-4 text-primary" />
-                )}
+                {theme === "dark" && <Check className="ml-auto size-4 text-primary" />}
               </button>
             </div>
 
             {onAccentChange && (
               <div className="mt-4">
-                <div className="mb-1.5 text-[12px] font-medium text-muted-foreground">
-                  主色
-                </div>
+                <div className="mb-1.5 text-[12px] font-medium text-muted-foreground">主色</div>
                 <div className="flex flex-wrap items-center gap-2">
                   {ACCENT_PRESETS.map((p) => (
                     <button
@@ -238,9 +220,7 @@ export function SettingsPanel({
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-[13px] font-medium text-foreground">
-                            {m.name}
-                          </span>
+                          <span className="text-[13px] font-medium text-foreground">{m.name}</span>
                           {m.speed && (
                             <span
                               className={cn(
@@ -252,9 +232,7 @@ export function SettingsPanel({
                             </span>
                           )}
                         </div>
-                        {m.description && (
-                          <Meta className="mt-0.5">{m.description}</Meta>
-                        )}
+                        {m.description && <Meta className="mt-0.5">{m.description}</Meta>}
                       </div>
                       {selected && <Check className="size-4 text-primary" />}
                     </button>

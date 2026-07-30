@@ -26,8 +26,5 @@ export type ToolDefinition = {
   description: string;
   permission: ToolPermission;
   parameters: Record<string, unknown>;
-  execute: (
-    args: Record<string, unknown>,
-    ctx?: ToolExecContext,
-  ) => Promise<string>;
+  execute: (args: Record<string, unknown>, ctx?: ToolExecContext) => Promise<string>;
 };

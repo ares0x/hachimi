@@ -42,6 +42,7 @@ coverage/
 # Hachimi Data & SQLite Databases
 data/
 data-test*
+data-test*.json
 *.db
 *.db-journal
 *.db-shm

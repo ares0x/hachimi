@@ -1,11 +1,7 @@
 #!/usr/bin/env node
 // packages/channels/cli/src/cli.ts
 import type { Work, WorkSummary } from "@hachimi/core";
-import {
-  getOrCreateHarnessRuntime,
-  type HarnessRuntime,
-  type WorkStatus,
-} from "@hachimi/core";
+import { getOrCreateHarnessRuntime, type HarnessRuntime, type WorkStatus } from "@hachimi/core";
 import { runCliChannel } from "./index.js";
 
 function printHelp() {
@@ -121,12 +117,10 @@ async function handleWorkList(runtime: HarnessRuntime) {
     const idShort = w.id.length > 12 ? w.id.slice(0, 12) + "…" : w.id;
     const title = w.title.length > 42 ? w.title.slice(0, 42) + "…" : w.title;
     console.log(
-      `${pad(idShort, 14)}\t${colorize(w.status, pad(STATUS_LABEL[w.status], 6))}\t${pad(title, 42)}\t${formatRelativeTime(w.updatedAt)}`,
+      `${pad(idShort, 14)}\t${colorize(w.status, pad(STATUS_LABEL[w.status], 6))}\t${pad(title, 42)}\t${formatRelativeTime(w.updatedAt)}`
     );
   }
-  console.log(
-    `\n共 ${works.length} 个主 Work。显示详情: hachimi work show <id>`,
-  );
+  console.log(`\n共 ${works.length} 个主 Work。显示详情: hachimi work show <id>`);
 }
 
 async function handleWorkShow(runtime: HarnessRuntime, workId: string) {
@@ -136,29 +130,25 @@ async function handleWorkShow(runtime: HarnessRuntime, workId: string) {
     process.exit(1);
   }
 
-  console.log(
-    `\n━━━ Work: ${work.id} ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
-  );
+  console.log(`\n━━━ Work: ${work.id} ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   console.log(`标题     : ${work.title}`);
   console.log(`状态     : ${colorize(work.status, STATUS_LABEL[work.status])}`);
   console.log(
-    `类型     : ${work.kind}${work.parentWorkId ? ` (parent: ${work.parentWorkId})` : ""}`,
+    `类型     : ${work.kind}${work.parentWorkId ? ` (parent: ${work.parentWorkId})` : ""}`
   );
   console.log(`创建于   : ${new Date(work.createdAt).toLocaleString()}`);
   console.log(
-    `更新于   : ${new Date(work.updatedAt).toLocaleString()} (${formatRelativeTime(work.updatedAt)})`,
+    `更新于   : ${new Date(work.updatedAt).toLocaleString()} (${formatRelativeTime(work.updatedAt)})`
   );
   console.log(`会话数   : ${work.sessionIds.length}`);
   if (work.goal) {
-    console.log(
-      `\n━━━ Goal ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
-    );
+    console.log(`\n━━━ Goal ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     console.log(work.goal);
   }
 
   if (work.plan && work.plan.length > 0) {
     console.log(
-      `\n━━━ Plan (${work.plan.filter((s) => s.status === "done").length}/${work.plan.length}) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+      `\n━━━ Plan (${work.plan.filter((s) => s.status === "done").length}/${work.plan.length}) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
     );
     const STEP_STATUS: Record<string, string> = {
       pending: "⬜",
@@ -174,9 +164,7 @@ async function handleWorkShow(runtime: HarnessRuntime, workId: string) {
     }
   }
 
-  console.log(
-    `\n━━━ Recent Activities (top 15) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
-  );
+  console.log(`\n━━━ Recent Activities (top 15) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   const { activities } = await runtime.works.listActivities(workId, {
     limit: 15,
   });
@@ -189,19 +177,11 @@ async function handleWorkShow(runtime: HarnessRuntime, workId: string) {
       let body = "";
       switch (act.type) {
         case "message":
-          tag =
-            act.role === "user"
-              ? "\x1b[36m[用户]\x1b[0m"
-              : "\x1b[35m[助理]\x1b[0m";
-          body =
-            act.content.length > 100
-              ? act.content.slice(0, 100) + "…"
-              : act.content;
+          tag = act.role === "user" ? "\x1b[36m[用户]\x1b[0m" : "\x1b[35m[助理]\x1b[0m";
+          body = act.content.length > 100 ? act.content.slice(0, 100) + "…" : act.content;
           break;
         case "tool":
-          tag = act.isToolError
-            ? "\x1b[31m[工具×]\x1b[0m"
-            : "\x1b[32m[工具√]\x1b[0m";
+          tag = act.isToolError ? "\x1b[31m[工具×]\x1b[0m" : "\x1b[32m[工具√]\x1b[0m";
           body = `${act.toolName} → ${(act.content || "").slice(0, 80)}`;
           break;
         case "approval": {
@@ -277,18 +257,14 @@ async function handleWorkAudit(runtime: HarnessRuntime, workId: string) {
     process.exit(0);
   }
 
-  console.log(
-    `${pad("时间", 22)} | ${pad("决策", 8)} | ${pad("来源 surface", 14)} | 工具`,
-  );
+  console.log(`${pad("时间", 22)} | ${pad("决策", 8)} | ${pad("来源 surface", 14)} | 工具`);
   console.log("─".repeat(100));
   for (const e of auditEvents) {
     const decColor =
-      e.decision === "GRANTED"
-        ? `\x1b[32m${e.decision}\x1b[0m`
-        : `\x1b[31m${e.decision}\x1b[0m`;
+      e.decision === "GRANTED" ? `\x1b[32m${e.decision}\x1b[0m` : `\x1b[31m${e.decision}\x1b[0m`;
     const t = new Date(e.timestamp).toLocaleString();
     console.log(
-      `${pad(t, 22)} | ${pad("", 0)}${decColor}${pad("", 8 - e.decision.length)} | ${pad(e.surface, 14)} | ${e.toolName}`,
+      `${pad(t, 22)} | ${pad("", 0)}${decColor}${pad("", 8 - e.decision.length)} | ${pad(e.surface, 14)} | ${e.toolName}`
     );
   }
   console.log(`\n共 ${auditEvents.length} 条审计记录。\n`);
@@ -336,6 +312,7 @@ Usage:
       case "list":
         await handleWorkList(runtime);
         process.exit(0);
+        break;
       case "show": {
         const id = args[2];
         if (!id) {
@@ -344,6 +321,7 @@ Usage:
         }
         await handleWorkShow(runtime, id);
         process.exit(0);
+        break;
       }
       case "audit": {
         const id = args[2];
@@ -353,19 +331,19 @@ Usage:
         }
         await handleWorkAudit(runtime, id);
         process.exit(0);
+        break;
       }
       case "create": {
         const intentIdx = args.indexOf("--intent");
-        const intent =
-          intentIdx !== -1 ? args[intentIdx + 1] : args.slice(2).join(" ");
+        const intent = intentIdx !== -1 ? args[intentIdx + 1] : args.slice(2).join(" ");
         await handleWorkCreate(runtime, intent || "");
         process.exit(0);
+        break;
       }
       default:
-        console.error(
-          `❌ 未知 work 子命令: ${sub}。支持 list / show / audit / create`,
-        );
+        console.error(`❌ 未知 work 子命令: ${sub}。支持 list / show / audit / create`);
         process.exit(1);
+        break;
     }
   }
 
@@ -374,16 +352,14 @@ Usage:
   if (exportIdx !== -1) {
     const filePath = args[exportIdx + 1];
     if (!filePath) {
-      console.error(
-        "❌ Error: --export option requires specifying output file path.",
-      );
+      console.error("❌ Error: --export option requires specifying output file path.");
       process.exit(1);
     }
     const runtime = getOrCreateHarnessRuntime();
     const bundle = await runtime.exportBundle({ filePath });
     console.log(`✅ Successfully exported Hachimi data bundle to: ${filePath}`);
     console.log(
-      `   Contains long-term memories: ${bundle.memory.longTerm.length} | Sessions: ${bundle.sessions.length}`,
+      `   Contains long-term memories: ${bundle.memory.longTerm.length} | Sessions: ${bundle.sessions.length}`
     );
     process.exit(0);
   }
@@ -393,16 +369,14 @@ Usage:
   if (importIdx !== -1) {
     const filePath = args[importIdx + 1];
     if (!filePath) {
-      console.error(
-        "❌ Error: --import option requires specifying import file path.",
-      );
+      console.error("❌ Error: --import option requires specifying import file path.");
       process.exit(1);
     }
     const runtime = getOrCreateHarnessRuntime();
     const result = await runtime.importBundle(filePath);
     console.log(`✅ Successfully imported and merged data bundle: ${filePath}`);
     console.log(
-      `   Imported new memories: ${result.importedMemoriesCount} | Skipped duplicate: ${result.skippedMemoriesCount} | Merged sessions: ${result.importedSessionsCount}`,
+      `   Imported new memories: ${result.importedMemoriesCount} | Skipped duplicate: ${result.skippedMemoriesCount} | Merged sessions: ${result.importedSessionsCount}`
     );
     process.exit(0);
   }

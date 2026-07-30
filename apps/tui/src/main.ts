@@ -18,9 +18,11 @@ async function main() {
       console.log(dim(`   ${summary.oneLine}`));
       for (const f of summary.fields.slice(0, 3)) {
         const valLines = String(f.value).split("\n");
-        const preview = valLines.length > 4
-          ? valLines.slice(0, 4).join("\n      ") + `\n      …[+${valLines.length - 4} lines 省略]`
-          : f.value;
+        const preview =
+          valLines.length > 4
+            ? valLines.slice(0, 4).join("\n      ") +
+              `\n      …[+${valLines.length - 4} lines 省略]`
+            : f.value;
         console.log(dim(`   · ${f.label}: ${preview}`));
       }
 

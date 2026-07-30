@@ -1,24 +1,12 @@
 import {
   ActivityTimeline,
+  exportBundle as apiExportBundle,
+  importBundle as apiImportBundle,
+  approveTool,
   CommandPalette,
   Composer,
   ContextPanel,
   type ContextPanelData,
-  GoalPanel,
-  PermissionDock,
-  PlanTracker,
-  type PlanStep as PlanTrackerStep,
-  SessionHeader,
-  type ModelOption as SettingsModelOption,
-  SettingsPanel,
-  type ThemeTone,
-  type ActivityStep as TimelineActivityStep,
-  WelcomeView,
-  type WorkItem,
-  WorkList,
-  exportBundle as apiExportBundle,
-  importBundle as apiImportBundle,
-  approveTool,
   cancelWork,
   createWork,
   deleteSession,
@@ -30,15 +18,27 @@ import {
   fetchWorkActivities,
   fetchWorkEvents,
   fetchWorks,
+  GoalPanel,
   getApiSecret,
+  PermissionDock,
+  PlanTracker,
+  type PlanStep as PlanTrackerStep,
+  SessionHeader,
+  type ModelOption as SettingsModelOption,
+  SettingsPanel,
   sendSteerPrompt,
   setApiSecret,
   streamChatPrompt,
+  type ThemeTone,
+  type ActivityStep as TimelineActivityStep,
   updateDaemonConfig,
   updateWork,
   updateWorkGoal,
   updateWorkPlan,
   useTheme,
+  WelcomeView,
+  type WorkItem,
+  WorkList,
 } from "@hachimi/ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -154,33 +154,36 @@ export function App() {
     }
   });
   // Sync model selection to daemon config on change
-  const handleModelChange = useCallback(async (id: string) => {
-    setSelectedModelId(id);
-    try {
-      localStorage.setItem("hachimi_model", id);
-    } catch {
-      /* ignore */
-    }
-    // Persist to daemon config
-    const result = await updateDaemonConfig({ model: id });
-    if (result) {
-      // Update active provider if the model belongs to a different provider
-      const provider = modelOptions.find((m) => m.id === id);
-      if (provider && provider.providerId && provider.providerId !== result.activeProvider) {
-        const switchResult = await updateDaemonConfig({
-          activeProvider: provider.providerId,
-          model: id,
-        });
-        if (switchResult) {
-          // Refresh model list from daemon to reflect the switch
-          const cfg = await fetchDaemonConfig();
-          if (cfg) {
-            setModelOptions(buildModelOptions(cfg));
+  const handleModelChange = useCallback(
+    async (id: string) => {
+      setSelectedModelId(id);
+      try {
+        localStorage.setItem("hachimi_model", id);
+      } catch {
+        /* ignore */
+      }
+      // Persist to daemon config
+      const result = await updateDaemonConfig({ model: id });
+      if (result) {
+        // Update active provider if the model belongs to a different provider
+        const provider = modelOptions.find((m) => m.id === id);
+        if (provider && provider.providerId && provider.providerId !== result.activeProvider) {
+          const switchResult = await updateDaemonConfig({
+            activeProvider: provider.providerId,
+            model: id,
+          });
+          if (switchResult) {
+            // Refresh model list from daemon to reflect the switch
+            const cfg = await fetchDaemonConfig();
+            if (cfg) {
+              setModelOptions(buildModelOptions(cfg));
+            }
           }
         }
       }
-    }
-  }, [modelOptions]);
+    },
+    [modelOptions]
+  );
 
   const [accentHex, setAccentHex] = useState<string | undefined>(() => {
     try {
@@ -445,7 +448,7 @@ export function App() {
         await refreshWorksList();
         if (targetWorkId) await refreshWorkDetail(targetWorkId);
         setRunning(false);
-      },
+      }
     );
   };
 
@@ -519,7 +522,7 @@ export function App() {
         }, 2500);
       }
     },
-    [approvalQueue, activeWorkId, refreshWorkDetail, refreshWorksList],
+    [approvalQueue, activeWorkId, refreshWorkDetail, refreshWorksList]
   );
 
   // ─── Derived data for Inspector ─────────────────────────────────────────
@@ -595,11 +598,7 @@ export function App() {
         {activeWorkId && (
           <SessionHeader
             title={workDetail?.title ?? `Work ${activeWorkId.slice(0, 8)}…`}
-            subtitle={
-              workDetail?.status
-                ? workStatusLabel(workDetail.status)
-                : undefined
-            }
+            subtitle={workDetail?.status ? workStatusLabel(workDetail.status) : undefined}
             model={selectedModelId}
             running={running}
             theme={theme}
@@ -910,7 +909,7 @@ async function resolveApprovalForTimeline(
   approvalId: string,
   decision: "approve" | "deny",
   resolve: (d: "approve" | "deny") => Promise<void>,
-  activeQueue: { approvalId?: string } | null,
+  activeQueue: { approvalId?: string } | null
 ) {
   if (activeQueue && activeQueue.approvalId === approvalId) {
     await resolve(decision);

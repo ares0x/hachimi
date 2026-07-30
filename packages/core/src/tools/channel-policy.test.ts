@@ -11,15 +11,15 @@
 // 以及 Agent.run 在不同 channel 下的端到端行为差异（TUI 工具实际运行 vs Telegram 需等待审批）。
 
 import { join } from "node:path";
+import { generateId } from "@hachimi/shared";
 import { FileJsonStore } from "@hachimi/storage";
 import { describe, expect, it, vi } from "vitest";
-import { MemoryManager } from "../memory/manager.js";
-import { PermissionPolicy } from "./policy.js";
-import { ToolRegistry } from "./registry.js";
 import { Agent } from "../agent/agent.js";
 import { MockLLMProvider } from "../agent/llm.js";
+import { MemoryManager } from "../memory/manager.js";
 import type { LLMProvider, LLMResponse, Message, ToolDefinition } from "../types/index.js";
-import { generateId } from "@hachimi/shared";
+import { PermissionPolicy } from "./policy.js";
+import { ToolRegistry } from "./registry.js";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -119,7 +119,20 @@ describe("PermissionPolicy.decide — channel 矩阵裁决", () => {
   });
 
   it("完整 surface × permission 矩阵测试", () => {
-    const surfaces = ["tui", "web", "web-sse", "desktop", "telegram", "api", "api-json", "cli", "ws", "proactive-trigger", "system", "unknown"] as const;
+    const surfaces = [
+      "tui",
+      "web",
+      "web-sse",
+      "desktop",
+      "telegram",
+      "api",
+      "api-json",
+      "cli",
+      "ws",
+      "proactive-trigger",
+      "system",
+      "unknown",
+    ] as const;
     for (const s of surfaces) {
       // safe 工具全表面放行
       expect(policy.decide(s, "calc", "safe")).toBe("allow");
@@ -295,10 +308,14 @@ describe("ToolRegistry.execute — channel 参数直接裁决", () => {
       },
     });
 
-    const result = await registry.execute("risky_tool", {}, {
-      channel: "telegram",
-      // 无 onToolApproval，无 confirm
-    });
+    const result = await registry.execute(
+      "risky_tool",
+      {},
+      {
+        channel: "telegram",
+        // 无 onToolApproval，无 confirm
+      }
+    );
 
     expect(mark.ran).toBe(false);
     expect(result).toMatch(/需要确认|拒绝|未经授权/);
@@ -318,10 +335,14 @@ describe("ToolRegistry.execute — channel 参数直接裁决", () => {
       },
     });
 
-    const result = await registry.execute("risky_tool", {}, {
-      channel: "telegram",
-      onToolApproval: async () => false,
-    });
+    const result = await registry.execute(
+      "risky_tool",
+      {},
+      {
+        channel: "telegram",
+        onToolApproval: async () => false,
+      }
+    );
 
     expect(mark.ran).toBe(false);
     expect(result).toMatch(/需要确认|拒绝|未经授权/);
@@ -341,10 +362,14 @@ describe("ToolRegistry.execute — channel 参数直接裁决", () => {
       },
     });
 
-    const result = await registry.execute("risky_tool", {}, {
-      channel: "telegram",
-      onToolApproval: async () => true,
-    });
+    const result = await registry.execute(
+      "risky_tool",
+      {},
+      {
+        channel: "telegram",
+        onToolApproval: async () => true,
+      }
+    );
 
     expect(mark.ran).toBe(true);
     expect(result).toBe("executed");

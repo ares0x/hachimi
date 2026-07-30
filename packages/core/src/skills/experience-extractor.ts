@@ -2,15 +2,14 @@
 // Re-export W4 evolution modules for backward compatibility
 
 export {
-  TrajectoryCompressor,
-  type SkillProposalCandidate,
-} from "./trajectory-compressor.js";
-
-export {
-  SkillProposalManager,
   type SkillProposal,
   type SkillProposal as SkillDraft,
+  SkillProposalManager,
 } from "./skill-proposal-manager.js";
+export {
+  type SkillProposalCandidate,
+  TrajectoryCompressor,
+} from "./trajectory-compressor.js";
 
 export interface TrajectoryTurn {
   userGoal: string;

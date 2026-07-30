@@ -16,8 +16,8 @@ import type {
 } from "../portable/types.js";
 import type { SessionManager } from "../session/manager.js";
 import type { SkillRegistry } from "../skills/registry.js";
-import type { ToolRegistry } from "../tools/registry.js";
 import type { SurfaceType } from "../tools/policy.js";
+import type { ToolRegistry } from "../tools/registry.js";
 import type { ChannelType } from "../types/index.js";
 import type { WorkManager } from "../work/work-manager.js";
 import type { AppContext, CreateAppContextOptions } from "./context.js";
@@ -192,8 +192,7 @@ export class HarnessRuntime {
           if (input.options?.onToolStart) input.options.onToolStart(toolName, args);
         },
         onToolEnd: async (toolName, result, durationMs, success) => {
-          const callId =
-            pendingToolCalls.get("__last__") || generateId("call_");
+          const callId = pendingToolCalls.get("__last__") || generateId("call_");
           pendingToolCalls.delete("__last__");
           void (await this.events.append({
             id: generateId("evt_"),

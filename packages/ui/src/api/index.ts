@@ -54,8 +54,7 @@ export function setApiSecret(secret: string) {
 export function getApiSecret(): string {
   if (currentSecret) return currentSecret;
   if (typeof window !== "undefined") {
-    if ((window as any).__HACHIMI_API_SECRET__)
-      return (window as any).__HACHIMI_API_SECRET__;
+    if ((window as any).__HACHIMI_API_SECRET__) return (window as any).__HACHIMI_API_SECRET__;
     try {
       const stored = localStorage.getItem("hachimi_api_secret");
       if (stored) return stored;
@@ -68,9 +67,7 @@ export function getApiSecret(): string {
     : "";
 }
 
-function getAuthHeaders(
-  customHeaders: Record<string, string> = {},
-): Record<string, string> {
+function getAuthHeaders(customHeaders: Record<string, string> = {}): Record<string, string> {
   const secret = getApiSecret();
   const headers: Record<string, string> = { ...customHeaders };
   if (secret) {
@@ -132,10 +129,7 @@ export async function createSession(title?: string): Promise<any | null> {
   }
 }
 
-export async function renameSession(
-  id: string,
-  title: string,
-): Promise<any | null> {
+export async function renameSession(id: string, title: string): Promise<any | null> {
   try {
     const res = await fetch(`${getApiBase()}/api/sessions/${id}`, {
       method: "PATCH",
@@ -191,7 +185,7 @@ export async function sendSteerPrompt(prompt: string): Promise<boolean> {
 
 export async function approveTool(
   approvalId: string,
-  decision: "approve" | "deny",
+  decision: "approve" | "deny"
 ): Promise<boolean> {
   try {
     const res = await fetch(`${getApiBase()}/api/tools/approve`, {
@@ -216,7 +210,7 @@ export async function streamChatPrompt(
     argsSummary?: ToolArgSummary;
   }) => void,
   onDone?: (content: string) => void,
-  onError?: (err: string) => void,
+  onError?: (err: string) => void
 ) {
   try {
     const res = await fetch(`${getApiBase()}/api/chat`, {
@@ -277,8 +271,7 @@ export async function streamChatPrompt(
                 approvalId: data.approvalId,
                 toolName: data.toolName,
                 args: parsedArgs,
-                argsSummary:
-                  (data.argsSummary as ToolArgSummary | undefined) || undefined,
+                argsSummary: (data.argsSummary as ToolArgSummary | undefined) || undefined,
               });
             } else if (data.type === "done") {
               if (onDone) onDone(data.content || "");
@@ -312,13 +305,7 @@ export async function exportBundle(): Promise<any | null> {
 export interface WorkItem {
   id: string;
   title: string;
-  status:
-    | "active"
-    | "waiting"
-    | "blocked"
-    | "completed"
-    | "failed"
-    | "archived";
+  status: "active" | "waiting" | "blocked" | "completed" | "failed" | "archived";
   kind: "primary" | "worker";
   goal?: string;
   planTotal: number;
@@ -353,10 +340,7 @@ export async function fetchWork(id: string): Promise<any | null> {
   }
 }
 
-export async function createWork(
-  intent: string,
-  goal?: string,
-): Promise<any | null> {
+export async function createWork(intent: string, goal?: string): Promise<any | null> {
   try {
     const res = await fetch(`${getApiBase()}/api/works`, {
       method: "POST",
@@ -373,7 +357,7 @@ export async function createWork(
 
 export async function updateWork(
   id: string,
-  patch: { title?: string; status?: string; goal?: string },
+  patch: { title?: string; status?: string; goal?: string }
 ): Promise<any | null> {
   try {
     const res = await fetch(`${getApiBase()}/api/works/${id}`, {
@@ -404,10 +388,7 @@ export async function fetchWorkActivities(id: string): Promise<any[]> {
 
 // ─── W2.2: Cancel / W2.6: Events / W3.x: Goal & Plan mutations ────────────────
 
-export async function cancelWork(
-  id: string,
-  reason = "用户手动取消",
-): Promise<boolean> {
+export async function cancelWork(id: string, reason = "用户手动取消"): Promise<boolean> {
   try {
     const res = await fetch(`${getApiBase()}/api/works/${id}/cancel`, {
       method: "POST",
@@ -426,24 +407,17 @@ export interface WorkEventFilter {
   limit?: number;
 }
 
-export async function fetchWorkEvents(
-  id: string,
-  filter: WorkEventFilter = {},
-): Promise<any[]> {
+export async function fetchWorkEvents(id: string, filter: WorkEventFilter = {}): Promise<any[]> {
   try {
     const params = new URLSearchParams();
     if (filter.type) {
-      params.set(
-        "type",
-        Array.isArray(filter.type) ? filter.type.join(",") : filter.type,
-      );
+      params.set("type", Array.isArray(filter.type) ? filter.type.join(",") : filter.type);
     }
     if (filter.limit) params.set("limit", String(filter.limit));
     const qs = params.toString();
-    const res = await fetch(
-      `${getApiBase()}/api/works/${id}/events${qs ? `?${qs}` : ""}`,
-      { headers: getAuthHeaders() },
-    );
+    const res = await fetch(`${getApiBase()}/api/works/${id}/events${qs ? `?${qs}` : ""}`, {
+      headers: getAuthHeaders(),
+    });
     if (!res.ok) return [];
     const data = (await res.json()) as { events?: any[] };
     return data.events || [];
@@ -452,10 +426,7 @@ export async function fetchWorkEvents(
   }
 }
 
-export async function updateWorkGoal(
-  id: string,
-  goal: string,
-): Promise<any | null> {
+export async function updateWorkGoal(id: string, goal: string): Promise<any | null> {
   return updateWork(id, { goal });
 }
 
@@ -466,10 +437,7 @@ export interface WorkPlanStepInput {
   status?: "pending" | "running" | "done" | "skipped";
 }
 
-export async function updateWorkPlan(
-  id: string,
-  steps: WorkPlanStepInput[],
-): Promise<any | null> {
+export async function updateWorkPlan(id: string, steps: WorkPlanStepInput[]): Promise<any | null> {
   try {
     const res = await fetch(`${getApiBase()}/api/works/${id}`, {
       method: "PATCH",
@@ -510,9 +478,10 @@ export async function fetchDaemonConfig(): Promise<DaemonConfig | null> {
   }
 }
 
-export async function updateDaemonConfig(
-  patch: { activeProvider?: string; model?: string },
-): Promise<{ activeProvider: string; model: string } | null> {
+export async function updateDaemonConfig(patch: {
+  activeProvider?: string;
+  model?: string;
+}): Promise<{ activeProvider: string; model: string } | null> {
   try {
     const res = await fetch(`${getApiBase()}/api/config`, {
       method: "PATCH",

@@ -19,13 +19,7 @@ import { useState } from "react";
 import { cn } from "../lib/utils";
 import { Markdown } from "./markdown";
 
-export type ActivityType =
-  | "message"
-  | "tool"
-  | "approval"
-  | "steer"
-  | "error"
-  | "system";
+export type ActivityType = "message" | "tool" | "approval" | "steer" | "error" | "system";
 
 export interface ActivityStep {
   id: string;
@@ -86,7 +80,7 @@ function MessageBubble({
     <div
       className={cn(
         "mx-auto w-full max-w-[48rem] px-4 sm:px-0",
-        isUser ? "flex justify-end" : "flex justify-start",
+        isUser ? "flex justify-end" : "flex justify-start"
       )}
     >
       <div
@@ -94,7 +88,7 @@ function MessageBubble({
           "relative flex max-w-[92% items-start gap-2 rounded-2xl px-3.5 py-2.5",
           isUser
             ? "bg-primary/92 text-primary-foreground rounded-br-md text-[14px] leading-[1.55] text-foreground rounded-br-sm shadow-xs"
-            : "bg-transparent px-0 py-0 text-[14.5px] leading-[1.65] text-foreground",
+            : "bg-transparent px-0 py-0 text-[14.5px] leading-[1.65] text-foreground"
         )}
       >
         {isUser ? (
@@ -150,40 +144,29 @@ export type PlanTrackerProps = {
   className?: string;
 };
 
-function ToolBlock({
-  step,
-}: {
-  step: Extract<ActivityStep, { type: "tool" }> | ActivityStep;
-}) {
+function ToolBlock({ step }: { step: Extract<ActivityStep, { type: "tool" }> | ActivityStep }) {
   const [expanded, setExpanded] = useState(false);
   const resultRaw = step.toolResult || step.content || "";
   const isLong = resultRaw.length > 400 || resultRaw.split("\n").length > 10;
   const display =
-    isLong && !expanded
-      ? resultRaw.split("\n").slice(0, 8).join("\n") + "\n…"
-      : resultRaw;
+    isLong && !expanded ? resultRaw.split("\n").slice(0, 8).join("\n") + "\n…" : resultRaw;
 
   return (
     <div className="mx-auto w-full max-w-[48rem] px-4 sm:px-0">
       <div
         className={cn(
           "rounded-xl border",
-          step.isToolError
-            ? "border-danger/40 bg-danger/5"
-            : "border-border bg-surface-elevated/70",
+          step.isToolError ? "border-danger/40 bg-danger/5" : "border-border bg-surface-elevated/70"
         )}
       >
         <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2">
           <TerminalSquare
-            className={cn(
-              "size-4 shrink-0",
-              step.isToolError ? "text-danger" : "text-info",
-            )}
+            className={cn("size-4 shrink-0", step.isToolError ? "text-danger" : "text-info")}
           />
           <span
             className={cn(
               "font-mono text-[12.5px]",
-              step.isToolError ? "text-danger" : "text-foreground font-medium",
+              step.isToolError ? "text-danger" : "text-foreground font-medium"
             )}
           >
             {step.toolName || "tool"}
@@ -260,18 +243,14 @@ function ApprovalBlock({
             ? "border-warning/50 bg-warning/8"
             : isGranted
               ? "border-success/40 bg-success/8"
-              : "border-danger/40 bg-danger/8",
+              : "border-danger/40 bg-danger/8"
         )}
       >
         <div className="flex items-start gap-2">
           <Icon
             className={cn(
               "mt-0.5 size-4 shrink-0",
-              isPending
-                ? "text-warning"
-                : isGranted
-                  ? "text-success"
-                  : "text-danger",
+              isPending ? "text-warning" : isGranted ? "text-success" : "text-danger"
             )}
           />
           <div className="min-w-0 flex-1 space-y-2">
@@ -286,7 +265,7 @@ function ApprovalBlock({
                     ? "bg-warning/15 text-warning"
                     : isGranted
                       ? "bg-success/15 text-success"
-                      : "bg-danger/15 text-danger",
+                      : "bg-danger/15 text-danger"
                 )}
               >
                 {isPending ? "等待审批" : isGranted ? "已批准" : "已拒绝"}
@@ -352,15 +331,11 @@ function GenericBlock({
 
   return (
     <div className="mx-auto w-full max-w-[48rem] px-4 sm:px-0">
-      <div
-        className={cn("flex items-start gap-2 rounded-xl border p-3", color.bg)}
-      >
+      <div className={cn("flex items-start gap-2 rounded-xl border p-3", color.bg)}>
         <Icon className={cn("mt-0.5 size-4 shrink-0", color.tint)} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="text-[12px] font-semibold uppercase tracking-wide">
-              {title}
-            </span>
+            <span className="text-[12px] font-semibold uppercase tracking-wide">{title}</span>
             <span className="ml-auto font-mono text-[10.5px] text-muted-foreground/70">
               {formatTime(step.timestamp)}
             </span>
@@ -397,12 +372,7 @@ export function ActivityTimeline({
   const items = activities ?? steps ?? [];
   if (!items || items.length === 0) {
     return (
-      <div
-        className={cn(
-          "flex h-full items-center justify-center pb-20",
-          className,
-        )}
-      >
+      <div className={cn("flex h-full items-center justify-center pb-20", className)}>
         <div className="text-center">
           <FileEdit className="mx-auto mb-3 size-10 text-muted-foreground/50" />
           <p className="text-[13px] text-muted-foreground">
@@ -430,40 +400,14 @@ export function ActivityTimeline({
             return <ToolBlock key={step.id} step={step} />;
           case "approval":
             return (
-              <ApprovalBlock
-                key={step.id}
-                step={step}
-                onApprove={onApprove}
-                onDeny={onDeny}
-              />
+              <ApprovalBlock key={step.id} step={step} onApprove={onApprove} onDeny={onDeny} />
             );
           case "steer":
-            return (
-              <GenericBlock
-                key={step.id}
-                step={step}
-                tone="steer"
-                title="纠偏干预"
-              />
-            );
+            return <GenericBlock key={step.id} step={step} tone="steer" title="纠偏干预" />;
           case "error":
-            return (
-              <GenericBlock
-                key={step.id}
-                step={step}
-                tone="error"
-                title="执行错误"
-              />
-            );
+            return <GenericBlock key={step.id} step={step} tone="error" title="执行错误" />;
           default:
-            return (
-              <GenericBlock
-                key={step.id}
-                step={step}
-                tone="system"
-                title="系统事件"
-              />
-            );
+            return <GenericBlock key={step.id} step={step} tone="system" title="系统事件" />;
         }
       })}
     </div>

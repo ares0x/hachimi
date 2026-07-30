@@ -16,7 +16,7 @@ function isProbablyBinary(buf: Buffer): boolean {
 async function readTextFileByLine(
   absPath: string,
   offset: number,
-  limit: number,
+  limit: number
 ): Promise<{
   lines: string[];
   startLine: number;
@@ -131,9 +131,7 @@ export const readFileTool: ToolDefinition = {
           (result.totalLines != null ? ` / total_lines: ${result.totalLines}` : ""),
         `size_bytes: ${st.size}`,
         `truncated: ${result.truncated}`,
-        result.charTruncated
-          ? `note: 单次返回超过 ${MAX_CHARS_PER_READ} 字符已截断`
-          : null,
+        result.charTruncated ? `note: 单次返回超过 ${MAX_CHARS_PER_READ} 字符已截断` : null,
         result.truncated
           ? `next: read_file path="${filePath}" offset=${result.endLine + 1} limit=${limit}`
           : null,

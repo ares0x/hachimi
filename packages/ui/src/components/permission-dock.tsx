@@ -1,9 +1,4 @@
-import {
-  ChevronDown,
-  ChevronUp,
-  FilePlus2,
-  ShieldQuestion,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, FilePlus2, ShieldQuestion } from "lucide-react";
 import { useState } from "react";
 import type { ToolArgSummary } from "../api";
 
@@ -43,8 +38,7 @@ function SummarizedField({ field }: { field: ToolArgSummaryField }) {
 
   const displayValue =
     collapsible && !expanded
-      ? value.split("\n").slice(0, 6).join("\n") +
-        (value.split("\n").length > 6 ? "\n…" : "")
+      ? value.split("\n").slice(0, 6).join("\n") + (value.split("\n").length > 6 ? "\n…" : "")
       : value;
 
   const baseClass = code
@@ -134,9 +128,7 @@ export function PermissionDock({
               </div>
               <p className="mt-1 text-[13px] text-muted-foreground">
                 Hachimi 请求执行{" "}
-                <span className="font-mono text-foreground">
-                  {summary.oneLine}
-                </span>
+                <span className="font-mono text-foreground">{summary.oneLine}</span>
                 。此操作在工作区内，可撤销。
               </p>
             </div>
@@ -180,10 +172,7 @@ export function PermissionDock({
   );
 }
 
-function buildFallbackSummary(
-  toolName?: string,
-  args?: Record<string, unknown>,
-): ToolArgSummary {
+function buildFallbackSummary(toolName?: string, args?: Record<string, unknown>): ToolArgSummary {
   const safeArgs = args && typeof args === "object" ? args : {};
   const entries = Object.entries(safeArgs);
   const MAX = 400;
@@ -215,9 +204,7 @@ function buildFallbackSummary(
     const looksLikeCode =
       typeof v === "string" &&
       (raw.includes("\n") ||
-        /(import|export|function|class|const|=|{|}|\)\s*=>)/.test(
-          raw.slice(0, 200),
-        ));
+        /(import|export|function|class|const|=|{|}|\)\s*=>)/.test(raw.slice(0, 200)));
     return {
       key: k,
       label: k,

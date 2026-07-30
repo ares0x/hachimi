@@ -1,5 +1,6 @@
 import {
   Activity,
+  AlertTriangle,
   Brain,
   ChevronDown,
   ChevronUp,
@@ -7,13 +8,12 @@ import {
   FileKey2,
   Gauge,
   ListTodo,
-  Wrench,
-  AlertTriangle,
   ShieldCheck,
+  Wrench,
 } from "lucide-react";
 import { useState } from "react";
-import type { ActivityStep as TimelineActivityStep } from "./activity-timeline";
 import { cn } from "../lib/utils";
+import type { ActivityStep as TimelineActivityStep } from "./activity-timeline";
 import { Meta, SectionLabel, StatusBadge, StatusDot } from "./primitives";
 
 export type InspectorCurrentStep = {
@@ -82,15 +82,19 @@ const PERM_LABEL: Record<InspectorToolItem["permission"], string> = {
   dangerous: "danger",
 };
 
-export function ContextPanel({
-  data,
-  className,
-}: {
-  data: InspectorData;
-  className?: string;
-}) {
+export function ContextPanel({ data, className }: { data: InspectorData; className?: string }) {
   const [devOpen, setDevOpen] = useState(false);
-  const { currentStep, memories, activeTools, awaitingApproval, rawRecentEvents, tokens = 0, maxTokens = 12000, requestId, cost } = data;
+  const {
+    currentStep,
+    memories,
+    activeTools,
+    awaitingApproval,
+    rawRecentEvents,
+    tokens = 0,
+    maxTokens = 12000,
+    requestId,
+    cost,
+  } = data;
 
   return (
     <div className={cn("flex h-full flex-col border-l border-border bg-surface", className)}>
@@ -188,7 +192,12 @@ export function ContextPanel({
                   className="group rounded-lg border border-border bg-surface-elevated p-2 transition-colors hover:border-border-strong"
                 >
                   <div className="flex items-center gap-1.5">
-                    <span className={cn("font-mono text-[10.5px] uppercase tracking-wide", KIND_TINT[m.kind])}>
+                    <span
+                      className={cn(
+                        "font-mono text-[10.5px] uppercase tracking-wide",
+                        KIND_TINT[m.kind]
+                      )}
+                    >
                       {m.kind}
                     </span>
                     <Meta>· {m.when}</Meta>
@@ -232,9 +241,7 @@ export function ContextPanel({
                     {PERM_LABEL[t.permission]}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-mono text-[11.5px] text-foreground">
-                      {t.name}
-                    </div>
+                    <div className="truncate font-mono text-[11.5px] text-foreground">{t.name}</div>
                     <Meta className="truncate">{t.description}</Meta>
                   </div>
                 </li>
@@ -360,14 +367,13 @@ export function ContextPanel({
 }
 
 // ─── Back-compat re-export types (old ActivityStep alias removed; prefer Timeline versions) ─────
-export {
-  type TimelineActivityStep,
-  type TimelineActivityStep as ActivityStep,
+export type {
+  InspectorApprovalWait as ApprovalWait,
+  InspectorCurrentStep as CurrentStep,
+  InspectorData as ContextPanelData,
+  InspectorDevActivityItem as DevActivityItem,
+  InspectorMemoryItem as MemoryItem,
+  InspectorToolItem as ToolItem,
+  TimelineActivityStep,
+  TimelineActivityStep as ActivityStep,
 };
-
-export type { InspectorCurrentStep as CurrentStep };
-export type { InspectorMemoryItem as MemoryItem };
-export type { InspectorToolItem as ToolItem };
-export type { InspectorApprovalWait as ApprovalWait };
-export type { InspectorDevActivityItem as DevActivityItem };
-export type { InspectorData as ContextPanelData };

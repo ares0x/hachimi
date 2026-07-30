@@ -1,8 +1,9 @@
 // tests/channels/approval-e2e.test.ts
 // W2.2: approve → 工具继续执行；deny → 返回 cancelled 结果
 // 端到端测试：通过 HarnessRuntime + 模拟审批回调验证完整审批流程与事件落盘
-import { createHarnessRuntime } from "../../packages/core/src/index.js";
+
 import { describe, expect, it, vi } from "vitest";
+import { createHarnessRuntime } from "../../packages/core/src/index.js";
 
 describe("W2.2: Approval end-to-end (approve & deny)", () => {
   function setup() {
@@ -58,7 +59,9 @@ describe("W2.2: Approval end-to-end (approve & deny)", () => {
 
     expect(isToolExecuted()).toBe(false);
     // 回复中包含拒绝/拦截信息
-    expect(output.content).toMatch(/拦截|拒绝|cancelled|denied|rejected|User Rejected|未授权|用户/i);
+    expect(output.content).toMatch(
+      /拦截|拒绝|cancelled|denied|rejected|User Rejected|未授权|用户/i
+    );
   });
 
   it("approve → approval_requested event + tool_call + tool_result written to event store", async () => {
@@ -85,9 +88,7 @@ describe("W2.2: Approval end-to-end (approve & deny)", () => {
     // tool_result 事件（工具执行完毕）
     expect(eventTypes).toContain("tool_result");
 
-    const toolResultEvent = eventResult.events.find(
-      (e) => e.type === "tool_result",
-    );
+    const toolResultEvent = eventResult.events.find((e) => e.type === "tool_result");
     expect(toolResultEvent?.payload.isError).toBe(false);
     expect(toolResultEvent?.payload.result).toBe("data_written_successfully");
   });
@@ -116,9 +117,7 @@ describe("W2.2: Approval end-to-end (approve & deny)", () => {
     // 应包含 tool_result 事件（内容是拒绝消息）
     expect(eventTypes).toContain("tool_result");
 
-    const toolResultEvent = eventResult.events.find(
-      (e) => e.type === "tool_result",
-    );
+    const toolResultEvent = eventResult.events.find((e) => e.type === "tool_result");
     expect(toolResultEvent?.payload.isError).toBe(true);
     expect(toolResultEvent?.payload.result).toMatch(/拦截|拒绝|denied|rejected|User Rejected/i);
   });
@@ -138,9 +137,7 @@ describe("W2.2: Approval end-to-end (approve & deny)", () => {
       limit: 100,
     });
 
-    const approvalEvent = eventResult.events.find(
-      (e) => e.type === "approval_requested",
-    );
+    const approvalEvent = eventResult.events.find((e) => e.type === "approval_requested");
     expect(approvalEvent).toBeDefined();
     expect(approvalEvent?.payload.toolName).toBe("confirm_data_write");
     expect(approvalEvent?.payload.permission).toBe("needs_confirm");

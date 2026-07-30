@@ -1,21 +1,10 @@
 // packages/core/src/tools/registry.ts
-import {
-  CIRCUIT_BREAKER_MAX_FAILURES,
-  formatCircuitBreakerOpenMessage,
-} from "@hachimi/shared";
+import { CIRCUIT_BREAKER_MAX_FAILURES, formatCircuitBreakerOpenMessage } from "@hachimi/shared";
 import type { HookRegistry } from "../extensions/hooks.js";
 import { PathJail } from "../sandbox/path-jail.js";
 import { ToolSandbox } from "../sandbox/sandbox.js";
-import type {
-  ChannelType,
-  ToolDefinition,
-  ToolPermission,
-} from "../types/index.js";
-import {
-  defaultPermissionPolicy,
-  PermissionPolicy,
-  type SurfaceType,
-} from "./policy.js";
+import type { ChannelType, ToolDefinition, ToolPermission } from "../types/index.js";
+import { defaultPermissionPolicy, type PermissionPolicy, type SurfaceType } from "./policy.js";
 import type { ToolExecContext as _ToolExecContext } from "./types.js";
 
 /**
@@ -45,7 +34,7 @@ export interface ToolExecuteOptions {
   onToolApproval?: (
     toolName: string,
     args: Record<string, unknown>,
-    permission: string,
+    permission: string
   ) => Promise<boolean>;
 }
 
@@ -68,12 +57,10 @@ export class ToolRegistry {
 
   constructor(options: ToolRegistryOptions = {}) {
     this.sandbox = options.sandbox ?? new ToolSandbox();
-    this.maxConsecutiveFailures =
-      options.maxConsecutiveFailures ?? CIRCUIT_BREAKER_MAX_FAILURES;
+    this.maxConsecutiveFailures = options.maxConsecutiveFailures ?? CIRCUIT_BREAKER_MAX_FAILURES;
     this.workspaceRoot = options.workspaceRoot ?? process.cwd();
     this.allowOutsideWorkspace = options.allowOutsideWorkspace ?? false;
-    this.permissionPolicy =
-      options.permissionPolicy ?? defaultPermissionPolicy;
+    this.permissionPolicy = options.permissionPolicy ?? defaultPermissionPolicy;
   }
 
   setWorkspaceRoot(root: string, allowOutsideWorkspace = false): void {
@@ -140,9 +127,7 @@ export class ToolRegistry {
       workspaceRoot: jail.getWorkspaceRoot(),
       sessionId: options?.sessionId ?? (base.sessionId as string | undefined),
       workId: options?.workId ?? (base.workId as string | undefined),
-      workManager:
-        options?.workManager ??
-        (base.workManager as ToolExecContext["workManager"]),
+      workManager: options?.workManager ?? (base.workManager as ToolExecContext["workManager"]),
     };
   }
 
@@ -159,7 +144,7 @@ export class ToolRegistry {
   async execute(
     name: string,
     rawArgs: Record<string, unknown>,
-    options?: ToolExecuteOptions,
+    options?: ToolExecuteOptions
   ): Promise<string> {
     const startTime = Date.now();
     const tool = this.tools.get(name);
@@ -178,7 +163,7 @@ export class ToolRegistry {
     const required = tool.parameters?.required;
     if (Array.isArray(required)) {
       const missingKeys = (required as string[]).filter(
-        (key) => args[key] === undefined || args[key] === null,
+        (key) => args[key] === undefined || args[key] === null
       );
       if (missingKeys.length > 0) {
         this.recordFailure(name);
@@ -224,10 +209,7 @@ export class ToolRegistry {
       });
 
       if (preResult.action === "block") {
-        return (
-          preResult.reason ||
-          `[Hook 拦截] 工具 ${name} 被生命周期钩子阻止执行。`
-        );
+        return preResult.reason || `[Hook 拦截] 工具 ${name} 被生命周期钩子阻止执行。`;
       }
       if (preResult.modifiedArgs) {
         args = { ...preResult.modifiedArgs };
@@ -240,14 +222,10 @@ export class ToolRegistry {
     let success = true;
 
     try {
-      rawResult = await this.sandbox.executeToolInSandbox(
-        name,
-        () => tool.execute(args, execCtx),
-        {
-          timeoutMs: 30_000,
-          args,
-        },
-      );
+      rawResult = await this.sandbox.executeToolInSandbox(name, () => tool.execute(args, execCtx), {
+        timeoutMs: 30_000,
+        args,
+      });
 
       if (
         typeof rawResult === "string" &&

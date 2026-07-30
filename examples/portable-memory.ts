@@ -4,11 +4,7 @@
  * Demonstrates Hachimi's portable memory system for backup and migration.
  */
 
-import {
-  exportBundle,
-  importBundle,
-  migrateBundleToLatest,
-} from "@hachimi/core";
+import { exportBundle, importBundle, migrateBundleToLatest } from "@hachimi/core";
 
 // Export all memories to a file
 async function backupMemories(outputPath: string) {
@@ -33,8 +29,7 @@ async function migrateOldBundle(inputPath: string) {
   const source = await Bun.file(inputPath).text();
   const migrated = await migrateBundleToLatest(JSON.parse(source));
   console.log(`Migrated to schema v${migrated.schemaVersion}`);
-  await Bun.write(inputPath.replace(".json", "-migrated.json"),
-    JSON.stringify(migrated, null, 2));
+  await Bun.write(inputPath.replace(".json", "-migrated.json"), JSON.stringify(migrated, null, 2));
 }
 
 // CLI equivalent:

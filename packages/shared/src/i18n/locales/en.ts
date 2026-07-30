@@ -3,28 +3,38 @@ import type { I18nDictionary } from "../types.js";
 const en: I18nDictionary = {
   "tool.rejected_by_user": "[User Rejected] Tool {toolName} execution was denied by the user.",
   "tool.sandbox_timeout": "[Sandbox Timeout] Tool {toolName} exceeded timeout ({timeoutMs}ms)",
-  "tool.sandbox_truncated": "[Sandbox Info] Tool {toolName} output was truncated (max {maxBuffer} bytes)",
+  "tool.sandbox_truncated":
+    "[Sandbox Info] Tool {toolName} output was truncated (max {maxBuffer} bytes)",
   "tool.sandbox_error": "[Sandbox Error] Tool {toolName} execution failed: {msg}",
-  "tool.path_security_fail": "[Sandbox Blocked] Tool {toolName} path security check failed: {reason}",
-  "tool.circuit_breaker": "[Circuit Breaker] Tool {toolName} has failed {failures} times consecutively and has been temporarily suspended.",
-  "agent.no_recursive_dispatch": "[Security Block] Sub-agent is not allowed to recursively dispatch further sub-agents to prevent infinite nesting and recursive deadlock.",
-  "agent.max_steps_reached": "[System Block] Sub-agent has reached the maximum step limit ({maxRounds} rounds), exiting automatically.",
-  "agent.subagent_dispatched": "[Async Dispatch] Sub-agent task started in background (TaskId: {taskId}). Use `check_subagent_status` to check progress.",
+  "tool.path_security_fail":
+    "[Sandbox Blocked] Tool {toolName} path security check failed: {reason}",
+  "tool.circuit_breaker":
+    "[Circuit Breaker] Tool {toolName} has failed {failures} times consecutively and has been temporarily suspended.",
+  "agent.no_recursive_dispatch":
+    "[Security Block] Sub-agent is not allowed to recursively dispatch further sub-agents to prevent infinite nesting and recursive deadlock.",
+  "agent.max_steps_reached":
+    "[System Block] Sub-agent has reached the maximum step limit ({maxRounds} rounds), exiting automatically.",
+  "agent.subagent_dispatched":
+    "[Async Dispatch] Sub-agent task started in background (TaskId: {taskId}). Use `check_subagent_status` to check progress.",
   "agent.subagent_completed": "[Sub-agent Completed (Task ID: {taskId})]\nSummary:\n{output}",
 
-  "error.permission_denied": "[Permission Denied] Tool {toolName} was not authorized for execution{reason}",
+  "error.permission_denied":
+    "[Permission Denied] Tool {toolName} was not authorized for execution{reason}",
   "error.tool_timeout": "[Tool Timeout] Tool {toolName} execution timed out ({timeoutMs}ms)",
-  "error.tool_circuit_broken": "[Circuit Broken] Tool {toolName} has failed {failureCount} times consecutively and has been paused",
+  "error.tool_circuit_broken":
+    "[Circuit Broken] Tool {toolName} has failed {failureCount} times consecutively and has been paused",
 
   "summary.truncated": "…[truncated]",
   "summary.write_file": "Write file {path} ({size}, {lines} lines)",
   "summary.target_path": "Target path",
   "summary.file_size": "File size",
   "summary.content_preview": "Content preview",
-  "summary.preview_truncated": "…[Preview limited to first {lines} lines / {chars} chars, full size {size}]",
+  "summary.preview_truncated":
+    "…[Preview limited to first {lines} lines / {chars} chars, full size {size}]",
   "summary.delete_file": "Delete file {path}",
   "summary.note": "Note",
-  "summary.permanent_delete_warning": "This operation will permanently delete the file (cannot recover directories)",
+  "summary.permanent_delete_warning":
+    "This operation will permanently delete the file (cannot recover directories)",
   "summary.read_file": "Read file {path}{range}",
   "summary.path": "Path",
   "summary.range": "Range",
@@ -41,7 +51,8 @@ const en: I18nDictionary = {
   "summary.plan_content": "Plan content",
   "summary.content_truncated": "…[content truncated]",
 
-  "tool.calc.description": "Perform basic arithmetic calculations (addition, subtraction, multiplication, division)",
+  "tool.calc.description":
+    "Perform basic arithmetic calculations (addition, subtraction, multiplication, division)",
   "tool.calc.divide_by_zero": "Error: Division by zero",
   "tool.calc.unsupported_operator": "Unsupported operator",
   "tool.meta.datetime.description": "Get the current system date, time, and timezone",
@@ -49,7 +60,8 @@ const en: I18nDictionary = {
   "tool.meta.datetime.utc_result": "[Current UTC Time]: {iso} (Timezone: {tz})",
   "tool.meta.datetime.local_result": "[Current Local Time]: {local} (Timezone: {tz})",
 
-  "tool.shell.description": "Execute a command in the workspace root. Prefer command + args array to avoid shell interpolation. (Legacy: passing only command runs via /bin/sh -c, still subject to timeout and output cap.)",
+  "tool.shell.description":
+    "Execute a command in the workspace root. Prefer command + args array to avoid shell interpolation. (Legacy: passing only command runs via /bin/sh -c, still subject to timeout and output cap.)",
   "tool.shell.command_param": "Executable name, or full shell command (when args not provided)",
   "tool.shell.args_param": "Argument list",
   "tool.shell.empty_command": "command cannot be empty",
@@ -57,34 +69,40 @@ const en: I18nDictionary = {
   "tool.shell.output_truncated": "...[output truncated total_chars≈{total}]",
   "tool.shell.command_failed": "[Command Failed] {msg}",
 
-  "tool.fs.read_file.description": "Read a text file within the workspace. Paginated by line: offset is the starting line (1-based), limit is the max lines. Returns content with line numbers; if truncated=true, increase offset to continue.",
+  "tool.fs.read_file.description":
+    "Read a text file within the workspace. Paginated by line: offset is the starting line (1-based), limit is the max lines. Returns content with line numbers; if truncated=true, increase offset to continue.",
   "tool.fs.read_file.path_param": "File path relative to workspace",
   "tool.fs.read_file.offset_param": "Starting line number (1-based), default 1",
   "tool.fs.read_file.limit_param": "Maximum lines to read, default {default}",
   "tool.fs.read_file.label": "Read file",
   "tool.fs.read_file.not_found": "[File not found] {path}",
   "tool.fs.read_file.not_a_file": "[Not a file] {path} (use list_dir for directories)",
-  "tool.fs.read_file.binary": "[Binary file] {path} ({size} bytes). read_file only supports text files.",
+  "tool.fs.read_file.binary":
+    "[Binary file] {path} ({size} bytes). read_file only supports text files.",
   "tool.fs.read_file.empty_range": "[Empty range] {path}: no content from line {offset} onwards.",
   "tool.fs.read_file.truncated_note": "note: single read exceeded {max} chars and was truncated",
   "tool.fs.read_file.error": "[Read error]: {msg}",
 
-  "tool.fs.write_file.description": "Write text to a file in the workspace (overwrites entire file), auto-creating parent directories. Protected by PathJail.",
+  "tool.fs.write_file.description":
+    "Write text to a file in the workspace (overwrites entire file), auto-creating parent directories. Protected by PathJail.",
   "tool.fs.write_file.path_param": "Path relative to workspace",
   "tool.fs.write_file.content_param": "Full file content",
   "tool.fs.write_file.label": "Write file",
   "tool.fs.write_file.success": "[Write successful] path={path} bytes={bytes}",
   "tool.fs.write_file.error": "[Write error]: {msg}",
 
-  "tool.fs.delete_file.description": "Delete a single file (not a directory) within the workspace. Protected by PathJail.",
+  "tool.fs.delete_file.description":
+    "Delete a single file (not a directory) within the workspace. Protected by PathJail.",
   "tool.fs.delete_file.path_param": "Path relative to workspace",
   "tool.fs.delete_file.label": "Delete file",
   "tool.fs.delete_file.not_found": "[File not found] {path}",
-  "tool.fs.delete_file.not_regular_file": "[Refused] {path} is not a regular file (directory deletion not supported)",
+  "tool.fs.delete_file.not_regular_file":
+    "[Refused] {path} is not a regular file (directory deletion not supported)",
   "tool.fs.delete_file.success": "[Deleted] {path}",
   "tool.fs.delete_file.error": "[Delete error]: {msg}",
 
-  "tool.fs.list_dir.description": "List entries in a workspace directory. Use limit to restrict the count.",
+  "tool.fs.list_dir.description":
+    "List entries in a workspace directory. Use limit to restrict the count.",
   "tool.fs.list_dir.path_param": "Relative directory, default: .",
   "tool.fs.list_dir.limit_param": "Maximum entries, default: {default}",
   "tool.fs.list_dir.label": "List directory",
@@ -96,10 +114,12 @@ const en: I18nDictionary = {
 
   "agent.remember_prefixes": ["Please remember", "remember", "help me remember", "note this"],
   "agent.remember_confirmation": "Got it, I've remembered: {content}",
-  "agent.remember_empty_prompt": "Please tell me what you'd like me to remember, e.g., 'Please remember I prefer pour-over coffee'",
+  "agent.remember_empty_prompt":
+    "Please tell me what you'd like me to remember, e.g., 'Please remember I prefer pour-over coffee'",
   "agent.steer_prefix": "[User mid-turn steer]: {msg}",
   "agent.turn_log": "User: {input}\nAssistant: {content}",
-  "agent.tool_stopped_rejected": "[Stopped] Tool {name} has been rejected {count} times. Please stop retrying and inform the user, or use an alternative approach.",
+  "agent.tool_stopped_rejected":
+    "[Stopped] Tool {name} has been rejected {count} times. Please stop retrying and inform the user, or use an alternative approach.",
   "agent.multiple_tools_rejected": "⚠️ [Multiple tools rejected, stopping this round]",
   "agent.max_tool_rounds_reached": "⚠️ [Maximum tool call rounds reached, stopping execution]",
 
@@ -113,7 +133,7 @@ const en: I18nDictionary = {
   "cli.time.minutes_ago": "{min} min ago",
   "cli.time.hours_ago": "{hr} hr ago",
   "cli.time.days_ago": "{d} days ago",
-  "cli.work.no_works": "(No works yet, create one: hachimi work create --intent \"...\")",
+  "cli.work.no_works": '(No works yet, create one: hachimi work create --intent "...")',
   "cli.work.table_headers": ["ID", "Status", "Title", "Updated"],
   "cli.work.footer": "{count} work(s) total. Show details: hachimi work show <id>",
   "cli.work.not_found": "❌ Work '{id}' not found",
@@ -138,13 +158,15 @@ const en: I18nDictionary = {
   "cli.work.audit_empty": "(No approval/denial records yet — this Work may not use HITL tools.)",
   "cli.work.audit_table_headers": ["Time", "Decision", "Source", "Tool"],
   "cli.work.audit_footer": "{count} audit record(s) total.",
-  "cli.work.create_missing_intent": "❌ Creating a Work requires --intent \"...\" or a positional argument",
+  "cli.work.create_missing_intent":
+    '❌ Creating a Work requires --intent "..." or a positional argument',
   "cli.work.create_success": "✅ Work created: {id}",
   "cli.work.create_goal_label": "Goal : {goal}",
-  "cli.work.create_hint": "To interact: hachimi -s {id} \"...\"",
+  "cli.work.create_hint": 'To interact: hachimi -s {id} "..."',
   "cli.work.show_usage": "❌ hachimi work show <workId>",
   "cli.work.audit_usage": "❌ hachimi work audit <workId>",
-  "cli.work.unknown_subcommand": "❌ Unknown work subcommand: {sub}. Supported: list / show / audit / create",
+  "cli.work.unknown_subcommand":
+    "❌ Unknown work subcommand: {sub}. Supported: list / show / audit / create",
 
   "tui.model.deepseek_v4_max": "DeepSeek-V4 Flagship Reasoning Model (2026)",
   "tui.model.deepseek_v4_speed": "DeepSeek-V4 High-Speed Cost-Effective Model",
@@ -174,7 +196,8 @@ const en: I18nDictionary = {
   "tui.provider.step1_title": "🤖 [Step 1/2] Select LLM Provider",
   "tui.provider.step2_title": "🧠 [Step 2/2] Select [{provider}] Model",
   "tui.provider.custom_model_prompt": "✏️ Enter custom model name for [{provider}]: ",
-  "tui.provider.api_key_prompt": "🔑 No API Key found for [{provider}], please enter API Key (Enter to confirm): ",
+  "tui.provider.api_key_prompt":
+    "🔑 No API Key found for [{provider}], please enter API Key (Enter to confirm): ",
   "tui.provider.updated": "✨ LLM provider & model updated to: [{provider}] ({model})",
   "tui.provider.select_model_title": "🧠 Select [{provider}] Model",
   "tui.provider.model_updated": "✨ [{provider}] model updated to: [{model}]",
@@ -207,7 +230,8 @@ const en: I18nDictionary = {
   "tui.cmd.dashboard_line1": "🤖 LLM Provider : {provider} ({model})",
   "tui.cmd.dashboard_line2": "📐 Context Mode : {mode}",
   "tui.cmd.dashboard_line3": "⚡ Token Gauge   : {meter} ({est}/{max})",
-  "tui.cmd.dashboard_line4": "🧠 Memory Stats  : Long-term {longTerm} | Session {session} (Total {total})",
+  "tui.cmd.dashboard_line4":
+    "🧠 Memory Stats  : Long-term {longTerm} | Session {session} (Total {total})",
   "tui.cmd.dashboard_line5": "💬 Current Session : ID [{id}] | Messages: {msgs}",
   "tui.cmd.dashboard_line6": "🛠️ Skills Loaded  : {skills}",
   "tui.cmd.dashboard_line7": "🔧 Tools Registered: {tools}",
@@ -218,7 +242,8 @@ const en: I18nDictionary = {
   "tui.cmd.no_memories": "(No memories yet)",
   "tui.cmd.memories_title": " Memory Inspector (/memories) ",
   "tui.cmd.memories_count": "{count} memories total:",
-  "tui.cmd.remember_empty": "❌ Please provide content to remember, e.g.: /remember User prefers pour-over coffee",
+  "tui.cmd.remember_empty":
+    "❌ Please provide content to remember, e.g.: /remember User prefers pour-over coffee",
   "tui.cmd.remember_success": "✅ Remembered: {content}",
   "tui.cmd.sessions_switched": "✅ Switched to session: [{id}] ({title})",
   "tui.cmd.sessions_not_found": "❌ Session with ID [{id}] not found",
@@ -233,10 +258,12 @@ const en: I18nDictionary = {
   "tui.cmd.help_status": "View system status",
   "tui.cmd.help_quit": "Exit",
   "tui.cmd.help_navigation": "Arrow keys to navigate / Up/Down for input history",
-  "tui.cmd.help_natural_language": "💬 Natural language: you can also say things like 'Please remember I prefer pour-over coffee' to write memories",
+  "tui.cmd.help_natural_language":
+    "💬 Natural language: you can also say things like 'Please remember I prefer pour-over coffee' to write memories",
   "tui.cmd.help_panel_title": " Help & Shortcuts (/help) ",
   "tui.cmd.slash_title": " 💡 Slash Commands ",
-  "tui.cmd.slash_hint": "💡 Tip: You can directly type commands like /status, /config, /provider, /model, etc.",
+  "tui.cmd.slash_hint":
+    "💡 Tip: You can directly type commands like /status, /config, /provider, /model, etc.",
   "tui.cmd.unknown_command": "Unknown command: {cmd}. Type /help for available commands.",
 };
 

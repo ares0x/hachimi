@@ -22,13 +22,7 @@ export function GoalPanel({
   /** 禁用所有编辑操作 */
   disabled?: boolean;
   /** 当前 Work 状态，用于视觉提示 */
-  status?:
-    | "active"
-    | "waiting"
-    | "blocked"
-    | "completed"
-    | "failed"
-    | "archived";
+  status?: "active" | "waiting" | "blocked" | "completed" | "failed" | "archived";
   defaultCollapsed?: boolean;
   className?: string;
 }) {
@@ -38,10 +32,7 @@ export function GoalPanel({
   const [saving, setSaving] = useState(false);
 
   const editable =
-    !disabled &&
-    (onChange || onSave) &&
-    status !== "completed" &&
-    status !== "archived";
+    !disabled && (onChange || onSave) && status !== "completed" && status !== "archived";
 
   const handleSave = async () => {
     if (!editable) return;
@@ -73,9 +64,7 @@ export function GoalPanel({
   };
 
   return (
-    <section
-      className={cn("border-b border-border/60 bg-background/40", className)}
-    >
+    <section className={cn("border-b border-border/60 bg-background/40", className)}>
       <div className="flex items-center gap-2 px-4 pt-3 pb-1 sm:px-6">
         <button
           type="button"
@@ -83,11 +72,7 @@ export function GoalPanel({
           className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
           aria-label={collapsed ? "展开 Goal" : "折叠 Goal"}
         >
-          {collapsed ? (
-            <ChevronRight className="size-3.5" />
-          ) : (
-            <ChevronDown className="size-3.5" />
-          )}
+          {collapsed ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
         </button>
         <Flag className="size-3.5 shrink-0 text-primary" />
         <SectionLabel className="px-0">目标</SectionLabel>
@@ -95,7 +80,7 @@ export function GoalPanel({
           <span
             className={cn(
               "ml-0.5 inline-flex items-center rounded-full border border-border px-1.5 font-mono text-[10px] uppercase tracking-wider",
-              STATUS_TONE[status],
+              STATUS_TONE[status]
             )}
           >
             {statusLabel(status)}
@@ -170,7 +155,7 @@ export function GoalPanel({
 }
 
 function statusLabel(
-  s: "active" | "waiting" | "blocked" | "completed" | "failed" | "archived",
+  s: "active" | "waiting" | "blocked" | "completed" | "failed" | "archived"
 ): string {
   switch (s) {
     case "active":

@@ -16,7 +16,7 @@ const MAX_PREVIEW_LINES = 12;
 function truncateText(
   text: string,
   maxChars = MAX_PREVIEW_CHARS,
-  maxLines = MAX_PREVIEW_LINES,
+  maxLines = MAX_PREVIEW_LINES
 ): { text: string; truncated: boolean } {
   let t = String(text ?? "");
   const byChars = t.length > maxChars;
@@ -40,10 +40,7 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-function genericFallback(
-  toolName: string,
-  args: Record<string, unknown>,
-): ToolArgSummary {
+function genericFallback(toolName: string, args: Record<string, unknown>): ToolArgSummary {
   const entries = Object.entries(args);
   const oneLineParts: string[] = [];
   const fields: ToolArgSummary["fields"] = [];
@@ -55,7 +52,7 @@ function genericFallback(
     const { text: fieldText, truncated: fieldTrunc } = truncateText(
       raw,
       MAX_PREVIEW_CHARS,
-      MAX_PREVIEW_LINES,
+      MAX_PREVIEW_LINES
     );
     fields.push({
       key: k,
@@ -72,10 +69,7 @@ function genericFallback(
   };
 }
 
-export function summarizeToolArgs(
-  toolName: string,
-  args: Record<string, unknown>,
-): ToolArgSummary {
+export function summarizeToolArgs(toolName: string, args: Record<string, unknown>): ToolArgSummary {
   const safeArgs = args && typeof args === "object" ? args : {};
 
   switch (toolName) {
@@ -127,10 +121,8 @@ export function summarizeToolArgs(
 
     case "read_file": {
       const path = String(safeArgs.path ?? "");
-      const offset =
-        safeArgs.offset !== undefined ? Number(safeArgs.offset) : 1;
-      const limit =
-        safeArgs.limit !== undefined ? Number(safeArgs.limit) : undefined;
+      const offset = safeArgs.offset !== undefined ? Number(safeArgs.offset) : 1;
+      const limit = safeArgs.limit !== undefined ? Number(safeArgs.limit) : undefined;
       return {
         oneLine: `读取文件 ${path}${limit ? `  (第 ${offset}-${offset + limit - 1} 行)` : ""}`,
         fields: [
@@ -154,9 +146,7 @@ export function summarizeToolArgs(
 
     case "run_command": {
       const command = String(safeArgs.command ?? "");
-      const cmdArgs = Array.isArray(safeArgs.args)
-        ? safeArgs.args.map(String)
-        : null;
+      const cmdArgs = Array.isArray(safeArgs.args) ? safeArgs.args.map(String) : null;
       const fullCmd = cmdArgs ? `${command} ${cmdArgs.join(" ")}` : command;
       const { text: preview, truncated } = truncateText(fullCmd, 300, 4);
 

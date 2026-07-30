@@ -32,10 +32,11 @@ export class SkillProposalManager {
     dataDir = "data",
     private skillsRegistry?: SkillRegistry,
     private skillLoader?: SkillPackageLoader,
-    skillsTargetDir?: string,
+    skillsTargetDir?: string
   ) {
     const defaultUserDir = join(homedir(), ".hachimi");
-    this.proposalsDir = dataDir === "data" ? join(defaultUserDir, "proposals") : resolve(dataDir, "proposals");
+    this.proposalsDir =
+      dataDir === "data" ? join(defaultUserDir, "proposals") : resolve(dataDir, "proposals");
     this.skillsTargetDir = skillsTargetDir || join(defaultUserDir, "skills");
 
     if (!existsSync(this.proposalsDir)) {
@@ -51,7 +52,7 @@ export class SkillProposalManager {
     candidateOrName: SkillProposalCandidate | string,
     description?: string,
     instructions?: string,
-    triggerCondition?: string,
+    triggerCondition?: string
   ): SkillProposal {
     let candidate: SkillProposalCandidate;
     if (typeof candidateOrName === "string") {
@@ -132,7 +133,7 @@ export class SkillProposalManager {
     writeFileSync(
       join(this.proposalsDir, `${proposal.id}.json`),
       JSON.stringify(proposal, null, 2),
-      "utf-8",
+      "utf-8"
     );
 
     // 物理写入技能目录 ~/.hachimi/skills/<name>/SKILL.md
@@ -167,7 +168,7 @@ ${proposal.instructions}
 
     log(
       "info",
-      `🎉 [Skill Proposal Accepted] Skill '${proposal.name}' is now active at ${skillMdPath}`,
+      `🎉 [Skill Proposal Accepted] Skill '${proposal.name}' is now active at ${skillMdPath}`
     );
 
     return {
@@ -192,7 +193,7 @@ ${proposal.instructions}
     writeFileSync(
       join(this.proposalsDir, `${proposal.id}.json`),
       JSON.stringify(proposal, null, 2),
-      "utf-8",
+      "utf-8"
     );
 
     log("info", `🗑️ [Skill Proposal Rejected] Proposal '${proposal.name}' rejected by user`);
