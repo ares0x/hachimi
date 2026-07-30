@@ -50,22 +50,23 @@
 - [x] **验收**: 并发写入事件的 `seq` 严格单调递增；客户端通过 `sinceSeq` 可无缝增量重放；单测覆盖。
 
 #### H3.4 — 工具属性扩充与副作用/幂等性策略 (Tool Metadata: `readOnly` & `isIdempotency`)
-- [ ] 更新 `PermissionPolicy`：声明为 `readOnly: true` 的 safe 工具允许并行并发调度与乐观 UI 响应。
-- [ ] **验收**: 只读工具与写操作工具在策略表中有清晰的并发/乐观响应区分；单测覆盖。
+- [x] `ToolDefinition` 增加 `readOnly?: boolean` 与 `isIdempotent?: boolean` 字段。
+- [x] 更新 `PermissionPolicy`：声明为 `readOnly: true` 的 safe 工具允许并行并发调度与乐观 UI 响应。
+- [x] **验收**: 只读工具与写操作工具在策略表中有清晰的并发/乐观响应区分；单测覆盖。
 
 ---
 
 ### Tier 3 (P2) — 子 Agent 动态配额与遥测度量
 
 #### H3.5 — 子 Agent 级联 Token 配额与事件流多路复用 (Sub-Agent Budget Cascading & Multiplexing)
-- [ ] 子 Agent 派生时继承父级动态预算配额（`maxTurns`, `maxTokens`），子 Agent 消耗实时从父级剩余总额扣减。
-- [ ] 子 Agent 产生的事件以 `parentWorkId.childEvent` 形式多路复用写入主事件总线并在 UI 中支持展开流式监控。
-- [ ] **验收**: 子 Agent 超预算自动熔断并归还控制权；UI 可流式观察子任务内部 Tool 执行。
+- [x] 子 Agent 派生时继承父级动态预算配额（`maxTurns`, `maxTokens`, `maxCostUSD`），子 Agent 消耗实时从父级剩余总额扣减。
+- [x] 子 Agent 产生的事件以 `parentWorkId.childEvent` 形式多路复用写入主事件总线并在 UI 中支持展开流式监控。
+- [x] **验收**: 子 Agent 超预算自动熔断并归还控制权；UI 可流式观察子任务内部 Tool 执行。
 
 #### H3.6 — 遥测度量与 PTY / `tmux` TUI E2E 自动化测试 Harness (Cost Telemetry & PTY E2E Suite)
-- [ ] 每一轮对话统计 `input_tokens` / `output_tokens` / `cache_hit` 并实时计算估算美金开销（$）。
-- [ ] 新增 `scripts/tui-e2e.sh` 测试脚本，通过 `tmux` / PTY 仿真终端自动化测试 TUI 渲染与按键响应。
-- [ ] **验收**: 日志与 Activity 输出包含实时 Token 美金估算；`pnpm test:tui` 脚本可在 CI 运行。
+- [x] 每一轮对话统计 `input_tokens` / `output_tokens` / `cache_hit` 并实时计算估算美金开销（$）。
+- [x] 新增 `scripts/tui-e2e.sh` 测试脚本，通过 `tmux` / PTY 仿真终端自动化测试 TUI 渲染与按键响应。
+- [x] **验收**: 日志与 Activity 输出包含实时 Token 美金估算；`pnpm test:tui` 脚本可在 CI 运行。
 
 ---
 
