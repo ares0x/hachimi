@@ -83,6 +83,8 @@
       "!**/demo",
       "!**/*.jsonl",
       "!**/*.db",
+      "!**/*.d.ts",
+      "!**/*.d.ts.map",
       "!**/pnpm-lock.yaml"
     ]
   }
