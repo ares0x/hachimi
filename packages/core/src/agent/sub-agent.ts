@@ -160,6 +160,18 @@ export class SubAgentDelegator {
   }
 
   /**
+   * H6.2: 多 Worker 并行派发与结果 Join 汇流
+   */
+  async runParallelSubAgents(tasksOptions: SubAgentRunOptions[]): Promise<SubAgentResult[]> {
+    log(
+      "info",
+      `⚡ [SubAgent Parallel Dispatching] Spawning ${tasksOptions.length} parallel sub-agent workers...`
+    );
+    const promises = tasksOptions.map((opt) => this.runSubAgent(opt));
+    return await Promise.all(promises);
+  }
+
+  /**
    * 工具 1: 派发子 Agent `delegate_subagent`
    */
   getDelegationTool(): ToolDefinition {

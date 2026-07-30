@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { auditShellCommandAST } from "../../../sandbox/shell-ast-guard.js";
 import type { ToolDefinition, ToolExecContext } from "../../types.js";
 
 const execFileAsync = promisify(execFile);
@@ -30,6 +31,12 @@ export const runCommandTool: ToolDefinition = {
     const command = String(args.command ?? "").trim();
     const argv = Array.isArray(args.args) ? args.args.map(String) : null;
     if (!command) return "command 不能为空";
+
+    const fullCmd = argv ? `${command} ${argv.join(" ")}` : command;
+    const audit = auditShellCommandAST(fullCmd);
+    if (!audit.allowed) {
+      return audit.reason || "[安全预审拦截] 高危指令禁止执行";
+    }
 
     const cwd = ctx?.workspaceRoot || process.cwd();
 

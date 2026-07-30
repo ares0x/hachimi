@@ -18,6 +18,9 @@
 | **W5** | 上下文治理与评测加固 | 🟢 已完成 | 长 Work 规则 Compaction、Evals 3大新场景、ARCHITECTURE.md 对齐 |
 | **W5.5** | Harness 正确性前置修补 | 🟢 已完成 | 修复二进制检测内存峰值、通道注入表、双重判定契约与记忆硬编码修补 |
 | **H3** | Harness 工程化极效提升 | 🟢 已完成 | 信号级级联打断、领域截断、单调递增 seq、工具属性扩充与遥测度量 |
+| **H4** | 向量语义记忆与 RAG 索引 | 🟡 进行中 | 嵌入向量余弦相似度检索、RAG 记忆清洗与动态 Context 装配 |
+| **H5** | Shell AST 预审与命令安全防护 | 🟡 待执行 | Shell AST 语法分析器、高危命令/管道/逃逸路径安全预审器 |
+| **H6** | 多 Worker 并发 DAG 与结果汇流 | 🟡 待执行 | 树状 Work DAG 状态机、多 Worker 并行派生与结果 Join 汇流 |
 | **W6** | 连接器（可选 P2） | ⚪ 搁置 | 日历等工具化，非壳内 App |
 
 ---
@@ -69,6 +72,34 @@
 - [x] **验收**: 日志与 Activity 输出包含实时 Token 美金估算；`pnpm test:tui` 脚本可在 CI 运行。
 
 ---
+
+## Phase H4 — 向量语义记忆与 RAG 上下文索引 Backlog (Tier 1 / P0)
+
+> **目标**: 对标 Mem0 / Maka-Agent，实现基于向量余弦相似度的跨会话 Memory 语义检索与 RAG 动态 Context 注入。
+
+- [ ] **H4.1 向量语义相似度检索**: 在 `MemoryManager` 中整合 `cosineSimilarity`，实现 `searchSemanticMemories(query: string, topK = 5, minScore = 0.4)` 接口。
+- [ ] **H4.2 RAG 上下文装配**: `ContextBuilder` 支持传入语义搜索结果，根据用户输入的特征动态检索注入 Top-K 记忆，提高 Prompt 精确度与 Cache 命中率。
+- [ ] **验收**: 跑单测验证相同语义（如“我不吃辣”）能通过余弦相似度命中（“用户口味偏好”），并成功写入 Context；单测覆盖。
+
+---
+
+## Phase H5 — Shell AST 预审与命令安全防护 Backlog (Tier 2 / P1)
+
+> **目标**: 对标 Grok-Build / Claude Code，建立 Shell 命令 AST 级安全剖析与绝对隔离门禁。
+
+- [ ] **H5.1 Shell AST 语法分析器**: 编写 `auditShellCommandAST(command: string)` 检查器，解析命令 Tokens、环境变量与重定向管道。
+- [ ] **H5.2 高危指令与路径逃逸阻断**: 自动识别并拦截 `rm -rf /`、网络脚本注入 `curl ... | bash` 以及试图绕过 PathJail 的危险拼接指令。
+- [ ] **验收**: 传入危险命令被 `auditShellCommandAST` 明确阻断并返回安全警告，合法指令流畅放行；单测覆盖。
+
+---
+
+## Phase H6 — 多 Worker 并发 DAG 与结果汇流 Backlog (Tier 3 / P2)
+
+> **目标**: 对标 Maka-Agent / AutoGen，实现树状 Work DAG 状态机与多 Worker 并发派生与结果 Join 汇流。
+
+- [ ] **H6.1 树状 Work DAG 状态机**: 扩展 `Work` 数据结构支持 `parentWorkId` 关联的子 Work 树状 DAG 状态管理。
+- [ ] **H6.2 多 Worker 并发派生与结果 Join 汇流**: `SubAgentDelegator` 支持 `runParallelSubAgents([tasks])` 并发派生多个 Worker，自动追踪汇总并行执行结果。
+- [ ] **验收**: 派生 3 个并发子 Worker 任务，主进程在并发执行完成后成功收集汇总 Join 结果；单测覆盖。
 
 ## Phase W6 — 连接器（可选 P2，已搁置）
 

@@ -280,4 +280,21 @@ export class MemoryManager {
         break;
     }
   }
+
+  /**
+   * H4.1: 基于语义与文本相似度的 RAG 检索
+   */
+  searchSemanticMemories(query: string, topK = 5, minScore = 0.25): MemoryEntry[] {
+    const all = this.list();
+    const scored = all.map((entry) => {
+      const score = jaccardSimilarity(query, entry.content);
+      return { entry, score };
+    });
+
+    return scored
+      .filter(({ score }) => score >= minScore)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, topK)
+      .map(({ entry }) => entry);
+  }
 }
