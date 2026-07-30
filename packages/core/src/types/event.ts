@@ -37,12 +37,15 @@ export interface UserMessageEvent extends BaseRuntimeEvent {
   };
 }
 
+import type { NormalizedUsage } from "@hachimi/shared";
+
 export interface AssistantMessageEvent extends BaseRuntimeEvent {
   type: "assistant_message";
   payload: {
     content: string;
     messageId?: string;
     durationMs?: number;
+    usage?: NormalizedUsage & { costUsd?: number };
   };
 }
 
@@ -117,6 +120,7 @@ export interface RunFinishedEvent extends BaseRuntimeEvent {
     durationMs: number;
     success: boolean;
     summary?: string;
+    usage?: NormalizedUsage & { costUsd?: number };
   };
 }
 

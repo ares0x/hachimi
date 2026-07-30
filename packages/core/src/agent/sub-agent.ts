@@ -15,6 +15,10 @@ export interface SubAgentRunOptions {
   contextHint?: string;
   parentSessionId?: string;
   async?: boolean;
+  /** H3.5: 子 Agent 派生下发的 Token 额度上限 */
+  maxTokens?: number;
+  /** H3.5: 子 Agent 派生下发的 $ 美金开销上限 */
+  maxCostUSD?: number;
 }
 
 export interface SubAgentTaskState {

@@ -1,4 +1,4 @@
-import { generateId, log } from "@hachimi/shared";
+import { generateId, log, type NormalizedUsage } from "@hachimi/shared";
 import type { Agent } from "../agent/agent.js";
 import { SubAgentDelegator } from "../agent/sub-agent.js";
 import type { IEventStore } from "../events/event-store.js";
@@ -58,6 +58,8 @@ export interface RuntimeOutput {
   channel?: string;
   statusRatio?: string;
   isError?: boolean;
+  /** H3.6: 归一化 Token Usage 与 $ 美金开销 */
+  usage?: NormalizedUsage & { costUsd?: number };
   errorDetail?: string;
 }
 

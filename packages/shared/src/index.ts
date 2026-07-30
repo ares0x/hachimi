@@ -16,6 +16,15 @@ export * from "./constants/index.js";
 export * from "./errors.js";
 export type { LogLevel } from "./logger.js";
 export { createScopedLogger, log, setLogFormat, setLogLevel, setLogSilent } from "./logger.js";
-export { createTokenEstimator, defaultTokenEstimator, estimateTokenCostUSD } from "./token.js";
+export {
+  calculateCostUSD,
+  createTokenEstimator,
+  defaultTokenEstimator,
+  estimateTokenCostUSD,
+  MODEL_PRICING_CATALOG,
+  type ModelPricing,
+  type NormalizedUsage,
+  normalizeUsage,
+} from "./token.js";
 export { summarizeToolArgs, type ToolArgSummary } from "./tool-summary.js";
 export { cosineSimilarity, jaccardSimilarity, normalizeText } from "./vector.js";
