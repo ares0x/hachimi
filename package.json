@@ -44,6 +44,7 @@
     "format": "biome format --write .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:tui": "bash scripts/tui-e2e.sh",
     "smoke:mock": "vitest run tests/smoke/smoke.test.ts",
     "eval": "vitest run packages/evals/src/evals.test.ts",
     "clear:sessions": "tsx scripts/clear-sessions.ts",

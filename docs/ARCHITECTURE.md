@@ -29,12 +29,7 @@ implementation:
   across CLI/messaging/TUI/desktop, provider-transport abstraction, prompt-cache
   discipline, self-improving skill loop.
 
-We deliberately do **not** use `liuup/claude-code-analysis` as an architectural
-input. That project is a static analysis built on a decompiled reconstruction of
-Claude Code's proprietary source — its provenance makes it unsuitable as a design
-reference regardless of how the analysis is framed. Where we want Claude Code's
-publicly-documented ideas (e.g. hierarchical memory, lazy skill loading), we cite
-Anthropic's own public material (*Building effective agents*, the Claude Agent SDK
+ Where we want Claude Code's publicly-documented ideas (e.g. hierarchical memory, lazy skill loading), we cite Anthropic's own public material (*Building effective agents*, the Claude Agent SDK
 docs) instead.
 
 ## Product Vision — Four Pillars
@@ -308,4 +303,3 @@ task breakdown of the current phase.
 5. Phase E — Unified extension registry (tools/skills/MCP), hooks (done)
 6. Phase F — Multi-surface clients (Desktop, web, Telegram) + Tier 2 personalization (done)
 7. Phase W0–W5 — Work-first architecture, RuntimeEvent truth source, PermissionPolicy engine, Work-first UI, Evolution Loop F5, Context Compaction & Evals (done)
-

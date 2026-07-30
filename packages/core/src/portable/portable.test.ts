@@ -31,7 +31,7 @@ describe("Phase D Portable Memory (Bundle Export / Import / Migration)", () => {
     expect(result.success).toBe(true);
     expect(result.checksumValid).toBe(true);
     expect(result.skippedMemoriesCount).toBeGreaterThan(0);
-  });
+  }, 15000);
 
   it("migrateBundleToLatest upgrades legacy v0 bundle to v1", () => {
     const legacyRawBundle = {

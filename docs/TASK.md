@@ -17,7 +17,7 @@
 | **W4** | 演化闭环 F5 | 🟢 已完成 | 轨迹→技能提案→人审 Confirmation→Skill 物理落盘与动态注册 |
 | **W5** | 上下文治理与评测加固 | 🟢 已完成 | 长 Work 规则 Compaction、Evals 3大新场景、ARCHITECTURE.md 对齐 |
 | **W5.5** | Harness 正确性前置修补 | 🟢 已完成 | 修复二进制检测内存峰值、通道注入表、双重判定契约与记忆硬编码修补 |
-| **H3** | Harness 工程化极效提升 | 🟡 进行中 | 信号级级联打断、领域截断、单调递增 seq、工具属性扩充与遥测度量 |
+| **H3** | Harness 工程化极效提升 | 🟢 已完成 | 信号级级联打断、领域截断、单调递增 seq、工具属性扩充与遥测度量 |
 | **W6** | 连接器（可选 P2） | ⚪ 搁置 | 日历等工具化，非壳内 App |
 
 ---
@@ -29,28 +29,27 @@
 ### Tier 1 (P0) — 核心控制流与确定性上下文
 
 #### H3.1 — AbortSignal 级联打穿与毫秒级强杀死 (AbortSignal Cascade & Subprocess SIGKILL)
-- [ ] `ToolExecContext` 深度打通 `signal?: AbortSignal`，在 `run_command` 工具中监听 `signal.onabort` 并级联触发 `child_process.kill("SIGKILL")`。
-- [ ] 当用户触发 `steer()` / `cancelWork` / HTTP `abort` 时，强行毫秒级中断正在运行的 shell 子进程与网络请求，释放宿主机资源。
-- [ ] **验收**: 跑一个 `sleep 30` 子进程，触发 abort 命令后，子进程在 50ms 内被 `SIGKILL` 终止，无残留后台僵尸进程；单测覆盖。
+- [x] `ToolExecContext` 深度打通 `signal?: AbortSignal`，在 `run_command` 工具中监听 `signal.onabort` 并级联触发 `child_process.kill("SIGKILL")`。
+- [x] 当用户触发 `steer()` / `cancelWork` / HTTP `abort` 时，强行毫秒级中断正在运行的 shell 子进程与网络请求，释放宿主机资源。
+- [x] **验收**: 跑一个 `sleep 30` 子进程，触发 abort 命令后，子进程在 50ms 内被 `SIGKILL` 终止，无残留后台僵尸进程；单测覆盖。
 
 #### H3.2 — 结构化与领域感知输出压缩 (Structural & Domain-Aware Tool Truncation)
-- [ ] 升级 `ContextBuilder` 与 `tool_result` 截断逻辑，针对 `git diff`、文件目录树（`list_dir`）和编译堆栈日志实现结构化感知截断：
+- [x] 升级 `ContextBuilder` 与 `tool_result` 截断逻辑，针对 `git diff`、文件目录树（`list_dir`）和编译堆栈日志实现结构化感知截断：
   - `git diff`: 保留变更 File Header 与 Hunk 差异行，折叠无变更行
   - `stack trace`: 保留 Error 头与首尾 3 行调用栈
   - `tree/list_dir`: 保留顶级与第一层目录，摘要深层文件
-- [ ] **验收**: 大 Diff / 深度目录树在 >8KB 时保留结构化 Context，不破坏语法结构；单测覆盖。
+- [x] **验收**: 大 Diff / 深度目录树在 >8KB 时保留结构化 Context，不破坏语法结构；单测覆盖。
 
 ---
 
 ### Tier 2 (P1) — 事件确定性与工具属性扩充
 
 #### H3.3 — 严格单调递增 Sequence ID 与事件无缝重放 (RuntimeEvent Monotonic `seq`)
-- [ ] `RuntimeEvent` 增加单调递增 `seq: number` 字段。
-- [ ] `FileEventStore` 与 `SQLiteEventStore` 在 `append` 时原子递增生成 `seq`，支持 API `/api/sessions/:id/events?sinceSeq=100`。
-- [ ] **验收**: 并发写入事件的 `seq` 严格单调递增；客户端通过 `sinceSeq` 可无缝增量重放；单测覆盖。
+- [x] `RuntimeEvent` 增加单调递增 `seq: number` 字段。
+- [x] `FileEventStore` 与 `SQLiteEventStore` 在 `append` 时原子递增生成 `seq`，支持 API `/api/sessions/:id/events?sinceSeq=100`。
+- [x] **验收**: 并发写入事件的 `seq` 严格单调递增；客户端通过 `sinceSeq` 可无缝增量重放；单测覆盖。
 
 #### H3.4 — 工具属性扩充与副作用/幂等性策略 (Tool Metadata: `readOnly` & `isIdempotency`)
-- [ ] `ToolDefinition` 增加 `readOnly?: boolean` 与 `isIdempotent?: boolean` 字段。
 - [ ] 更新 `PermissionPolicy`：声明为 `readOnly: true` 的 safe 工具允许并行并发调度与乐观 UI 响应。
 - [ ] **验收**: 只读工具与写操作工具在策略表中有清晰的并发/乐观响应区分；单测覆盖。
 

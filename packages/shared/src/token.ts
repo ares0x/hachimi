@@ -24,3 +24,27 @@ export function createTokenEstimator(model: string = "gpt-4o-mini") {
 
 // 全局默认实例
 export const defaultTokenEstimator = createTokenEstimator();
+
+/**
+ * H3.6: 估算对话 Token 的美金开销 ($)
+ */
+export function estimateTokenCostUSD(
+  inputTokens: number,
+  outputTokens: number,
+  provider = "deepseek",
+): number {
+  // 默认美金价格费率 (per 1M tokens)
+  let inputRatePerM = 0.14; // DeepSeek-V3 cache miss default
+  let outputRatePerM = 0.28;
+
+  if (provider.includes("openai") || provider.includes("gpt-4o")) {
+    inputRatePerM = 2.5;
+    outputRatePerM = 10.0;
+  } else if (provider.includes("claude") || provider.includes("anthropic")) {
+    inputRatePerM = 3.0;
+    outputRatePerM = 15.0;
+  }
+
+  const cost = (inputTokens / 1_000_000) * inputRatePerM + (outputTokens / 1_000_000) * outputRatePerM;
+  return Number(cost.toFixed(6));
+}

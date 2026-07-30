@@ -94,6 +94,9 @@ export class SubAgentDelegator {
           prompt,
           sessionId: subSessionId,
           channel: "sub-agent",
+          options: {
+            maxRounds: 5,
+          },
         });
 
         const durationMs = Date.now() - startTime;

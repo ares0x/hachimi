@@ -1,4 +1,4 @@
-下面是一份**可执行的下阶段总计划**：在 Web/Desktop MVP 已可用的前提下，把重心转回 **Harness + Work/Activity 一等模型**，并吸收 Maka / Pi / Claude·Codex / Hermes 的长处。每阶段结束项目仍须**可运行、可测**。
+下面是一份**可执行的下阶段总计划**：在 Web/Desktop MVP 已可用的前提下，把重心转回 **Harness + Work/Activity 一等模型**。每阶段结束项目仍须**可运行、可测**。
 
 ---
 
@@ -12,12 +12,12 @@
 
 | 阶段 | 名称 | 主题 | 主要对标吸取 |
 |------|------|------|----------------|
-| **W0** | 真相源与可恢复 | 事件流 / Session 续跑 | Maka Event Log、Pi transcript |
+| **W0** | 真相源与可恢复 | 事件流 / Session 续跑 | Event Log、Pi transcript |
 | **W1** | Work 数据模型 | Goal/Plan/Status API | Craft/Codex 任务列表语义 |
 | **W2** | 策略与多表面生产 | 权限、密钥、通道 | Hermes 通道策略、你方 H2/H4 |
 | **W3** | Work-first UI 最小集 | Rail/Main/Inspector 换语义 | 上文 Work UI，非 Chat 皮 |
 | **W4** | 演化闭环 F5 | 轨迹→技能提案→人审 | Hermes 学习环 |
-| **W5** | 上下文与评测加固 | 剪枝、compaction、evals 扩展 | Maka context 纪律、自有 Phase I |
+| **W5** | 上下文与评测加固 | 剪枝、compaction、evals 扩展 | context 纪律、自有 Phase I |
 | **W6** | 连接器（可选） | 日历等工具化 | MCP/工具，非套壳 App |
 
 **并行约束：** Desktop 视觉大改、多 Agent 平台、Cola 式无列表、对外无限 MCP 暴露 → 默认不进本计划主线。
@@ -39,10 +39,6 @@
 | W0.4 | `GET /api/sessions/:id/events`（分页）+ 可选 SSE 订阅事件（不只 token） | curl/脚本可解析 JSON |
 | W0.5 | 与现有 Session 存储对齐；迁移旧数据「无事件则从 messages 生成合成事件」或只支持新会话 | 文档说明兼容策略 |
 | W0.6 | 单测：顺序、恢复后下一轮 context 含关键 tool_result | CI 绿 |
-
-### 吸取
-- **Maka：** 事实与投影分离——UI/context 不写第二份真相。
-- **Pi：** 会话文件可恢复、可检视。
 
 ### 出口
 「无 GUI 脚本：创建 session → 跑带工具的一轮 → 读 events → 重启 server → 再读 events 一致。」
@@ -161,9 +157,6 @@ Web（及 Desktop 壳）成为 **Runtime 状态投影**，不是更好的 ChatGP
 | W5.3 | Evals：增加 `work_recovery`、`permission_deny`、`plan_then_act` 用例 | mock 模式 CI |
 | W5.4 | 文档：Agent Native 四条与 Work 模型写入 `ARCHITECTURE.md` 一节 | 与实现一致 |
 
-### 吸取
-- **Maka：** 剪枝与「context ≠ 可丢弃事实」。
-- **自有 Phase I：** 扩展而非重造框架。
 
 ---
 
@@ -216,6 +209,3 @@ UI 可仍用现壳，但 API 已 Work-first——避免先画后改。
 - README「推荐日常」：`server` → Web；CLI 跑 Work；secret 必开。
 
 ---
-
-**一句话：**
-下阶段主线是 **W0 真相源 → W1 Work 模型 → W2 生产策略 → W3 UI 换语义 → W4 演化 → W5 巩固**；向 Maka/Pi 学可恢复与事实流，向 Codex/Craft 学任务列表语义，向 Hermes 学通道与学习闭环，**不向任何产品学「再做一个聊天 Mode 墙」**。

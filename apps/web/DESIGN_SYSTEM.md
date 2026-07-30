@@ -734,7 +734,7 @@ _Hachimi Design System — quiet tools, durable local assistant, honest surfaces
 
 ## 17. Agent form and workbench layout (v1.2)
 
-Added after benchmarking Craft-, Maka-, and Hermes-class agent desktops and reconciling
+Added after benchmarking agent desktops and reconciling
 them with §1 principles. This section is **normative** for Desktop and Web.
 
 ### 17.1 What the next generation of agent UI actually is

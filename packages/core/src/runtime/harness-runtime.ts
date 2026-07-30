@@ -36,6 +36,10 @@ export interface RuntimeInputOptions {
    * per-call surface 覆盖；通常由 RuntimeInput.channel 自动注入，无需手动设置
    */
   channel?: SurfaceType | ChannelType;
+  /**
+   * H3.5: 子 Agent 派生或单次调用的最大轮次限制
+   */
+  maxRounds?: number;
 }
 
 export interface RuntimeInput {
