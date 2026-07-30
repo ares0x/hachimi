@@ -1,4 +1,4 @@
-import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
+import { closeSync, createReadStream, existsSync, openSync, readSync, statSync } from "node:fs";
 import { createInterface } from "node:readline";
 import type { ToolDefinition, ToolExecContext } from "../../types.js";
 
@@ -106,10 +106,16 @@ export const readFileTool: ToolDefinition = {
         return `[不是文件] ${filePath}（若是目录请用 list_dir）`;
       }
 
-      const head = Buffer.alloc(Math.min(8000, st.size));
       if (st.size > 0) {
-        const fdHead = readFileSync(safePath).subarray(0, head.length);
-        if (isProbablyBinary(fdHead)) {
+        const checkBytes = Math.min(8000, st.size);
+        const headBuf = Buffer.alloc(checkBytes);
+        const fd = openSync(safePath, "r");
+        try {
+          readSync(fd, headBuf, 0, checkBytes, 0);
+        } finally {
+          closeSync(fd);
+        }
+        if (isProbablyBinary(headBuf)) {
           return `[二进制文件] ${filePath}（${st.size} bytes）。read_file 仅支持文本。`;
         }
       }

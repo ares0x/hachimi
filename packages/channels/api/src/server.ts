@@ -455,15 +455,16 @@ export function createHachimiApiServer(
   server.post(
     "/api/chat/steer",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const body = (request.body || {}) as { prompt?: string };
+      const body = (request.body || {}) as { prompt?: string; channel?: string };
       const prompt = (body.prompt || "").trim();
+      const channel = body.channel || "web-sse";
       if (!prompt) {
         reply.code(400).send({ error: "Missing required parameter: prompt" });
         return;
       }
 
       const steered = runtime.steer(prompt);
-      return { success: steered, prompt, isRunning: runtime.agent.isRunning() };
+      return { success: steered, prompt, channel, isRunning: runtime.agent.isRunning() };
     },
   );
 
@@ -471,15 +472,16 @@ export function createHachimiApiServer(
   server.post(
     "/api/chat/followup",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const body = (request.body || {}) as { prompt?: string };
+      const body = (request.body || {}) as { prompt?: string; channel?: string };
       const prompt = (body.prompt || "").trim();
+      const channel = body.channel || "web-sse";
       if (!prompt) {
         reply.code(400).send({ error: "Missing required parameter: prompt" });
         return;
       }
 
       runtime.followUp(prompt);
-      return { success: true, prompt };
+      return { success: true, prompt, channel };
     },
   );
 

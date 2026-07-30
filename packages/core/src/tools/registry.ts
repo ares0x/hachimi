@@ -186,7 +186,9 @@ export class ToolRegistry {
       }
     }
 
-    // 3) 权限策略
+    // 3) 权限策略 (W5.5.3: 【双重判定契约 - 第二层 (ToolRegistry 安全闸口)】
+    // 此阶段为底层的安全兜底防护，针对直接调用 execute() 或外部 API 输入的防线。
+    // 第一层 Agent.run() 已根据此处的相同规则决定了是否进行 confirm 询问。)
     const level = (tool.permission ?? "safe") as ToolPermission;
     const surface = (options?.channel ?? "api") as SurfaceType;
     const policy = options?.permissionPolicy ?? this.permissionPolicy;

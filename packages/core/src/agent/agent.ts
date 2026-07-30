@@ -206,7 +206,7 @@ export class Agent {
   ): Promise<string> {
     const input = userInput.trim();
 
-    // 1. 自然语言记住
+    // 1. 自然语言记住 (W5.5.4: 经过标准 ToolRegistry 管道与 RuntimeEvent 留痕)
     const rememberPrefixes = ["请记住", "记住", "帮我记一下", "记一下"];
     for (const prefix of rememberPrefixes) {
       if (input.startsWith(prefix)) {
@@ -215,8 +215,44 @@ export class Agent {
           .replace(/^[：:\s]+/, "")
           .trim();
         if (content) {
-          this.memory.remember(content, 0.75);
-          const reply = `好的，我已经记住了：${content}`;
+          // 动态注册 save_memory 确保在工具管道中可被找到与记录
+          if (!this.tools.get("save_memory")) {
+            this.tools.register({
+              name: "save_memory",
+              description: "保存重要的用户偏好、事实或决策到长期记忆中",
+              permission: "safe",
+              parameters: {
+                type: "object",
+                properties: {
+                  content: { type: "string", description: "需要记住的具体信息" },
+                },
+                required: ["content"],
+              },
+              execute: async (args) => {
+                const text = String(args.content ?? "").trim();
+                this.memory.remember(text, 0.75);
+                return `好的，我已经记住了：${text}`;
+              },
+            });
+          }
+
+          const channel = options?.channel ?? "api";
+          const toolStartHandler = options?.onToolStart ?? this.onToolStart;
+          const toolEndHandler = options?.onToolEnd ?? this.onToolEnd;
+          if (toolStartHandler) {
+            toolStartHandler("save_memory", { content });
+          }
+
+          const reply = await this.tools.execute(
+            "save_memory",
+            { content },
+            { channel },
+          );
+
+          if (toolEndHandler) {
+            toolEndHandler("save_memory", reply, 0, true);
+          }
+
           if (options?.onChunk) options.onChunk(reply);
           return reply;
         } else {
@@ -348,9 +384,10 @@ export class Agent {
         let approved = true;
         const approvalHandler = options?.onToolApproval ?? this.onToolApproval;
 
-        // 通过 PermissionPolicy 矩阵决定是否需要 UI 审批
-        // 这样 tui(allow-all) + needs_confirm 工具 → "allow"（不问人）
-        //      telegram(allow-safe) + needs_confirm 工具 → "require_approval"（触发回调）
+        // W5.5.3: 【双重判定契约 - 第一层 (Agent 决策层)】
+        // 此处在 Agent 循环中调用 PermissionPolicy.decide() 决定是否需要交互式审批 (onToolApproval)；
+        // 第二层判定位于 ToolRegistry.execute() 内部（作为基础防御与单独 API 调用的安全闸口），
+        // 当 Agent 取得用户同意后会向 ToolRegistry 传入 confirm: true，两层判定结果保持 100% 规则一致。
         const surface = (options?.channel ?? "api") as SurfaceType;
         const policyDecision = this.tools
           .getPermissionPolicy()
