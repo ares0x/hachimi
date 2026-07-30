@@ -1,7 +1,9 @@
 import type { ToolRegistry } from "../registry.js";
 import { deleteFileTool } from "./fs/delete-file.js";
+import { grepSearchTool } from "./fs/grep-search.js";
 import { listDirTool } from "./fs/list-dir.js";
 import { readFileTool } from "./fs/read-file.js";
+import { replaceFileContentTool } from "./fs/replace-file.js";
 import { writeFileTool } from "./fs/write-file.js";
 import { calculatorTool, getCurrentDatetimeTool } from "./meta.js";
 import { runCommandTool } from "./shell/run-command.js";
@@ -16,6 +18,8 @@ export function registerBuiltinTools(registry: ToolRegistry): void {
     writeFileTool,
     deleteFileTool,
     listDirTool,
+    grepSearchTool,
+    replaceFileContentTool,
     runCommandTool,
     updateWorkPlanTool,
   ];

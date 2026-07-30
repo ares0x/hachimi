@@ -2,14 +2,16 @@ import type { ToolDefinition } from "../types.js";
 
 export const calculatorTool: ToolDefinition = {
   name: "calculator",
-  description: "执行简单的加减乘除计算",
+  description: "Executes basic arithmetic calculation (add, subtract, multiply, divide)",
   permission: "safe",
+  readOnly: true,
+  isIdempotent: true,
   parameters: {
     type: "object",
     properties: {
-      a: { type: "number" },
-      b: { type: "number" },
-      operator: { type: "string", enum: ["+", "-", "*", "/"] },
+      a: { type: "number", description: "First number" },
+      b: { type: "number", description: "Second number" },
+      operator: { type: "string", enum: ["+", "-", "*", "/"], description: "Operator" },
     },
     required: ["a", "b", "operator"],
   },
@@ -25,23 +27,25 @@ export const calculatorTool: ToolDefinition = {
       case "*":
         return String(a * b);
       case "/":
-        return b === 0 ? "错误：除数不能为 0" : String(a / b);
+        return b === 0 ? "Error: division by zero" : String(a / b);
       default:
-        return "不支持的运算符";
+        return "Unsupported operator";
     }
   },
 };
 
 export const getCurrentDatetimeTool: ToolDefinition = {
   name: "get_current_datetime",
-  description: "获取系统当前本地日期、时间与时区",
+  description: "Gets current local date, time, and timezone information",
   permission: "safe",
+  readOnly: true,
+  isIdempotent: true,
   parameters: {
     type: "object",
     properties: {
       format: {
         type: "string",
-        description: "ISO 或 local，默认 local",
+        description: "Format type: ISO or local, defaults to local",
       },
     },
   },

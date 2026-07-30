@@ -2,23 +2,25 @@ import type { ToolDefinition } from "../../types.js";
 
 export const updateWorkPlanTool: ToolDefinition = {
   name: "update_work_plan",
-  description: "更新当前 Work 的步骤计划（pending|running|done|skipped）。",
+  description:
+    "Updates the step-by-step plan for the current Work (status: pending | running | done | skipped).",
   permission: "safe",
   parameters: {
     type: "object",
     properties: {
       steps: {
         type: "array",
-        description: "步骤列表",
+        description: "List of plan steps",
         items: {
           type: "object",
           properties: {
-            title: { type: "string" },
+            title: { type: "string", description: "Step title" },
             status: {
               type: "string",
               enum: ["pending", "running", "done", "skipped"],
+              description: "Step status",
             },
-            description: { type: "string" },
+            description: { type: "string", description: "Optional detailed description" },
           },
           required: ["title", "status"],
         },

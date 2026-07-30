@@ -74,19 +74,18 @@ function requireJail(ctx?: ToolExecContext) {
 export const readFileTool: ToolDefinition = {
   name: "read_file",
   description:
-    "读取工作区内文本文件。按行分页：offset 为起始行（1-based），limit 为最多行数。" +
-    "返回带行号内容；若 truncated=true，请提高 offset 继续读。",
+    "Reads text file content line by line within the workspace. Supports line pagination: offset specifies starting line (1-based), limit specifies max lines.",
   permission: "safe",
   readOnly: true,
   isIdempotent: true,
   parameters: {
     type: "object",
     properties: {
-      path: { type: "string", description: "相对工作区的文件路径" },
-      offset: { type: "number", description: "起始行号（1-based），默认 1" },
+      path: { type: "string", description: "Relative file path within workspace" },
+      offset: { type: "number", description: "Start line number (1-based), default is 1" },
       limit: {
         type: "number",
-        description: `最多读取行数，默认 ${DEFAULT_LINE_LIMIT}`,
+        description: `Max number of lines to read, default is ${DEFAULT_LINE_LIMIT}`,
       },
     },
     required: ["path"],

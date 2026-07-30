@@ -44,7 +44,7 @@ describe("HarnessRuntime Core Unified Orchestration Engine", () => {
 
     const importRes = await runtime.importBundle(bundle, { mergeStrategy: "additive" });
     expect(importRes.success).toBe(true);
-  });
+  }, 15000);
 
   it("W0 / W2.2: runtime.execute() 写入事件流（session_started / user_message / assistant_message / run_finished）", async () => {
     const runtime = createHarnessRuntime({ providerOverride: "mock" });

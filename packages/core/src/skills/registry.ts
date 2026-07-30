@@ -66,13 +66,14 @@ export class SkillRegistry {
   getActivationTool(onActivate?: (skillName: string) => void): ToolDefinition {
     return {
       name: "activate_skill",
-      description: "当用户意图需要使用某个专业技能（如写作、总结等）时，调用此工具按需装载技能指令",
+      description:
+        "Dynamically activates and loads detailed instructions for a specific skill by name.",
       parameters: {
         type: "object",
         properties: {
           skill_name: {
             type: "string",
-            description: "需要激活的技能名称",
+            description: "The name of the skill to activate",
           },
         },
         required: ["skill_name"],

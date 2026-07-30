@@ -178,22 +178,23 @@ export class SubAgentDelegator {
     return {
       name: "delegate_subagent",
       description:
-        "【自主/隔离派发】仅当任务匹配复杂技术调研、长报错分析、代码审查或耗时计算等独立子任务场景时调用此工具派发后台子 Agent。简单问答切勿派发。耗时分析建议设 async: true！",
+        "Dispatches an autonomous isolated sub-agent worker for independent sub-tasks (complex research, error stack analysis, code review, etc.).",
       permission: "safe",
       parameters: {
         type: "object",
         properties: {
           taskDescription: {
             type: "string",
-            description: "需要子 Agent 独立处理的详细任务描述",
+            description: "Detailed task description for the sub-agent to execute independently",
           },
           contextHint: {
             type: "string",
-            description: "可选的背景参考信息或约束说明",
+            description: "Optional background reference or constraint notes",
           },
           async: {
             type: "boolean",
-            description: "是否以非阻塞异步方式后台派发 (默认为 false)。耗时分析强烈推荐设为 true！",
+            description:
+              "If true, dispatches sub-agent asynchronously in non-blocking background mode (default is false)",
           },
         },
         required: ["taskDescription"],
@@ -237,14 +238,15 @@ export class SubAgentDelegator {
     return {
       name: "check_subagent_status",
       description:
-        "查询后台异步子 Agent 任务的运行状态与结果总结。当用户输入‘查看结果’、‘好了吗’等口语化指令且未显式指定 taskId 时，请自动从上文中提取最新的 task_sub_xxx ID 传入此工具进行查询。",
+        "Checks execution status and result summary of a background asynchronous sub-agent task by task ID.",
       permission: "safe",
       parameters: {
         type: "object",
         properties: {
           taskId: {
             type: "string",
-            description: "子 Agent 任务的 Task ID (如 task_sub_xxx)。请从上下文中匹配提取",
+            description:
+              "Sub-agent Task ID (e.g., task_sub_xxx) extracted from conversation context",
           },
         },
         required: ["taskId"],

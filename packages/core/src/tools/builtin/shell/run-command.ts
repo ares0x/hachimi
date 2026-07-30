@@ -9,20 +9,19 @@ const MAX_COMMAND_CHARS = 50_000;
 export const runCommandTool: ToolDefinition = {
   name: "run_command",
   description:
-    "在工作区根目录执行命令。推荐 command + args 数组，避免 shell 拼接。" +
-    "（兼容旧用法：仅传 command 整串时走 /bin/sh -c，仍受超时与输出上限约束。）",
+    "Executes a shell command in the workspace root. Recommends executable command and args array to prevent shell injection.",
   permission: "needs_confirm",
   parameters: {
     type: "object",
     properties: {
       command: {
         type: "string",
-        description: "可执行文件名，或整串 shell（当未传 args）",
+        description: "Executable name or full shell command string when args is omitted",
       },
       args: {
         type: "array",
         items: { type: "string" },
-        description: "参数列表",
+        description: "Array of command arguments",
       },
     },
     required: ["command"],

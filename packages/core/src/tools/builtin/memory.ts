@@ -6,12 +6,15 @@ export function createMemoryTools(memory: MemoryManager): ToolDefinition[] {
   return [
     {
       name: "save_memory",
-      description: "保存重要的用户偏好、事实或决策到长期记忆中",
+      description: "Saves important user preferences, facts, or decisions into long-term memory",
       permission: "safe",
       parameters: {
         type: "object",
         properties: {
-          content: { type: "string", description: "需要记住的具体信息" },
+          content: {
+            type: "string",
+            description: "Specific information or preference to remember",
+          },
         },
         required: ["content"],
       },
