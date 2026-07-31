@@ -15,6 +15,7 @@ const DEFAULT_IGNORED_DIRS = new Set([
 
 export const listDirTool: ToolDefinition = {
   name: "list_dir",
+  kind: "read",
   description:
     "Lists directory entries within the workspace. Automatically filters giant build/git directories unless includeHidden is true.",
   permission: "safe",

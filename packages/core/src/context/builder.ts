@@ -1,4 +1,5 @@
 // packages/core/src/context/builder.ts
+import { createHash } from "node:crypto";
 import { DEFAULT_TOKEN_BUDGET, MASTER_AGENT_SYSTEM_PROMPT } from "@hachimi/shared";
 import type { MemoryManager } from "../memory/manager.js";
 import type { SkillRegistry } from "../skills/registry.js";
@@ -53,6 +54,14 @@ export interface BuiltContext {
 }
 
 const DEFAULT_IDENTITY = MASTER_AGENT_SYSTEM_PROMPT;
+
+/**
+ * P2: Explicit boundary marker separating the cacheable static prefix
+ * from the per-turn dynamic suffix. Matches Claude Code's pattern of
+ * using a distinct, searchable constant for prompt cache breakpoints.
+ */
+export const PROMPT_CACHE_BOUNDARY = "\n\n--- CONTEXT (dynamic, below this line is per-turn) ---\n\n";
+
 const DEFAULT_OPTIONS: Required<ContextOptions> = {
   maxTokens: DEFAULT_TOKEN_BUDGET,
   summaryThreshold: 20,
@@ -66,6 +75,38 @@ const DEFAULT_OPTIONS: Required<ContextOptions> = {
 export class ContextBuilder {
   constructor(private identity: string = DEFAULT_IDENTITY) {}
 
+  /**
+   * P3: Compute a SHA-256 hash of the current static context prefix.
+   * This hash changes when skills, tools, or identity change — enabling
+   * cache invalidation in the LLM provider layer. Matching Maka's
+   * RequestShapeComponents pattern.
+   */
+  hash(cacheHint?: { skills?: SkillRegistry; tools?: ToolRegistry }): string {
+    const parts: string[] = [this.identity];
+
+    if (cacheHint?.skills) {
+      const skillNames = cacheHint.skills
+        .list()
+        .map((s) => `${s.name}:${s.permission ?? "safe"}`)
+        .sort()
+        .join(",");
+      parts.push(`skills:${skillNames}`);
+    }
+
+    if (cacheHint?.tools) {
+      const toolNames = cacheHint.tools
+        .list()
+        .map((t) => `${t.name}:${t.permission ?? "safe"}`)
+        .sort()
+        .join(",");
+      parts.push(`tools:${toolNames}`);
+    }
+
+    parts.push(`boundary:${PROMPT_CACHE_BOUNDARY}`);
+
+    return createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 16);
+  }
+
   async build(input: ContextBuildInput = {}): Promise<BuiltContext> {
     const opts = { ...DEFAULT_OPTIONS, ...input.options };
 
@@ -76,23 +117,42 @@ export class ContextBuilder {
     const identity = input.identityOverride ?? this.identity;
     staticBlocks.push(identity);
 
-    let skillsBlock = "【当前可用技能列表】\n（空）";
+    // Slim skill list — same principle as tools: function-calling schema carries descriptions.
+    let skillsBlock = "【可用技能】\n（无）";
     if (input.skills) {
-      const desc = input.skills.getPromptDescriptions();
-      if (desc) {
-        skillsBlock = `【当前可用技能列表】\n${desc}\n\n【强制规则】当用户问「你有哪些技能」「你会什么」「你的能力」时，你必须且只能列出上面列表里的技能，禁止添加任何列表外能力。`;
+      const skillList = input.skills.list();
+      if (skillList.length > 0) {
+        const names = skillList
+          .map((s) => `- ${s.name} [${s.permission ?? "safe"}]`)
+          .join("\n");
+        skillsBlock = `【可用技能 (${skillList.length} 个)】\n${names}`;
       }
     }
     staticBlocks.push(skillsBlock);
 
-    // Slim tool list: function-calling schema carries full descriptions in the API call.
-    // System prompt only needs names + permissions for context awareness.
+    // P3: Slim tool list grouped by semantic kind (Grok Build pattern).
+    // Function-calling schema carries full descriptions in the API call.
     let toolsBlock = "【可用工具】\n（无）";
     if (input.tools) {
       const list = input.tools.list();
       if (list.length > 0) {
-        const toolNames = list.map((t) => `- ${t.name} [${t.permission ?? "safe"}]`).join("\n");
-        toolsBlock = `【可用工具 (${list.length} 个)】\n${toolNames}`;
+        // Group by kind, fallback to "other" for untyped tools
+        const groups = new Map<string, { name: string; perm: string }[]>();
+        const KIND_LABEL: Record<string, string> = {
+          read: "Read", write: "Write", delete: "Delete", shell: "Shell",
+          calc: "Calc", search: "Search", work: "Work", meta: "Meta", other: "Other",
+        };
+        for (const t of list) {
+          const k = t.kind || "other";
+          if (!groups.has(k)) groups.set(k, []);
+          groups.get(k)!.push({ name: t.name, perm: t.permission ?? "safe" });
+        }
+        const lines = [`【可用工具 (${list.length} 个)】`];
+        for (const [kind, tools] of groups) {
+          const label = KIND_LABEL[kind] || kind;
+          lines.push(`${label}: ${tools.map((t) => `\`${t.name}\``).join(", ")}`);
+        }
+        toolsBlock = lines.join("\n");
       }
     }
     staticBlocks.push(toolsBlock);
@@ -182,7 +242,7 @@ export class ContextBuilder {
     const dynamicPart = dynamicBlocks.join("\n\n");
 
     let systemPrompt = dynamicPart
-      ? `${staticPart}\n\n--- 动态上下文边界 ---\n\n${dynamicPart}`
+      ? `${staticPart}${PROMPT_CACHE_BOUNDARY}${dynamicPart}`
       : staticPart;
 
     // --- 3. Prompt Cache 友好的 Tail-only (尾部截断) ---
@@ -242,7 +302,7 @@ export class ContextBuilder {
     // Local helper for rebuilding prompt from dynamic blocks
     function buildPrompt(dynamics: string[]) {
       return dynamics.length > 0
-        ? `${staticPart}\n\n--- 动态上下文边界 ---\n\n${dynamics.join("\n\n")}`
+        ? `${staticPart}${PROMPT_CACHE_BOUNDARY}${dynamics.join("\n\n")}`
         : staticPart;
     }
 
@@ -382,13 +442,93 @@ export class ContextBuilder {
       `[ContextBuilder] Structural compaction: dropped ${cutCount} oldest messages, keeping ${kept.length} (${accumulatedTokens} est. tokens)`
     );
 
-    const placeholder =
-      `【更早的对话摘要】\n` +
-      `前面 ${cutCount} 条消息已被压缩以保持在上下文预算内。\n` +
-      `最近的 ${kept.length} 条消息完整保留如下。\n\n` +
-      `【最近消息】\n${this.formatRecentMessages(kept)}`;
+    // P2: Structured summary of the dropped span — extract what we can deterministically
+    const dropped = history.slice(0, cutCount);
+    const userMsgs = dropped.filter((m) => m.role === "user");
+    const toolCalls = dropped.filter((m) => m.role === "tool");
+    const toolNames = [...new Set(toolCalls.map((m) => m.name).filter(Boolean))];
+    const userQuestions = userMsgs
+      .slice(-3)
+      .map((m) => (typeof m.content === "string" ? m.content.slice(0, 100) : ""))
+      .filter(Boolean);
+
+    // P3: Post-compaction state re-injection — extract files that were explored
+    // so the agent doesn't re-read them after compaction (Claude Code pattern)
+    const exploredFiles = this.extractExploredFiles(dropped);
+    const exploredSection =
+      exploredFiles.length > 0
+        ? `\n\n【压缩前已探索的文件 (${exploredFiles.length} 个) — 不需要重新读取】\n` +
+          exploredFiles.map((f) => `- ${f.path} (${f.tool}, ${f.lines ?? f.entries} ${f.lines ? "lines" : "entries"})`).join("\n")
+        : "";
+
+    const placeholder = [
+      `【对话压缩摘要】前面 ${cutCount} 条消息已被压缩以节省上下文。`,
+      `- 用户消息: ${userMsgs.length} 条`,
+      `- 工具调用: ${toolCalls.length} 次`,
+      toolNames.length > 0 ? `- 使用过的工具: ${toolNames.join(", ")}` : "",
+      userQuestions.length > 0
+        ? `- 最近用户提问: ${userQuestions.map((q) => `"${q}${q.length >= 100 ? "…" : ""}"`).join("；")}`
+        : "",
+      exploredSection,
+      "",
+      `【最近消息 (${kept.length} 条)】`,
+      this.formatRecentMessages(kept),
+    ]
+      .filter((l) => l !== "")
+      .join("\n");
 
     return placeholder;
+  }
+
+  /**
+   * P3: Extract files explored in the dropped message span.
+   * Scans tool result messages for read_file and list_dir, extracting
+   * the file/directory path and a brief summary (line count or entry count).
+   * Used to re-inject state after compaction so the agent knows what was already explored.
+   */
+  private extractExploredFiles(
+    messages: Message[]
+  ): Array<{ path: string; tool: string; lines?: number; entries?: number }> {
+    const files: Array<{ path: string; tool: string; lines?: number; entries?: number }> = [];
+    const seen = new Set<string>();
+
+    for (const m of messages) {
+      if (m.role !== "tool") continue;
+      const toolName = m.name || "";
+      const content = typeof m.content === "string" ? m.content : "";
+
+      if (toolName === "read_file" || toolName === "read") {
+        // Extract path from args or content
+        const pathMatch = content.match(/\[文件(?:不存在|不是文件)\]\s+(.+)/) ||
+          content.match(/\[二进制文件\]\s+(\S+)/) ||
+          content.match(/\[Read (.+?) \(/) ||
+          content.match(/Read (.+?) \(/);
+        const path = pathMatch?.[1] || "unknown";
+        if (seen.has(path)) continue;
+        seen.add(path);
+
+        const lineCount = parseInt(content.match(/(\d+) lines?/)?.[1] || "0", 10) || undefined;
+        const sizeMatch = content.match(/(\d+) lines/);
+        files.push({
+          path,
+          tool: "read_file",
+          lines: sizeMatch ? parseInt(sizeMatch[1], 10) : lineCount,
+        });
+      } else if (toolName === "list_dir" || toolName === "list_directory") {
+        // Extract directory path from result
+        const dirMatch = content.match(/Directory (.+?) /) || content.match(/^(.+?)\s*\(/) ||
+          content.match(/Listed \d+ entries in (.+)/);
+        const path = dirMatch?.[1] || "unknown";
+        if (seen.has(path)) continue;
+        seen.add(path);
+
+        const entryCount = parseInt(content.match(/(\d+) entries?/)?.[1] || "0", 10) || undefined;
+        files.push({ path, tool: "list_dir", entries: entryCount });
+      }
+    }
+
+    // Cap at 15 files to avoid bloating the compacted block
+    return files.slice(-15);
   }
 
   private sanitizeMessageContent(m: Message, maxBytes: number): Message {
@@ -475,7 +615,7 @@ export class ContextBuilder {
   ): string {
     const buildPrompt = (dynamics: string[]) =>
       dynamics.length > 0
-        ? `${staticPart}\n\n--- 动态上下文边界 ---\n\n${dynamics.join("\n\n")}`
+        ? `${staticPart}${PROMPT_CACHE_BOUNDARY}${dynamics.join("\n\n")}`
         : staticPart;
 
     let currentPrompt = buildPrompt(dynamicBlocks);

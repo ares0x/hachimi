@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   cosineSimilarity,
   generateId,
@@ -62,23 +63,50 @@ export class MemoryManager {
   /**
    * 添加一条记忆
    */
+  /**
+   * P1: Content-addressed ID (Maka pattern). Same content → same ID → natural dedup.
+   * Fallback to random ID for backwards compat with existing entries.
+   */
+  private contentId(content: string): string {
+    return `mem_${createHash("sha256").update(content.trim()).digest("hex").slice(0, 16)}`;
+  }
+
   add(params: {
     layer: MemoryLayer;
     content: string;
     importance?: number;
     embedding?: number[];
+    /** P3: Source of this memory */
+    source?: "user" | "agent";
   }): MemoryEntry {
+    const trimmed = params.content.trim();
+    const cid = this.contentId(trimmed);
+
+    // P1: Content-addressed dedup — replace existing entry with same content
+    const layerArr = this.getLayerArray(params.layer);
+    const existingIdx = layerArr.findIndex((e) => e.id === cid);
+    if (existingIdx >= 0) {
+      layerArr[existingIdx] = {
+        ...layerArr[existingIdx],
+        importance: Math.max(layerArr[existingIdx].importance, params.importance ?? 0.5),
+        lastAccessedAt: Date.now(),
+      };
+      this.save();
+      return layerArr[existingIdx];
+    }
+
     const entry: MemoryEntry = {
-      id: generateId("mem_"),
+      id: cid,
       layer: params.layer,
-      content: params.content.trim(),
+      content: trimmed,
       importance: params.importance ?? 0.5,
       embedding: params.embedding,
+      source: params.source,
       createdAt: Date.now(),
       lastAccessedAt: Date.now(),
     };
 
-    this.getLayerArray(params.layer).push(entry);
+    layerArr.push(entry);
     this.cleanup();
     return entry;
   }
@@ -173,6 +201,39 @@ export class MemoryManager {
     this.save();
   }
 
+  /**
+   * P2: Export memories as human-readable Markdown (Maka/Hermes MEMORY.md format).
+   * Includes HTML comment metadata for round-trip compatibility.
+   */
+  exportMarkdown(): string {
+    const lines: string[] = [
+      "# Hachimi Memory",
+      "",
+      `> ${new Date().toISOString().slice(0, 10)} · ${this.longTerm.length} long-term · ${this.session.length} session`,
+      "",
+    ];
+
+    const appendSection = (title: string, entries: MemoryEntry[]) => {
+      if (entries.length === 0) return;
+      lines.push(`## ${title}`);
+      lines.push("");
+      for (const e of entries) {
+        const date = new Date(e.createdAt).toISOString().slice(0, 10);
+        lines.push(
+          `<!-- id=${e.id} layer=${e.layer} importance=${e.importance.toFixed(2)} date=${date} source=${e.source ?? "-"} -->`,
+        );
+        const body = e.content.length > 200 ? e.content.slice(0, 197) + "…" : e.content;
+        lines.push(`- ${body}`);
+        lines.push("");
+      }
+    };
+
+    appendSection("Long-term Memory", this.longTerm);
+    appendSection("Session Memory", this.session);
+
+    return lines.join("\n");
+  }
+
   export() {
     return {
       working: this.working,
@@ -209,6 +270,7 @@ export class MemoryManager {
       layer,
       content,
       importance,
+      source: "agent", // P3: agent-authored memories are tracked separately
     });
     return entry;
   }
@@ -271,7 +333,8 @@ export class MemoryManager {
   /**
    * B5 剪枝：结合时间衰减（Time-Decay）过滤低重要性记忆
    */
-  prune(minImportance = 0.3, maxCount = 100) {
+  prune(minImportance = 0.3, maxCount = 100): { pruned: number; warning?: string } {
+    const before = this.longTerm.length;
     const now = Date.now();
     this.longTerm = this.longTerm
       .map((entry) => {
@@ -284,6 +347,29 @@ export class MemoryManager {
       .map(({ entry }) => entry)
       .slice(0, maxCount);
     this.save();
+
+    const pruned = before - this.longTerm.length;
+    const warning = pruned > 5
+      ? `${pruned} low-importance memories pruned (limit: ${maxCount}). Consider consolidating manually.`
+      : undefined;
+
+    return { pruned, warning };
+  }
+
+  /**
+   * P1: Memory statistics for agent self-awareness (Hermes pattern).
+   * Returns counts and estimates so the agent can decide whether to consolidate.
+   */
+  stats(): { layers: Record<string, { count: number; estChars: number }>; total: number } {
+    const layers: Record<string, { count: number; estChars: number }> = {};
+    let total = 0;
+    for (const layer of ["working", "session", "long_term", "archival"] as MemoryLayer[]) {
+      const entries = this.getLayerArray(layer);
+      const estChars = entries.reduce((sum, e) => sum + e.content.length, 0);
+      layers[layer] = { count: entries.length, estChars };
+      total += entries.length;
+    }
+    return { layers, total };
   }
 
   cleanup() {

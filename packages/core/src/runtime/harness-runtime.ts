@@ -129,6 +129,22 @@ export class HarnessRuntime {
     if (!this.tools.get("check_subagent_status")) {
       this.tools.register(this.subAgentDelegator.getCheckStatusTool());
     }
+
+    // P1: Register built-in post-turn hook for context budget awareness
+    const maxTokens = this.context.config.context.maxTokens;
+    this.hooks.onPostTurn((ctx) => {
+      const ratio = ctx.estimatedTokens / maxTokens;
+      if (ratio > 0.85 && ctx.round >= 3) {
+        console.warn(
+          `[PostTurnHook] Round ${ctx.round}: ${ctx.estimatedTokens}/${maxTokens} tokens (${(ratio * 100).toFixed(0)}%) — injecting stop reminder`
+        );
+        return {
+          injectMessage:
+            `⚠️ 已执行 ${ctx.round} 轮工具调用，上下文即将用尽 (${(ratio * 100).toFixed(0)}%)。` +
+            `立即停止探索，基于已收集的信息输出结构化分析。`,
+        };
+      }
+    });
   }
 
   /**

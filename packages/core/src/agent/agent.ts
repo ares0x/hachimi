@@ -20,6 +20,14 @@ import type {
 } from "../types/index.js";
 import type { WorkManager } from "../work/work-manager.js";
 
+/** Events yielded by Agent.runStreaming() — enables real-time observation of the agent loop */
+export type StreamEvent =
+  | { type: "chunk"; content: string }
+  | { type: "tool_start"; name: string; args: Record<string, unknown> }
+  | { type: "tool_end"; name: string; result: string; durationMs: number; success: boolean }
+  | { type: "response"; content: string }
+  | { type: "error"; message: string };
+
 /**
  * P1: Completion requirement — harness-level enforcement that the agent
  * MUST call a specific tool before finishing. If the agent stops without
@@ -122,6 +130,7 @@ export class Agent {
   private contextSummaryThreshold: number;
   private activeSkill?: string;
   private running = false;
+  private pendingTermination = false; // P2: set by terminatesSession tools
   private pendingSteerPrompt: string | null = null;
   private followUpQueue: string[] = [];
   /** 拒绝熔断：per-tool 拒绝计数 + 总拒绝计数（每轮 run 重置），防止用户拒绝后死循环重试 */
@@ -204,6 +213,68 @@ export class Agent {
   }
 
   /**
+   * Execute a conversation turn, yielding events as they happen.
+   * Wraps `run()` with an event queue — no internal refactoring needed.
+   * Callers that need real-time observation (coordinator, streaming UI) use this.
+   */
+  async *runStreaming(
+    userInput: string,
+    history: Message[] = [],
+    options?: AgentRunOptions
+  ): AsyncGenerator<StreamEvent, void, unknown> {
+    type Event = { type: string; [key: string]: unknown };
+    const buffer: Event[] = [];
+    let finished = false;
+    let error: Error | null = null;
+    let wake: (() => void) | null = null;
+
+    const emit = (e: Event) => {
+      buffer.push(e);
+      wake?.();
+    };
+
+    // Fire run() in background; it pushes events via callbacks
+    const runPromise = this.run(userInput, history, {
+      ...options,
+      onChunk: (c) => emit({ type: "chunk", content: c }),
+      onToolStart: (n, a) => emit({ type: "tool_start", name: n, args: a }),
+      onToolEnd: (n, r, d, s) =>
+        emit({ type: "tool_end", name: n, result: r, durationMs: d, success: s }),
+    }).then(
+      (content) => {
+        emit({ type: "_done", content });
+        finished = true;
+        wake?.();
+      },
+      (err) => {
+        error = err;
+        finished = true;
+        wake?.();
+      }
+    );
+
+    // Drain buffer, yielding events as they arrive
+    while (!finished || buffer.length > 0) {
+      if (buffer.length > 0) {
+        const event = buffer.shift()!;
+        if (event.type === "_done") {
+          yield { type: "response", content: event.content as string };
+          return;
+        }
+        yield event as StreamEvent;
+      } else if (!finished) {
+        await new Promise<void>((r) => {
+          wake = r;
+        });
+      }
+    }
+
+    if (error) {
+      yield { type: "error", message: (error as Error).message };
+    }
+  }
+
+  /**
    * 执行一轮对话
    */
   async run(
@@ -231,6 +302,7 @@ export class Agent {
   ): Promise<string> {
     const input = userInput.trim();
     this.toolsCalledThisRun = new Set(); // reset per-run
+    this.pendingTermination = false; // reset per-run
 
     // 1. 自然语言记住 (W5.5.4: 经过标准 ToolRegistry 管道与 RuntimeEvent 留痕)
     const rememberPrefixes = ["请记住", "记住", "帮我记一下", "记一下"];
@@ -256,7 +328,7 @@ export class Agent {
               },
               execute: async (args) => {
                 const text = String(args.content ?? "").trim();
-                this.memory.remember(text, 0.75);
+                this.memory.add({ layer: "long_term", content: text, importance: 0.75, source: "user" });
                 return `好的，我已经记住了：${text}`;
               },
             });
@@ -440,6 +512,40 @@ export class Agent {
       for (const call of serial) {
         await this.executeOneTool(call, messages, options);
       }
+
+      // P2: If a terminatesSession tool signalled completion, stop immediately
+      if (this.pendingTermination) {
+        const final = response.content ?? "Task completed.";
+        messages.push({
+          id: generateId("msg_"),
+          role: "assistant",
+          content: final,
+          timestamp: Date.now(),
+        });
+        return final;
+      }
+
+      // P1: Post-turn hook — allows extensions to inject reminders after each round
+      if (options?.hooks || this.hooks) {
+        const hookRegistry = options?.hooks ?? this.hooks!;
+        const estTokens = defaultTokenEstimator(
+          messages.map((m) => `${m.role}: ${typeof m.content === "string" ? m.content : ""}`).join("\n")
+        );
+        const postTurnResult = await hookRegistry.runPostTurn({
+          messages,
+          round: rounds,
+          estimatedTokens: estTokens,
+          sessionId: options?.sessionId,
+        });
+        if (postTurnResult.injectMessage) {
+          messages.push({
+            id: generateId("msg_"),
+            role: "user",
+            content: postTurnResult.injectMessage,
+            timestamp: Date.now(),
+          });
+        }
+      }
     }
 
     const stopMsg = "\n\n⚠️ [达到最大工具调用轮次，已停止执行]";
@@ -552,6 +658,9 @@ export class Agent {
           channel: options?.channel,
           workId: options?.workId,
           workManager: options?.workManager,
+          onSessionTerminate: () => {
+            this.pendingTermination = true;
+          },
         })
       : formatUserRejectionMessage(call.name);
 

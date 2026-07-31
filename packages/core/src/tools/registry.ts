@@ -39,6 +39,8 @@ export interface ToolExecuteOptions {
     args: Record<string, unknown>,
     permission: string
   ) => Promise<boolean>;
+  /** P2: 工具执行成功且 terminatesSession 时回调 */
+  onSessionTerminate?: (toolName: string) => void;
 }
 
 export type ToolRegistryOptions = {
@@ -53,6 +55,10 @@ export class ToolRegistry {
   private tools: Map<string, ToolDefinition> = new Map();
   private sandbox: ToolSandbox;
   private failureCounts: Map<string, number> = new Map();
+  /** P1: Loop-gate — track consecutive failures with identical args (Maka pattern) */
+  private lastFailedArgs: Map<string, string> = new Map();
+  private identicalFailures: Map<string, number> = new Map();
+  private readonly LOOP_GATE_THRESHOLD = 3;
   private maxConsecutiveFailures: number;
   private workspaceRoot: string;
   private allowOutsideWorkspace: boolean;
@@ -101,6 +107,8 @@ export class ToolRegistry {
 
   resetCircuitBreaker(name: string): void {
     this.failureCounts.set(name, 0);
+    this.identicalFailures.delete(name);
+    this.lastFailedArgs.delete(name);
   }
 
   resetAllCircuitBreakers(): void {
@@ -161,6 +169,21 @@ export class ToolRegistry {
       return formatCircuitBreakerOpenMessage(name, currentFailures);
     }
 
+    // 1.5) P1: Loop-gate — block identical args retried after consecutive failures (Maka pattern)
+    const argsKey = JSON.stringify(rawArgs);
+    if (this.lastFailedArgs.get(name) === argsKey) {
+      const streak = (this.identicalFailures.get(name) || 0) + 1;
+      this.identicalFailures.set(name, streak);
+      if (streak >= this.LOOP_GATE_THRESHOLD) {
+        this.identicalFailures.delete(name);
+        this.lastFailedArgs.delete(name);
+        return `[Loop-gate] 工具 ${name} 已使用相同参数连续失败 ${streak} 次。请换一种方式或使用不同的参数，不要再重复相同的调用。`;
+      }
+    } else {
+      this.identicalFailures.set(name, 1);
+      this.lastFailedArgs.set(name, argsKey);
+    }
+
     // 2) 必填参数
     let args: Record<string, unknown> = { ...rawArgs };
     const required = tool.parameters?.required;
@@ -211,6 +234,19 @@ export class ToolRegistry {
       }
     }
 
+    // 3.6) P1: Tool-level checkPermissions (Claude Code pattern)
+    // Runs after PermissionPolicy but before execution.
+    // Tools apply domain-specific rules — e.g. Bash checks sandbox status.
+    if (tool.checkPermissions) {
+      const permResult = tool.checkPermissions(args, {
+        surface: options?.channel,
+        sessionId: options?.sessionId,
+      });
+      if (!permResult.allowed) {
+        return `[权限被拒绝] ${name}: ${permResult.reason || "Tool-level permission check failed"}`;
+      }
+    }
+
     // 4) PreToolCall
     if (options?.hooks) {
       const preResult = await options.hooks.runPreToolCall({
@@ -255,6 +291,12 @@ export class ToolRegistry {
 
     if (success) {
       this.failureCounts.set(name, 0);
+      this.identicalFailures.delete(name); // P1: reset loop-gate on success
+
+      // P2: Signal session termination if tool declares terminatesSession
+      if (tool.terminatesSession && options?.onSessionTerminate) {
+        options.onSessionTerminate(name);
+      }
     } else {
       this.recordFailure(name);
     }

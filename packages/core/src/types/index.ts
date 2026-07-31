@@ -58,6 +58,8 @@ export interface MemoryEntry {
   importance: number; // 0-1
   createdAt: number;
   lastAccessedAt: number;
+  /** P3: Origin of this memory (Maka source-separation pattern) */
+  source?: "user" | "agent";
   metadata?: Record<string, unknown>;
 }
 
@@ -86,6 +88,8 @@ export interface SkillContent {
 export interface ToolDefinition {
   name: string;
   description: string;
+  /** P3: Semantic tool category */
+  kind?: "read" | "write" | "delete" | "shell" | "calc" | "search" | "work" | "meta" | "other";
   parameters: Record<string, unknown>; // JSON Schema
   execute: (args: Record<string, unknown>, ctx?: any) => Promise<string>;
   /** 工具风险等级；默认 safe。Registry 据此触发 PermissionPolicy 裁决 */
@@ -103,6 +107,13 @@ export interface ToolDefinition {
   isDestructive?: boolean;
   /** P1: 工具入参前置校验机制 */
   validateInput?: (args: Record<string, unknown>) => { valid: boolean; reason?: string };
+  /** P1: Tool-level permission check (Claude Code pattern) */
+  checkPermissions?: (
+    args: Record<string, unknown>,
+    ctx?: { surface?: string; sessionId?: string }
+  ) => { allowed: boolean; reason?: string };
+  /** P2: 成功执行此工具后Agent循环立即停止 */
+  terminatesSession?: boolean;
   /** P1: 结构化渲染器，将工具原始输出转换为 UI 极简摘要 */
   renderToolResultMessage?: (result: unknown) => string;
 }

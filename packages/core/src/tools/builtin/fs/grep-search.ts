@@ -8,6 +8,7 @@ const IGNORED_PATHS = new Set(["node_modules", ".git", "dist", "build", "coverag
 
 export const grepSearchTool: ToolDefinition = {
   name: "grep_search",
+  kind: "search",
   description:
     "Performs fast regex or literal text pattern search across files within the workspace. Returns matching lines with file paths and line numbers.",
   permission: "safe",

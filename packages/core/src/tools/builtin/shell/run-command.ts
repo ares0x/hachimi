@@ -8,6 +8,7 @@ const MAX_COMMAND_CHARS = 50_000;
 
 export const runCommandTool: ToolDefinition = {
   name: "run_command",
+  kind: "shell",
   description:
     "Executes a shell command in the workspace root. Recommends executable command and args array to prevent shell injection.",
   permission: "needs_confirm",

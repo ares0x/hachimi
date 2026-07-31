@@ -12,7 +12,15 @@ import type { ToolDefinition } from "../types/index.js";
 
 export interface SubAgentRunOptions {
   taskDescription: string;
+  /** Short summary of what the parent agent already knows — prevents redundant exploration */
   contextHint?: string;
+  /**
+   * P2: Structured context from the parent.
+   * When set, the sub-agent prompt includes a focused summary so it doesn't
+   * need the full system prompt context. Include: what files were read, key
+   * findings, and what's still unknown.
+   */
+  contextSummary?: string;
   parentSessionId?: string;
   async?: boolean;
   /** H3.5: 子 Agent 派生下发的 Token 额度上限 */
@@ -87,9 +95,16 @@ export class SubAgentDelegator {
       task: options.taskDescription,
     });
 
-    const fullTaskDescription = options.contextHint
-      ? `${options.taskDescription}\n背景参考：${options.contextHint}`
-      : options.taskDescription;
+    // P2: Build focused prompt with parent context
+    let fullTaskDescription = options.taskDescription;
+    if (options.contextSummary) {
+      fullTaskDescription =
+        `【父 Agent 已掌握的信息】\n${options.contextSummary}\n\n` +
+        `【你的任务】\n${options.taskDescription}\n` +
+        `（注意：上面已列出的信息不需要重新探索，直接基于已有信息完成任务。）`;
+    } else if (options.contextHint) {
+      fullTaskDescription = `${options.taskDescription}\n背景参考：${options.contextHint}`;
+    }
     const prompt = formatSubAgentWorkerPrompt(fullTaskDescription);
 
     const executeChildTask = async (): Promise<SubAgentResult> => {

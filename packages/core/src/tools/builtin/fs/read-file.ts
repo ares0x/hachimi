@@ -73,6 +73,7 @@ function requireJail(ctx?: ToolExecContext) {
 
 export const readFileTool: ToolDefinition = {
   name: "read_file",
+  kind: "read",
   description:
     "Reads text file content line by line within the workspace. Supports line pagination: offset specifies starting line (1-based), limit specifies max lines.",
   permission: "safe",

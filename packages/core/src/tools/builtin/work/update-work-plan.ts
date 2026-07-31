@@ -2,6 +2,7 @@ import type { ToolDefinition } from "../../types.js";
 
 export const updateWorkPlanTool: ToolDefinition = {
   name: "update_work_plan",
+  kind: "work",
   description:
     "Updates the step-by-step plan for the current Work (status: pending | running | done | skipped).",
   permission: "safe",

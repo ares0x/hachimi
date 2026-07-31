@@ -4,6 +4,7 @@ import type { ToolDefinition } from "../../types.js";
 
 export const writeFileTool: ToolDefinition = {
   name: "write_file",
+  kind: "write",
   description:
     "Writes or appends text content to a file in the workspace. Automatically creates parent directories.",
   permission: "needs_confirm",

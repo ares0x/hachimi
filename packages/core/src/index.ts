@@ -1,6 +1,6 @@
 // packages/core/src/index.ts
 
-export type { CompletionRequirement } from "./agent/agent.js";
+export type { CompletionRequirement, StreamEvent } from "./agent/agent.js";
 export { Agent } from "./agent/agent.js";
 export { MockLLMProvider } from "./agent/llm.js";
 export { createLLMFromConfig } from "./agent/llm-factory.js";

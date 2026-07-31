@@ -2,6 +2,7 @@ import type { ToolDefinition } from "../types.js";
 
 export const calculatorTool: ToolDefinition = {
   name: "calculator",
+  kind: "calc",
   description: "Executes basic arithmetic calculation (add, subtract, multiply, divide)",
   permission: "safe",
   readOnly: true,
@@ -36,6 +37,7 @@ export const calculatorTool: ToolDefinition = {
 
 export const getCurrentDatetimeTool: ToolDefinition = {
   name: "get_current_datetime",
+  kind: "meta",
   description: "Gets current local date, time, and timezone information",
   permission: "safe",
   readOnly: true,

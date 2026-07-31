@@ -3,6 +3,7 @@ import type { ToolDefinition } from "../../types.js";
 
 export const deleteFileTool: ToolDefinition = {
   name: "delete_file",
+  kind: "delete",
   description: "Deletes a single file within the workspace. Protected by PathJail.",
   permission: "needs_confirm",
   parameters: {

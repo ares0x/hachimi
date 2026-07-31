@@ -1,5 +1,8 @@
 import type { PathJail } from "../sandbox/path-jail.js";
 
+/** P3: Semantic tool categories — enables grouped prompts and cross-dialect references */
+export type ToolKind = "read" | "write" | "delete" | "shell" | "calc" | "search" | "work" | "meta" | "other";
+
 /** 执行时由 Registry 注入，避免每个 tool 自己 new PathJail() */
 export type ToolExecContext = {
   jail: PathJail;
@@ -25,6 +28,8 @@ export type ToolDefinition = {
   name: string;
   description: string;
   permission: ToolPermission;
+  /** P3: Semantic category — enables grouped prompts and cross-tool references */
+  kind?: ToolKind;
   parameters: Record<string, unknown>;
   /** H3.4: 是否为无副作用的只读工具 */
   readOnly?: boolean;
@@ -40,6 +45,21 @@ export type ToolDefinition = {
   isDestructive?: boolean;
   /** P1: 工具入参前置校验机制，在沙箱执行前由 Preflight Gate 预检 */
   validateInput?: (args: Record<string, unknown>) => { valid: boolean; reason?: string };
+  /**
+   * P1: Tool-level permission check (Claude Code pattern).
+   * Runs after PermissionPolicy.decide() but before sandbox execution.
+   * Tools can apply domain-specific rules (e.g., Bash checks sandbox status).
+   */
+  checkPermissions?: (
+    args: Record<string, unknown>,
+    ctx?: { surface?: string; sessionId?: string }
+  ) => { allowed: boolean; reason?: string };
+  /**
+   * P2: When true, successfully executing this tool signals the agent loop to
+   * stop immediately (Pi's `terminate` pattern). Used for completion tools
+   * like `complete_task` — the agent says "I'm done" by calling this tool.
+   */
+  terminatesSession?: boolean;
   /** P1: 结构化渲染器，将工具原始输出转换为 UI 极简摘要 */
   renderToolResultMessage?: (result: unknown) => string;
   execute: (args: Record<string, unknown>, ctx?: ToolExecContext) => Promise<string>;
