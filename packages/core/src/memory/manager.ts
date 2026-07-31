@@ -220,7 +220,7 @@ export class MemoryManager {
       for (const e of entries) {
         const date = new Date(e.createdAt).toISOString().slice(0, 10);
         lines.push(
-          `<!-- id=${e.id} layer=${e.layer} importance=${e.importance.toFixed(2)} date=${date} source=${e.source ?? "-"} -->`,
+          `<!-- id=${e.id} layer=${e.layer} importance=${e.importance.toFixed(2)} date=${date} source=${e.source ?? "-"} -->`
         );
         const body = e.content.length > 200 ? e.content.slice(0, 197) + "…" : e.content;
         lines.push(`- ${body}`);
@@ -349,9 +349,10 @@ export class MemoryManager {
     this.save();
 
     const pruned = before - this.longTerm.length;
-    const warning = pruned > 5
-      ? `${pruned} low-importance memories pruned (limit: ${maxCount}). Consider consolidating manually.`
-      : undefined;
+    const warning =
+      pruned > 5
+        ? `${pruned} low-importance memories pruned (limit: ${maxCount}). Consider consolidating manually.`
+        : undefined;
 
     return { pruned, warning };
   }

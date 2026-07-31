@@ -22,6 +22,7 @@ import { SessionManager } from "../session/manager.js";
 import { summarySkill, writingSkill } from "../skills/builtin/index.js";
 import { SkillRegistry } from "../skills/registry.js";
 import { registerBuiltinTools } from "../tools/builtin/index.js";
+import { registerBuiltinMcpServers } from "../extensions/mcp-builtin/index.js";
 import {
   defaultPermissionPolicy,
   type PermissionPolicy,
@@ -108,6 +109,7 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
   skills.register(summarySkill);
 
   registerBuiltinTools(tools);
+  registerBuiltinMcpServers(tools);
 
   // 自动扫描加载外部技能包
   const externalSkills = skillLoader.loadPackages();

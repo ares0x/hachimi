@@ -863,7 +863,20 @@ export function App() {
                   <div className="mb-5">
                     <GoalPanel
                       goal={workDetail?.goal ?? ""}
+                      workId={activeWorkId || undefined}
                       onSave={handleSaveGoal}
+                      onExtractSkill={async (id) => {
+                        try {
+                          const res = await fetch(`/api/works/${id}/extract-skill`, {
+                            method: "POST",
+                          });
+                          if (res.ok) {
+                            setSettingsOpen(true);
+                          }
+                        } catch {
+                          /* ignore */
+                        }
+                      }}
                       disabled={running || !workDetail}
                       status={workDetail?.status ?? "active"}
                     />

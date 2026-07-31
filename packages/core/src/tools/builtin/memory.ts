@@ -6,7 +6,7 @@ export function createMemoryTools(memory: MemoryManager): ToolDefinition[] {
   return [
     {
       name: "save_memory",
-  kind: "meta",
+      kind: "meta",
       description: "Saves important user preferences, facts, or decisions into long-term memory",
       permission: "safe",
       parameters: {

@@ -328,7 +328,12 @@ export class Agent {
               },
               execute: async (args) => {
                 const text = String(args.content ?? "").trim();
-                this.memory.add({ layer: "long_term", content: text, importance: 0.75, source: "user" });
+                this.memory.add({
+                  layer: "long_term",
+                  content: text,
+                  importance: 0.75,
+                  source: "user",
+                });
                 return `好的，我已经记住了：${text}`;
               },
             });
@@ -529,7 +534,9 @@ export class Agent {
       if (options?.hooks || this.hooks) {
         const hookRegistry = options?.hooks ?? this.hooks!;
         const estTokens = defaultTokenEstimator(
-          messages.map((m) => `${m.role}: ${typeof m.content === "string" ? m.content : ""}`).join("\n")
+          messages
+            .map((m) => `${m.role}: ${typeof m.content === "string" ? m.content : ""}`)
+            .join("\n")
         );
         const postTurnResult = await hookRegistry.runPostTurn({
           messages,

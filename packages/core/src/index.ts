@@ -18,6 +18,7 @@ export type { EventListOptions, EventListResult, IEventStore } from "./events/ev
 export { FileEventStore } from "./events/file-event-store.js";
 export * from "./extensions/index.js";
 export * from "./extensions/contributor.js";
+export * from "./extensions/mcp-builtin/index.js";
 export * from "./memory/index.js";
 export * from "./portable/index.js";
 // Run: Durable run ledger for crash recovery

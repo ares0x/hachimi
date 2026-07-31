@@ -30,10 +30,10 @@ describe("ContextBuilder Prompt-Cache stability and tail truncation", () => {
     });
 
     const prompt = built.systemPrompt;
-    expect(prompt.indexOf("You are Hachimi")).toBeGreaterThan(-1);
-    expect(prompt.indexOf("You are Hachimi")).toBeLessThan(prompt.indexOf("【可用工具"));
-    expect(prompt.indexOf("【可用工具")).toBeLessThan(prompt.indexOf("--- 动态上下文边界 ---"));
-    expect(prompt.indexOf("--- 动态上下文边界 ---")).toBeLessThan(prompt.indexOf("用户喜欢咖啡"));
+    expect(prompt.indexOf("Hachimi")).toBeGreaterThan(-1);
+    expect(prompt.indexOf("Hachimi")).toBeLessThan(prompt.indexOf("【可用工具"));
+    expect(prompt.indexOf("【可用工具")).toBeLessThan(prompt.indexOf("--- CONTEXT (dynamic"));
+    expect(prompt.indexOf("--- CONTEXT (dynamic")).toBeLessThan(prompt.indexOf("用户喜欢咖啡"));
   });
 
   it("performs tail-only truncation on dynamic history blocks when exceeding token budget", async () => {
@@ -99,8 +99,8 @@ describe("ContextBuilder Prompt-Cache stability and tail truncation", () => {
     expect(built.systemPrompt).toContain("【对话摘要】");
     expect(built.systemPrompt).toContain("【最近消息】");
     // 静态前缀锁定不动
-    expect(built.systemPrompt.indexOf("You are Hachimi")).toBeLessThan(
-      built.systemPrompt.indexOf("--- 动态上下文边界 ---")
+    expect(built.systemPrompt.indexOf("Hachimi")).toBeLessThan(
+      built.systemPrompt.indexOf("--- CONTEXT (dynamic")
     );
   });
 });

@@ -1,4 +1,88 @@
+import { Check, Copy, Play, Sparkles } from "lucide-react";
+import { useState } from "react";
 import { cn } from "../lib/utils";
+import { LivePreviewModal } from "./live-preview";
+
+function CodeBlock({ lang, code }: { lang: string; code: string }) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    void navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const isPreviewable = lang === "html" || lang === "svg" || lang === "xml";
+  const isMermaid = lang === "mermaid";
+
+  if (isMermaid) {
+    return (
+      <div className="my-3 rounded-xl border border-primary/30 bg-primary/5 p-4 shadow-xs backdrop-blur-xs">
+        <div className="flex items-center justify-between border-b border-primary/20 pb-2.5 mb-3">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-primary font-mono">
+            <Sparkles className="size-3.5" /> 📊 Mermaid 架构流程图
+          </div>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {copied ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
+            {copied ? "已复制" : "复制源码"}
+          </button>
+        </div>
+        <pre className="overflow-x-auto rounded-lg bg-surface/90 p-3 font-mono text-[12px] leading-relaxed text-foreground">
+          <code>{code}</code>
+        </pre>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="group relative my-3 overflow-hidden rounded-xl border border-border/50 bg-surface shadow-xs">
+        {/* Header Bar */}
+        <div className="flex items-center justify-between border-b border-border/40 bg-surface-hover/50 px-3.5 py-1.5">
+          <span className="font-mono text-[11px] font-medium text-muted-foreground uppercase">
+            {lang || "code"}
+          </span>
+          <div className="flex items-center gap-2">
+            {isPreviewable && (
+              <button
+                type="button"
+                onClick={() => setPreviewOpen(true)}
+                className="flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary transition-all active:scale-[0.97] hover:bg-primary/20"
+              >
+                <Play className="size-3" /> ⚡ 实时预览
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {copied ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
+              {copied ? "已复制" : "复制"}
+            </button>
+          </div>
+        </div>
+        <pre className="overflow-x-auto p-3.5 font-mono text-[12.5px] leading-relaxed text-foreground">
+          <code>{code}</code>
+        </pre>
+      </div>
+
+      {isPreviewable && (
+        <LivePreviewModal
+          isOpen={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          code={code}
+          title={`${lang.toUpperCase()} 实时预览`}
+        />
+      )}
+    </>
+  );
+}
 
 /**
  * Minimal stream-safe markdown renderer.
@@ -155,14 +239,9 @@ export function Markdown({ text, className }: { text: string; className?: string
     // Code fence tracking
     if (fence) {
       if (line.startsWith("```")) {
-        blocks.push(
-          <pre
-            key={`f${idx}`}
-            className="my-3 overflow-x-auto rounded-md border border-border bg-surface p-3 font-mono text-[13px] leading-6 text-foreground"
-          >
-            <code>{fence.code.join("\n")}</code>
-          </pre>
-        );
+        const lang = fence.lang.trim().toLowerCase();
+        const codeText = fence.code.join("\n");
+        blocks.push(<CodeBlock key={`f${idx}`} lang={lang} code={codeText} />);
         fence = null;
       } else {
         fence.code.push(raw);

@@ -3,6 +3,7 @@ import type { SkillContent, SkillDefinition, ToolDefinition } from "../types/ind
 
 export class SkillRegistry {
   private skills = new Map<string, SkillDefinition>();
+  private disabledSkills = new Set<string>();
 
   register(skill: SkillDefinition) {
     if (this.skills.has(skill.name)) {
@@ -17,7 +18,18 @@ export class SkillRegistry {
   }
 
   list() {
-    return Array.from(this.skills.values());
+    return Array.from(this.skills.values()).map((s) => ({
+      ...s,
+      enabled: !this.disabledSkills.has(s.name),
+    }));
+  }
+
+  disable(name: string) {
+    this.disabledSkills.add(name);
+  }
+
+  enable(name: string) {
+    this.disabledSkills.delete(name);
   }
 
   getPromptDescriptions(): string {

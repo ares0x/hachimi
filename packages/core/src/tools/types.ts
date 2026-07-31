@@ -1,7 +1,16 @@
 import type { PathJail } from "../sandbox/path-jail.js";
 
 /** P3: Semantic tool categories — enables grouped prompts and cross-dialect references */
-export type ToolKind = "read" | "write" | "delete" | "shell" | "calc" | "search" | "work" | "meta" | "other";
+export type ToolKind =
+  | "read"
+  | "write"
+  | "delete"
+  | "shell"
+  | "calc"
+  | "search"
+  | "work"
+  | "meta"
+  | "other";
 
 /** 执行时由 Registry 注入，避免每个 tool 自己 new PathJail() */
 export type ToolExecContext = {

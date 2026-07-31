@@ -99,18 +99,21 @@ export function SandboxBadge() {
 
 export function SectionLabel({
   children,
+  icon,
   className,
 }: {
   children: React.ReactNode;
+  icon?: React.ReactNode;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        "px-2 text-[11px] font-medium tracking-[0.12em] text-muted-foreground uppercase",
+        "flex items-center gap-1.5 px-1 text-[11px] font-medium tracking-[0.12em] text-muted-foreground uppercase",
         className
       )}
     >
+      {icon}
       {children}
     </div>
   );

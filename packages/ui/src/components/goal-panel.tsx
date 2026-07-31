@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, Flag, Pencil, Save, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Flag, Pencil, Save, Sparkles, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "../lib/utils";
 import { SectionLabel } from "./primitives";
@@ -8,17 +8,17 @@ export function GoalPanel({
   workId,
   onChange,
   onSave,
+  onExtractSkill,
   disabled = false,
   status,
   defaultCollapsed = false,
   className,
 }: {
   goal?: string;
-  /** @deprecated 保留向后兼容；实际 workId 可选 */
   workId?: string;
-  /** Goal 变更回调（onChange 与 onSave 等价，任给一个即可） */
   onChange?: (newGoal: string) => void;
   onSave?: (newGoal: string) => void | Promise<void>;
+  onExtractSkill?: (workId: string) => void | Promise<void>;
   /** 禁用所有编辑操作 */
   disabled?: boolean;
   /** 当前 Work 状态，用于视觉提示 */
@@ -98,6 +98,15 @@ export function GoalPanel({
           >
             <Pencil className="size-3" />
             编辑
+          </button>
+        )}
+        {!collapsed && !editing && workId && onExtractSkill && (
+          <button
+            type="button"
+            onClick={() => onExtractSkill(workId)}
+            className="ml-auto inline-flex h-6 items-center gap-1 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2 text-[11px] font-medium text-amber-600 dark:text-amber-400 transition-all active:scale-[0.97] hover:bg-amber-500/20"
+          >
+            <Sparkles className="size-3" /> 💡 提炼 Skill
           </button>
         )}
       </div>

@@ -37,6 +37,7 @@ import {
   type HarnessRuntime,
   ProactiveScheduler,
   SkillProposalManager,
+  TrajectoryCompressor,
 } from "@hachimi/core";
 import {
   DAEMON_DEFAULT_HOST,
@@ -509,6 +510,38 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
   server.post("/api/proposals/:id/reject", rejectProposalHandler);
   server.post("/api/skills/proposals/:id/reject", rejectProposalHandler);
 
+  server.post(
+    "/api/works/:id/extract-skill",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const work = runtime.works.get(id);
+      if (!work) {
+        reply.code(404).send({ error: `Work '${id}' not found` });
+        return;
+      }
+
+      const sessionId = work.sessionIds[0] || id;
+      const eventsRes = await runtime.events.list(sessionId);
+      const compressor = new TrajectoryCompressor();
+      const candidates = compressor.compressEvents(eventsRes.events);
+      const candidate = candidates[0] || {
+        name: `skill_${id.slice(-6)}`,
+        description: `Learned skill from work: ${work.title}`,
+        instructions: `# ${work.title}\n\nInstructions derived from Work trajectory.`,
+        triggerCondition: `When user asks for ${work.title}`,
+      };
+
+      const proposal = proposalManager.createProposal(
+        candidate.name || `skill_${id.slice(-6)}`,
+        candidate.description || `Learned skill from work: ${work.title}`,
+        candidate.instructions || `# ${work.title}\n\nInstructions derived from Work trajectory.`,
+        candidate.triggerCondition || `When user asks for ${work.title}`
+      );
+
+      return { success: true, proposal };
+    }
+  );
+
   // Phase F6: GET /api/triggers & POST /api/triggers & DELETE /api/triggers/:id
   server.get("/api/triggers", async () => {
     return { triggers: scheduler.listTasks() };
@@ -914,11 +947,126 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
           JSON.stringify({
             type: "error",
             message: err?.message || String(err),
-            requestId,
           })
         );
       }
     });
+  });
+  // ─── MCP Servers REST Endpoints ──────────────────────────────────────────
+  server.get("/api/mcp/servers", async () => {
+    const mcpManager = appContext?.mcp;
+    const servers = mcpManager ? mcpManager.listServers() : [];
+    return { servers };
+  });
+
+  server.post("/api/mcp/servers", async (request: FastifyRequest) => {
+    const body = (request.body || {}) as {
+      name: string;
+      command: string;
+      args?: string[];
+      env?: Record<string, string>;
+    };
+    const mcpManager = appContext?.mcp;
+    if (mcpManager && body.name && body.command) {
+      await mcpManager.addServer({
+        id: body.name.toLowerCase().replace(/\s+/g, "-"),
+        name: body.name,
+        command: body.command,
+        args: body.args || [],
+        env: body.env || {},
+        enabled: true,
+      });
+    }
+    return { success: true };
+  });
+
+  server.delete("/api/mcp/servers/:id", async (request: FastifyRequest) => {
+    const { id } = request.params as { id: string };
+    const mcpManager = appContext?.mcp;
+    if (mcpManager) {
+      await mcpManager.removeServer(id);
+    }
+    return { success: true, id };
+  });
+
+  server.patch("/api/mcp/servers/:id", async (request: FastifyRequest) => {
+    const { id } = request.params as { id: string };
+    const body = (request.body || {}) as { enabled?: boolean; env?: Record<string, string> };
+    const mcpManager = appContext?.mcp;
+    if (mcpManager) {
+      await mcpManager.updateServer(id, body);
+    }
+    return { success: true, id };
+  });
+
+  // ─── Skills REST Endpoints ───────────────────────────────────────────────
+  server.get("/api/skills", async () => {
+    const skillRegistry = appContext?.skills;
+    const list = skillRegistry ? skillRegistry.list() : [];
+
+    const dataDir = appContext?.config?.paths?.dataDir || process.cwd();
+    const userSkillsFolder = resolve(dataDir, "skills");
+
+    const enrichedSkills = await Promise.all(
+      list.map(async (s) => {
+        let content: string | undefined = undefined;
+        try {
+          const loaded = await skillRegistry?.loadContent(s.name);
+          if (loaded?.instructions) content = loaded.instructions;
+        } catch {
+          /* ignore */
+        }
+
+        const realPath = resolve(userSkillsFolder, s.name);
+        return {
+          id: s.name,
+          name: s.name,
+          description: s.description || "Skill definition",
+          path: existsSync(realPath)
+            ? realPath
+            : resolve(process.cwd(), `packages/core/src/skills/builtin/${s.name}.ts`),
+          enabled: s.enabled !== false,
+          content: content || `# ${s.name}\n\n${s.description}`,
+        };
+      })
+    );
+
+    return { skills: enrichedSkills };
+  });
+
+  server.patch("/api/skills/:id", async (request: FastifyRequest) => {
+    const { id } = request.params as { id: string };
+    const body = (request.body || {}) as { enabled?: boolean };
+    const skillRegistry = appContext?.skills;
+    if (skillRegistry) {
+      if (body.enabled === false) {
+        skillRegistry.disable(id);
+      } else if (body.enabled === true) {
+        skillRegistry.enable(id);
+      }
+    }
+    return { success: true, id };
+  });
+
+  server.post("/api/skills/open-folder", async () => {
+    const dataDir = appContext?.config?.paths?.dataDir || process.cwd();
+    const skillsFolder = resolve(dataDir, "skills");
+    if (!existsSync(skillsFolder)) {
+      mkdirSync(skillsFolder, { recursive: true });
+    }
+    const platform = process.platform;
+    try {
+      if (platform === "darwin") {
+        await execAsync(`open "${skillsFolder}"`);
+      } else if (platform === "win32") {
+        await execAsync(`explorer "${skillsFolder}"`);
+      } else {
+        await execAsync(`xdg-open "${skillsFolder}"`);
+      }
+      return { success: true, path: skillsFolder };
+    } catch {
+      return { success: false, path: skillsFolder };
+    }
   });
 
   return {

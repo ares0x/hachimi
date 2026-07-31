@@ -60,7 +60,8 @@ const DEFAULT_IDENTITY = MASTER_AGENT_SYSTEM_PROMPT;
  * from the per-turn dynamic suffix. Matches Claude Code's pattern of
  * using a distinct, searchable constant for prompt cache breakpoints.
  */
-export const PROMPT_CACHE_BOUNDARY = "\n\n--- CONTEXT (dynamic, below this line is per-turn) ---\n\n";
+export const PROMPT_CACHE_BOUNDARY =
+  "\n\n--- CONTEXT (dynamic, below this line is per-turn) ---\n\n";
 
 const DEFAULT_OPTIONS: Required<ContextOptions> = {
   maxTokens: DEFAULT_TOKEN_BUDGET,
@@ -122,9 +123,7 @@ export class ContextBuilder {
     if (input.skills) {
       const skillList = input.skills.list();
       if (skillList.length > 0) {
-        const names = skillList
-          .map((s) => `- ${s.name} [${s.permission ?? "safe"}]`)
-          .join("\n");
+        const names = skillList.map((s) => `- ${s.name} [${s.permission ?? "safe"}]`).join("\n");
         skillsBlock = `【可用技能 (${skillList.length} 个)】\n${names}`;
       }
     }
@@ -139,8 +138,15 @@ export class ContextBuilder {
         // Group by kind, fallback to "other" for untyped tools
         const groups = new Map<string, { name: string; perm: string }[]>();
         const KIND_LABEL: Record<string, string> = {
-          read: "Read", write: "Write", delete: "Delete", shell: "Shell",
-          calc: "Calc", search: "Search", work: "Work", meta: "Meta", other: "Other",
+          read: "Read",
+          write: "Write",
+          delete: "Delete",
+          shell: "Shell",
+          calc: "Calc",
+          search: "Search",
+          work: "Work",
+          meta: "Meta",
+          other: "Other",
         };
         for (const t of list) {
           const k = t.kind || "other";
@@ -458,7 +464,12 @@ export class ContextBuilder {
     const exploredSection =
       exploredFiles.length > 0
         ? `\n\n【压缩前已探索的文件 (${exploredFiles.length} 个) — 不需要重新读取】\n` +
-          exploredFiles.map((f) => `- ${f.path} (${f.tool}, ${f.lines ?? f.entries} ${f.lines ? "lines" : "entries"})`).join("\n")
+          exploredFiles
+            .map(
+              (f) =>
+                `- ${f.path} (${f.tool}, ${f.lines ?? f.entries} ${f.lines ? "lines" : "entries"})`
+            )
+            .join("\n")
         : "";
 
     const placeholder = [
@@ -499,7 +510,8 @@ export class ContextBuilder {
 
       if (toolName === "read_file" || toolName === "read") {
         // Extract path from args or content
-        const pathMatch = content.match(/\[文件(?:不存在|不是文件)\]\s+(.+)/) ||
+        const pathMatch =
+          content.match(/\[文件(?:不存在|不是文件)\]\s+(.+)/) ||
           content.match(/\[二进制文件\]\s+(\S+)/) ||
           content.match(/\[Read (.+?) \(/) ||
           content.match(/Read (.+?) \(/);
@@ -516,7 +528,9 @@ export class ContextBuilder {
         });
       } else if (toolName === "list_dir" || toolName === "list_directory") {
         // Extract directory path from result
-        const dirMatch = content.match(/Directory (.+?) /) || content.match(/^(.+?)\s*\(/) ||
+        const dirMatch =
+          content.match(/Directory (.+?) /) ||
+          content.match(/^(.+?)\s*\(/) ||
           content.match(/Listed \d+ entries in (.+)/);
         const path = dirMatch?.[1] || "unknown";
         if (seen.has(path)) continue;

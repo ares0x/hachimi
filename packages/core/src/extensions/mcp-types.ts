@@ -14,6 +14,9 @@ export interface McpToolDefinition {
   name: string;
   description?: string;
   inputSchema?: Record<string, any>;
+  handler?: (
+    args?: Record<string, any>
+  ) => Promise<{ isError?: boolean; content: Array<{ type: string; text: string }> }>;
 }
 
 export interface McpMeta {

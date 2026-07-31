@@ -36,9 +36,9 @@ describe("H2.1 ContextBuilder Contract & Prompt Cache Lock Suite", () => {
     const prompt = result.systemPrompt;
 
     const identityIdx = prompt.indexOf("你是 Hachimi Agent");
-    const skillsIdx = prompt.indexOf("【当前可用技能列表】");
+    const skillsIdx = prompt.indexOf("【可用技能");
     const toolsIdx = prompt.indexOf("【可用工具");
-    const boundaryIdx = prompt.indexOf("--- 动态上下文边界 ---");
+    const boundaryIdx = prompt.indexOf("--- CONTEXT (dynamic");
     const memoryIdx = prompt.indexOf("用户喜欢黑色");
 
     expect(identityIdx).toBeGreaterThan(-1);

@@ -94,4 +94,56 @@ export class McpClientManager implements CapabilitySource<ToolDefinition> {
   async resolve(name: string): Promise<ToolDefinition | undefined> {
     return this.mcpTools.get(name);
   }
+
+  listServers(): Array<{
+    id: string;
+    name: string;
+    command?: string;
+    args?: string[];
+    enabled: boolean;
+    status: "connected" | "disabled";
+  }> {
+    const result = [];
+    for (const [id, config] of this.servers.entries()) {
+      result.push({
+        id,
+        name: id,
+        command: config.command,
+        args: config.args,
+        enabled: true,
+        status: "connected" as const,
+      });
+    }
+    return result;
+  }
+
+  async addServer(config: {
+    id: string;
+    name: string;
+    command: string;
+    args?: string[];
+    env?: Record<string, string>;
+    enabled?: boolean;
+  }): Promise<void> {
+    this.registerServer(config.id, {
+      command: config.command,
+      args: config.args,
+      env: config.env,
+    });
+  }
+
+  async removeServer(id: string): Promise<void> {
+    this.servers.delete(id);
+    this.transports.delete(id);
+  }
+
+  async updateServer(
+    id: string,
+    _patch: { enabled?: boolean; env?: Record<string, string> }
+  ): Promise<void> {
+    const config = this.servers.get(id);
+    if (config && _patch.env) {
+      config.env = { ...config.env, ..._patch.env };
+    }
+  }
 }
