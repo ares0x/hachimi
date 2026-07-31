@@ -68,7 +68,7 @@ export class ToolSandbox {
   async executeToolInSandbox(
     toolName: string,
     executeFn: () => Promise<string>,
-    options: ISandboxOptions & { args?: Record<string, unknown> } = {}
+    options: ISandboxOptions & { args?: Record<string, unknown>; workspaceRoot?: string } = {}
   ): Promise<string> {
     // 1. PathJail 工作区越界与敏感文件访问拦截 (PathJail 物理断点硬化)
     if (options.args) {
@@ -88,7 +88,7 @@ export class ToolSandbox {
 
           if (isPathKey || isPathValue) {
             try {
-              this.pathJail.assertPathInJail(val, toolName, isReadOnly);
+              this.pathJail.assertPathInJail(val, toolName, isReadOnly, options.workspaceRoot);
             } catch (err: any) {
               return formatSandboxPathJailMessage(toolName, err?.message || String(err));
             }

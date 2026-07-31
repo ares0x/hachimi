@@ -13,6 +13,8 @@ import type { ToolExecContext as _ToolExecContext } from "./types.js";
  */
 export type ToolExecContext = _ToolExecContext & { [key: string]: unknown };
 
+import type { Work } from "../types/work.js";
+
 export interface ToolExecuteOptions {
   /** UI/调用方已显式确认 */
   confirm?: boolean;
@@ -22,6 +24,7 @@ export interface ToolExecuteOptions {
   sessionId?: string;
   workManager?: ToolExecContext["workManager"];
   workId?: string;
+  work?: Work;
   /**
    * 来源表面（与 PermissionPolicy 的 surface 对齐）
    * 如 tui | web | desktop | telegram | api | cli …
@@ -233,6 +236,7 @@ export class ToolRegistry {
       rawResult = await this.sandbox.executeToolInSandbox(name, () => tool.execute(args, execCtx), {
         timeoutMs: 30_000,
         args,
+        workspaceRoot: options?.work?.workspaceRoot,
       });
 
       if (

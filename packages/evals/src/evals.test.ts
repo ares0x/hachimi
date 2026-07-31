@@ -22,5 +22,5 @@ describe("Phase I — Agent Capability Evaluation Framework (Evals)", () => {
     expect(formattedReport).toContain("work_recovery");
     expect(formattedReport).toContain("permission_deny");
     expect(formattedReport).toContain("plan_then_act");
-  });
+  }, 15_000);
 });

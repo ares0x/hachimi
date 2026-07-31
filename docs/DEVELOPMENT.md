@@ -186,4 +186,4 @@ We use [Biome](https://biomejs.dev/) for formatting and linting. Configuration i
 
 ## Questions?
 
-Open a [Discussion](https://github.com/ares0x/hachimi/discussions) or check existing issues.
+Open a [Discussion](https://github.com/hachimi-agent/hachimi/discussions) or check existing issues.

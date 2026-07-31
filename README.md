@@ -11,9 +11,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ares0x/hachimi/actions"><img alt="CI" src="https://github.com/ares0x/hachimi/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/hachimi-agent/hachimi/actions"><img alt="CI" src="https://github.com/hachimi-agent/hachimi/actions/workflows/ci.yml/badge.svg"></a>
   <a href="./LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache%202.0-blue.svg"></a>
-  <a href="https://github.com/ares0x/hachimi/discussions"><img alt="Discussions" src="https://img.shields.io/badge/discussions-welcome-brightgreen"></a>
+  <a href="https://github.com/hachimi-agent/hachimi/discussions"><img alt="Discussions" src="https://img.shields.io/badge/discussions-welcome-brightgreen"></a>
 </p>
 
 <p align="center">
@@ -49,7 +49,7 @@ It provides the missing harness layer between raw LLM API calls and personal AI 
 |----------|-------------|
 | 🏠 **Local-first** | All data lives on your machine. SQLite + file storage. No cloud dependency. |
 | 🔄 **Multi-provider** | DeepSeek, Claude, OpenAI, Qwen, Kimi, Ollama, and any OpenAI-compatible API. Switch mid-conversation. |
-| 🧠 **4-tier memory** | Working → Session → Long-term → Archival. Embedding-based retrieval with auto dedup. |
+| 🧠 **4-tier memory** | Working → Session → Long-term → Archival. Lightweight local lexical n-gram similarity with RAG context assembly. |
 | 🖥️ **Multi-surface** | TUI, CLI, Web, Desktop, Telegram — one brain, many faces. Daemon mode keeps state in sync. |
 | 🛠️ **Tool system** | Built-in file ops, shell, calc, datetime. Extend with custom tools. Sandboxed execution for dangerous ops. |
 | 🔗 **MCP native** | Connect any MCP-compatible server as a tool source. |
@@ -62,7 +62,7 @@ It provides the missing harness layer between raw LLM API calls and personal AI 
 
 ```bash
 # Prerequisites: Node.js >= 22, pnpm >= 9
-git clone https://github.com/ares0x/hachimi.git
+git clone https://github.com/hachimi-agent/hachimi.git
 cd hachimi
 pnpm install
 ```

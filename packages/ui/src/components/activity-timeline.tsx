@@ -253,32 +253,32 @@ function ThinkingBlock({ step }: { step: ActivityStep }) {
   const previewText = firstLine.length > 70 ? `${firstLine.slice(0, 70)}…` : firstLine;
 
   return (
-    <div className="mx-auto w-full max-w-[48rem] px-4 sm:px-0">
-      <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 transition-colors shadow-2xs">
+    <div className="mx-auto w-full max-w-[48rem] px-4 sm:px-0 my-2">
+      <div className="rounded-xl border border-border/50 bg-surface-elevated/70 backdrop-blur-xs hover:bg-surface-elevated hover:border-border/80 transition-all duration-150 shadow-xs">
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="flex w-full items-center gap-2 px-3.5 py-2 text-left"
+          className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left"
         >
-          <Brain className="size-4 text-purple-400 shrink-0" />
-          <span className="font-mono text-[12px] font-medium text-purple-300/90 shrink-0">
+          <Brain className="size-3.5 text-muted-foreground/80 shrink-0" />
+          <span className="font-mono text-[12px] font-medium text-foreground/80 shrink-0">
             Thought {durationText ? `for ${durationText}` : ""}
           </span>
           {!expanded && (
-            <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-muted-foreground/70 italic">
+            <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-muted-foreground/60 italic">
               — {previewText}
             </span>
           )}
           <ChevronDown
             className={cn(
-              "ml-auto size-3.5 text-muted-foreground/50 transition-transform duration-200 shrink-0",
+              "ml-auto size-3.5 text-muted-foreground/60 transition-transform duration-200 shrink-0",
               expanded && "rotate-180"
             )}
           />
         </button>
         {expanded && (
-          <div className="border-t border-purple-500/20 px-3.5 py-2.5 bg-background/50 rounded-b-xl">
-            <div className="text-[12.5px] leading-relaxed text-muted-foreground/90 whitespace-pre-wrap font-mono">
+          <div className="border-t border-border/40 px-3.5 py-2.5 bg-surface/40 rounded-b-xl">
+            <div className="text-[12px] leading-relaxed text-muted-foreground whitespace-pre-wrap font-mono">
               {step.content}
             </div>
           </div>

@@ -20,11 +20,14 @@ import type {
   WorkKind,
   WorkStatus,
   WorkSummary,
+  WorkUiKind,
 } from "../types/work.js";
 
 export interface CreateWorkOptions {
   /** 用户意图（首条消息或显式声明） */
   intent: string;
+  uiKind?: WorkUiKind;
+  workspaceRoot?: string;
   goal?: string;
   kind?: WorkKind;
   parentWorkId?: string;
@@ -65,7 +68,17 @@ export class WorkManager {
   }
 
   private readWork(workId: string): Work | null {
-    return this.store.read<Work>(this.filePath(workId));
+    const work = this.store.read<Work>(this.filePath(workId));
+    if (!work) return null;
+    // Migration: V1.1 自动补充 uiKind 与 fallback 规则
+    if (!work.uiKind) {
+      work.uiKind = work.workspaceRoot
+        ? "project"
+        : work.plan && work.plan.length > 0
+          ? "task"
+          : "conversation";
+    }
+    return work;
   }
 
   private writeWork(work: Work): void {
@@ -92,10 +105,20 @@ export class WorkManager {
     const now = new Date().toISOString();
     const id = options.sessionId || generateId("work_");
 
+    const defaultUiKind: WorkUiKind = options.uiKind
+      ? options.uiKind
+      : options.workspaceRoot
+        ? "project"
+        : options.goal && options.goal !== options.intent
+          ? "task"
+          : "conversation";
+
     const work: Work = {
       id,
       title: this.generateTitle(options.intent),
-      goal: options.goal || options.intent,
+      uiKind: defaultUiKind,
+      workspaceRoot: options.workspaceRoot,
+      goal: options.goal || (defaultUiKind === "conversation" ? undefined : options.intent),
       status: "active",
       plan: [],
       sessionIds: options.sessionId ? [options.sessionId] : [id],
@@ -123,7 +146,7 @@ export class WorkManager {
 
     const all = readdirSync(this.dir)
       .filter((f) => f.endsWith(".json"))
-      .map((f) => this.store.read<Work>(join(this.dir, f)))
+      .map((f) => this.readWork(f.replace(".json", "")))
       .filter((w): w is Work => !!w);
 
     const filtered = all.filter((w) => {
@@ -141,6 +164,8 @@ export class WorkManager {
     return filtered.slice(offset, offset + limit).map((w) => ({
       id: w.id,
       title: w.title,
+      uiKind: w.uiKind,
+      workspaceRoot: w.workspaceRoot,
       status: w.status,
       kind: w.kind,
       goal: w.goal,
@@ -152,10 +177,12 @@ export class WorkManager {
     }));
   }
 
-  /** 更新 Work（title / status / goal） */
+  /** 更新 Work（title / status / goal / workspaceRoot / uiKind） */
   update(
     workId: string,
-    patch: Partial<Pick<Work, "title" | "status" | "goal" | "metadata">>
+    patch: Partial<
+      Pick<Work, "title" | "status" | "goal" | "metadata" | "workspaceRoot" | "uiKind">
+    >
   ): Work | null {
     const work = this.readWork(workId);
     if (!work) return null;
@@ -412,12 +439,14 @@ export class WorkManager {
 
     return readdirSync(this.dir)
       .filter((f) => f.endsWith(".json"))
-      .map((f) => this.store.read<Work>(join(this.dir, f)))
+      .map((f) => this.readWork(f.replace(".json", "")))
       .filter((w): w is Work => !!w && w.parentWorkId === parentWorkId)
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .map((w) => ({
         id: w.id,
         title: w.title,
+        uiKind: w.uiKind,
+        workspaceRoot: w.workspaceRoot,
         status: w.status,
         kind: w.kind,
         goal: w.goal,

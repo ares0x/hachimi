@@ -31,11 +31,13 @@ export type WorkStatus =
   | "failed" // 失败结束
   | "archived"; // 用户归档
 
-// ─── Work Kind ───────────────────────────────────────────────────────────────
+// ─── Work Kind & UI Kind ───────────────────────────────────────────────────────
 
 export type WorkKind =
   | "primary" // 用户直接发起的主 Work
   | "worker"; // 子 Agent 派发的 Worker 任务（默认不展示在 Rail）
+
+export type WorkUiKind = "conversation" | "task" | "project";
 
 // ─── Work ────────────────────────────────────────────────────────────────────
 
@@ -44,6 +46,10 @@ export interface Work {
   id: string;
   /** 人类可读标题（非时间戳） */
   title: string;
+  /** UI 分类形态（对话 / 任务 / 项目） */
+  uiKind: WorkUiKind;
+  /** 项目本地绑定的工作区根路径 */
+  workspaceRoot?: string;
   /** 用户原始意图（首条消息或显式声明） */
   goal?: string;
   /** 当前状态 */
@@ -69,6 +75,8 @@ export interface Work {
 export interface WorkSummary {
   id: string;
   title: string;
+  uiKind: WorkUiKind;
+  workspaceRoot?: string;
   status: WorkStatus;
   kind: WorkKind;
   goal?: string;

@@ -33,7 +33,7 @@ For full details, see [`docs/VISION.md`](./docs/VISION.md) and [`AGENTS.md`](./A
 
 ```bash
 # Clone the repository
-git clone https://github.com/ares0x/hachimi.git
+git clone https://github.com/hachimi-agent/hachimi.git
 cd hachimi
 
 # Install dependencies

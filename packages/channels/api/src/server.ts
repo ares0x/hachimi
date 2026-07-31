@@ -1,8 +1,33 @@
-// packages/channels/api/src/server.ts
-
+import { exec } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { promisify } from "node:util";
+
+const execAsync = promisify(exec);
+
+async function openNativeFolderPicker(): Promise<string | null> {
+  const platform = process.platform;
+  try {
+    if (platform === "darwin") {
+      const cmd = `osascript -e 'POSIX path of (choose folder with prompt "选择项目工作区目录")'`;
+      const { stdout } = await execAsync(cmd);
+      const chosen = stdout.trim();
+      return chosen ? chosen.replace(/\/$/, "") : null;
+    } else if (platform === "win32") {
+      const psCmd = `powershell -Command "Add-Type -AssemblyName System.windows.forms; $f = New-Object System.Windows.Forms.FolderBrowserDialog; if ($f.ShowDialog() -eq 'OK') { Write-Output $f.SelectedPath }"`;
+      const { stdout } = await execAsync(psCmd);
+      const chosen = stdout.trim();
+      return chosen || null;
+    } else {
+      const { stdout } = await execAsync(`zenity --file-selection --directory`);
+      const chosen = stdout.trim();
+      return chosen || null;
+    }
+  } catch {
+    return null;
+  }
+}
 import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
@@ -523,6 +548,11 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
     return { success: true, id };
   });
 
+  server.post("/api/browse-directory", async (request: FastifyRequest, reply: FastifyReply) => {
+    const path = await openNativeFolderPicker();
+    return { path };
+  });
+
   // 4. GET /api/sessions & POST /api/sessions
   server.get("/api/sessions", async () => {
     return { sessions: runtime.sessions.list() };
@@ -619,6 +649,8 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
     const body = (request.body || {}) as {
       intent?: string;
       goal?: string;
+      uiKind?: "conversation" | "task" | "project";
+      workspaceRoot?: string;
       sessionId?: string;
     };
     if (!body.intent?.trim()) {
@@ -628,6 +660,8 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
     const work = runtime.works.create({
       intent: body.intent.trim(),
       goal: body.goal,
+      uiKind: body.uiKind,
+      workspaceRoot: body.workspaceRoot,
       sessionId: body.sessionId,
       kind: "primary",
     });
@@ -645,18 +679,22 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
     return { work };
   });
 
-  // PATCH /api/works/:id — 更新 Work（status / title / goal）
+  // PATCH /api/works/:id — 更新 Work（status / title / goal / workspaceRoot / uiKind）
   server.patch("/api/works/:id", async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
     const body = (request.body || {}) as {
       title?: string;
       status?: import("@hachimi/core").WorkStatus;
       goal?: string;
+      workspaceRoot?: string;
+      uiKind?: "project" | "conversation";
     };
     const updated = runtime.works.update(id, {
       ...(body.title ? { title: body.title } : {}),
       ...(body.status ? { status: body.status } : {}),
       ...(body.goal ? { goal: body.goal } : {}),
+      ...(body.workspaceRoot !== undefined ? { workspaceRoot: body.workspaceRoot } : {}),
+      ...(body.uiKind ? { uiKind: body.uiKind } : {}),
     });
     if (!updated) {
       reply.code(404).send({ error: `Work '${id}' not found` });

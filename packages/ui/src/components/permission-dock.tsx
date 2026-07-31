@@ -1,3 +1,4 @@
+import { motion } from "motion/react";
 import { ChevronDown, ChevronUp, FilePlus2, ShieldQuestion } from "lucide-react";
 import { useState } from "react";
 import type { ToolArgSummary } from "../api";
@@ -113,7 +114,13 @@ export function PermissionDock({
 
   return (
     <div className="border-t border-border bg-surface px-4 pt-3 sm:px-6">
-      <div className="enter-rise mx-auto w-full max-w-[52rem] rounded-lg border border-warning/40 bg-warning/10 p-3">
+      <motion.div
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 20, opacity: 0 }}
+        transition={{ type: "spring", bounce: 0.2, duration: 0.3 }}
+        className="mx-auto w-full max-w-[52rem] rounded-xl border border-warning/40 bg-warning/10 p-3.5 shadow-sm"
+      >
         <div className="flex items-start gap-2.5">
           <ShieldQuestion className="mt-0.5 size-4 shrink-0 text-warning" />
           <div className="min-w-0 flex-1 space-y-3">
@@ -167,7 +174,7 @@ export function PermissionDock({
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

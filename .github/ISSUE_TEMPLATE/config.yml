@@ -1,7 +1,7 @@
 blank_issues_enabled: false
 contact_links:
   - name: Question or Discussion
-    url: https://github.com/ares0x/hachimi/discussions
+    url: https://github.com/hachimi-agent/hachimi/discussions
     about: Please ask questions in Discussions instead of filing an issue.
   - name: Tutorial & Documentation
     url: https://ares0x.github.io/build-personal-ai-assistant/

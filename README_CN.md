@@ -186,4 +186,4 @@ hachimi/
 ## 📜 相关链接
 
 - 教程仓库：[https://github.com/ares0x/build-personal-ai-assistant](https://github.com/ares0x/build-personal-ai-assistant)
-- 本仓库：[https://github.com/ares0x/hachimi](https://github.com/ares0x/hachimi)
+- 本仓库：[https://github.com/hachimi-agent/hachimi](https://github.com/hachimi-agent/hachimi)

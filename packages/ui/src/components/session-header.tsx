@@ -35,7 +35,7 @@ export function SessionHeader({
   return (
     <header
       className={cn(
-        "app-drag flex h-13 shrink-0 items-center justify-between border-b border-border bg-background transition-[padding] duration-200",
+        "app-drag flex h-13 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-xl transition-[padding] duration-200",
         sidebarCollapsed ? "pl-[72px] pr-4" : "px-4"
       )}
     >
@@ -67,26 +67,6 @@ export function SessionHeader({
             <span>取消</span>
           </button>
         )}
-
-        {/* Ghost Model Selector (display only) */}
-        <button
-          type="button"
-          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 font-mono text-[12px] text-muted-foreground"
-          title="当前模型"
-        >
-          <StatusDot status={running ? "running" : "done"} />
-          <span>{model}</span>
-          <ChevronDown className="size-3 text-muted-foreground" />
-        </button>
-
-        {/* Ghost Fork Button */}
-        <button
-          type="button"
-          className="hidden h-8 items-center gap-1.5 rounded-md px-2 font-mono text-[12px] text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground sm:inline-flex"
-        >
-          <GitBranch className="size-3.5" />
-          fork
-        </button>
 
         {/* Icon-Only Theme Toggle */}
         <button

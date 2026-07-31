@@ -1,4 +1,14 @@
-import { Check, Command, PanelLeft, Pencil, Plus, Settings, Trash2, X } from "lucide-react";
+import {
+  Check,
+  Command,
+  FolderOpen,
+  PanelLeft,
+  Pencil,
+  Plus,
+  Settings,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useState } from "react";
 import type { WorkItem } from "../api";
 import { cn, formatRelativeTime } from "../lib/utils";
@@ -42,6 +52,7 @@ export function WorkList({
   onRenameWork,
   onDeleteWork,
   onNewWork,
+  onOpenProject,
   onOpenPalette,
   onOpenSettings,
 }: {
@@ -53,6 +64,7 @@ export function WorkList({
   onRenameWork?: (id: string, title: string) => void;
   onDeleteWork?: (id: string) => void;
   onNewWork: () => void;
+  onOpenProject?: () => void;
   onOpenPalette: () => void;
   onOpenSettings?: () => void;
 }) {
@@ -103,8 +115,8 @@ export function WorkList({
             type="button"
             onClick={onNewWork}
             className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-            title="新建 Work"
-            aria-label="新建 Work"
+            title="新建对话"
+            aria-label="新建对话"
           >
             <Plus className="size-4" />
           </button>
@@ -114,12 +126,20 @@ export function WorkList({
       {/* Work List */}
       <div className="mt-1 flex min-h-0 flex-1 flex-col px-2.5">
         <div className="flex items-center justify-between px-2 py-1">
-          <SectionLabel>Works</SectionLabel>
+          <SectionLabel>最近对话与项目</SectionLabel>
         </div>
         <ul className="scroll-quiet mt-1.5 min-h-0 flex-1 space-y-0.5 overflow-y-auto pb-2">
           {works.length === 0 ? (
-            <div className="px-2 py-4 text-xs text-muted-foreground text-center">
-              暂无活跃 Work，点击上方创建
+            <div className="flex flex-col items-center justify-center px-2 py-6 text-center">
+              <span className="text-xs text-muted-foreground">暂无历史记录</span>
+              <button
+                type="button"
+                onClick={onNewWork}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-surface-elevated px-3 py-1.5 font-mono text-xs font-medium text-foreground shadow-xs transition-all hover:bg-surface-hover hover:border-border"
+              >
+                <Plus className="size-3.5 text-primary" />
+                <span>新建对话 (⌘N)</span>
+              </button>
             </div>
           ) : (
             works.map((w) => {

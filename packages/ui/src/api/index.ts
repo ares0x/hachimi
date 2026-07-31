@@ -51,6 +51,35 @@ export function setApiSecret(secret: string) {
   }
 }
 
+export async function browseDirectory(): Promise<string | null> {
+  // 1. Electron Desktop IPC
+  const desktopObj = (typeof window !== "undefined" && (window as any).__HACHIMI_DESKTOP__) || {};
+  if (typeof desktopObj.selectFolder === "function") {
+    try {
+      const selected = await desktopObj.selectFolder();
+      if (selected) return selected;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // 2. Local Daemon Server Native Dialog API (拉起 macOS Finder)
+  try {
+    const res = await fetch(`${getApiBase()}/api/browse-directory`, {
+      method: "POST",
+      headers: { ...getAuthHeaders() },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.path) return data.path;
+    }
+  } catch {
+    /* ignore */
+  }
+
+  return null;
+}
+
 export function getApiSecret(): string {
   if (currentSecret) return currentSecret;
   if (typeof window !== "undefined") {
@@ -305,6 +334,8 @@ export async function exportBundle(): Promise<any | null> {
 export interface WorkItem {
   id: string;
   title: string;
+  uiKind?: "conversation" | "task" | "project";
+  workspaceRoot?: string;
   status: "active" | "waiting" | "blocked" | "completed" | "cancelled" | "failed" | "archived";
   kind: "primary" | "worker";
   goal?: string;
@@ -340,12 +371,15 @@ export async function fetchWork(id: string): Promise<any | null> {
   }
 }
 
-export async function createWork(intent: string, goal?: string): Promise<any | null> {
+export async function createWork(
+  intent: string,
+  options?: { goal?: string; uiKind?: "conversation" | "task" | "project"; workspaceRoot?: string }
+): Promise<any | null> {
   try {
     const res = await fetch(`${getApiBase()}/api/works`, {
       method: "POST",
       headers: getAuthHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ intent, goal }),
+      body: JSON.stringify({ intent, ...options }),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as { work?: any };
@@ -357,7 +391,7 @@ export async function createWork(intent: string, goal?: string): Promise<any | n
 
 export async function updateWork(
   id: string,
-  patch: { title?: string; status?: string; goal?: string }
+  patch: { title?: string; status?: string; goal?: string; workspaceRoot?: string; uiKind?: string }
 ): Promise<any | null> {
   try {
     const res = await fetch(`${getApiBase()}/api/works/${id}`, {

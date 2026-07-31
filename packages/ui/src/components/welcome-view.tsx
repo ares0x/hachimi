@@ -11,7 +11,7 @@ import {
   Sun,
 } from "lucide-react";
 import { cn } from "../lib/utils";
-import { Mark } from "./primitives";
+import { Mark, StatusDot } from "./primitives";
 
 export interface FeatureItem {
   id: string;
@@ -72,7 +72,7 @@ export function WelcomeView({
   onToggleContext: () => void;
   onToggleSidebar: () => void;
   onSelectPrompt: (prompt: string) => void;
-  /** 可选：覆盖默认 QUICK_ACTIONS 的 prompt 列表（用于外部注入） */
+  /** 可选：覆盖默认 QUICK_ACTIONS 的 prompt 列表 */
   intentChips?: string[];
   onOpenSettings?: () => void;
   onOpenPalette?: () => void;
@@ -81,12 +81,14 @@ export function WelcomeView({
   const actions: FeatureItem[] =
     intentChips && intentChips.length > 0
       ? intentChips.map((p, i) => {
+          const match = QUICK_ACTIONS.find((qa) => qa.prompt === p);
+          if (match) return match;
           const fallback = QUICK_ACTIONS[i % QUICK_ACTIONS.length];
           return {
             id: `chip_${i}`,
             icon: fallback.icon,
-            title: p.length > 30 ? `${p.slice(0, 28)}…` : p,
-            subtitle: p,
+            title: p,
+            subtitle: "选择以开启此项 Work",
             prompt: p,
           };
         })
@@ -94,10 +96,10 @@ export function WelcomeView({
 
   return (
     <div className="flex h-full w-full flex-col bg-background">
-      {/* Ghost Top Toolbar */}
+      {/* Translucent Glass Header */}
       <header
         className={cn(
-          "app-drag flex h-13 shrink-0 items-center justify-between border-b border-border/60 bg-background transition-[padding] duration-200",
+          "app-drag flex h-13 shrink-0 items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-xl transition-[padding] duration-200",
           sidebarCollapsed ? "pl-[72px] pr-4" : "px-4"
         )}
       >
@@ -105,7 +107,7 @@ export function WelcomeView({
           <button
             type="button"
             onClick={onToggleSidebar}
-            className="app-no-drag grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+            className="app-no-drag relative grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground before:absolute before:-inset-1.5 before:content-['']"
             aria-label="切换侧栏"
             title="切换侧边栏 (⌘B)"
           >
@@ -116,16 +118,8 @@ export function WelcomeView({
         <div className="app-no-drag flex items-center gap-1">
           <button
             type="button"
-            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 font-mono text-[12px] text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-          >
-            <span className="size-2 rounded-full bg-emerald-500" />
-            <span>{model}</span>
-            <ChevronDown className="size-3 text-muted-foreground" />
-          </button>
-          <button
-            type="button"
             onClick={onToggleTheme}
-            className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+            className="relative grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground before:absolute before:-inset-1.5 before:content-['']"
             aria-label="切换主题"
           >
             {theme === "light" ? <Sun className="size-4" /> : <Moon className="size-4" />}
@@ -134,7 +128,7 @@ export function WelcomeView({
             type="button"
             onClick={onToggleContext}
             className={cn(
-              "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium transition-colors",
+              "relative inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium transition-colors before:absolute before:-inset-1.5 before:content-['']",
               contextOpen
                 ? "bg-surface-active text-foreground"
                 : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
@@ -148,22 +142,22 @@ export function WelcomeView({
 
       {/* Restrained Center Welcome Section */}
       <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-4 py-8 sm:px-6">
-        <div className="mx-auto flex max-w-[42rem] flex-col items-center text-center">
-          {/* Subtle Monogram */}
-          <div className="flex size-11 items-center justify-center rounded-xl bg-surface-elevated shadow-sm">
+        <div className="mx-auto flex max-w-[40rem] flex-col items-center text-center">
+          {/* Monogram */}
+          <div className="flex size-11 items-center justify-center rounded-2xl bg-surface-elevated shadow-sm ring-1 ring-border/50">
             <Mark size={24} />
           </div>
 
-          {/* 20px Title */}
-          <h1 className="mt-4 text-[20px] font-medium tracking-tight text-foreground sm:text-[22px]">
+          {/* Title & Description with proper tracking & Chinese font weight */}
+          <h1 className="mt-4 text-[22px] font-medium tracking-tight text-foreground sm:text-[24px]">
             准备好开启哪项任务？
           </h1>
-          <p className="mt-1.5 text-[13px] text-muted-foreground">
+          <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
             输入意图后，Hachimi 将自动分配 Work、先生成计划，并实时记录轨迹。
           </p>
 
-          {/* Compact Quick Action Rows */}
-          <div className="mt-6 flex w-full flex-col gap-2">
+          {/* Borderless Card Suggestions */}
+          <div className="mt-6 flex w-full flex-col gap-2.5">
             {actions.map((item) => {
               const Icon = item.icon;
               return (
@@ -171,22 +165,24 @@ export function WelcomeView({
                   key={item.id}
                   type="button"
                   onClick={() => onSelectPrompt(item.prompt)}
-                  className="group flex items-center justify-between rounded-lg border border-border/40 bg-surface-elevated/70 px-3.5 py-2.5 text-left transition-all duration-150 hover:border-border-strong hover:bg-surface-hover hover:shadow-sm"
+                  className="group flex items-center justify-between rounded-xl border border-border/30 bg-surface-elevated/80 px-4 py-3 text-left shadow-xs transition-all duration-150 hover:-translate-y-0.5 hover:border-border/80 hover:bg-surface-elevated hover:shadow-md"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex size-6 shrink-0 items-center justify-center rounded bg-surface text-muted-foreground group-hover:text-primary">
-                      <Icon className="size-3.5" />
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                      <Icon className="size-4" />
                     </div>
-                    <div className="min-w-0">
-                      <span className="truncate text-[13px] font-medium text-foreground group-hover:text-primary">
-                        {item.title}
-                      </span>
-                      <span className="ml-2 hidden text-[12px] text-muted-foreground sm:inline">
-                        · {item.subtitle}
-                      </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-[13.5px] font-medium text-foreground group-hover:text-primary">
+                          {item.title}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                        {item.subtitle}
+                      </p>
                     </div>
                   </div>
-                  <ArrowRight className="size-3.5 shrink-0 text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100" />
+                  <ArrowRight className="size-4 shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
                 </button>
               );
             })}

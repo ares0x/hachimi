@@ -12,7 +12,7 @@ Quickstart guide for developers who want to run, explore, and contribute to Hach
 
 ```bash
 # 1. Clone
-git clone https://github.com/ares0x/hachimi.git
+git clone https://github.com/hachimi-agent/hachimi.git
 cd hachimi
 
 # 2. Install

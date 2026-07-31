@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@hachimi/ui": "workspace:*",
+    "motion": "^12.4.7",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

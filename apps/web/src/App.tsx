@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from "motion/react";
 import {
   ActivityTimeline,
   exportBundle as apiExportBundle,
@@ -78,6 +79,8 @@ type PlanStepRaw = PlanTrackerStep & { description?: string };
 interface LoadedWorkDetail {
   id: string;
   title: string;
+  uiKind?: "conversation" | "task" | "project";
+  workspaceRoot?: string;
   goal?: string;
   status: WorkItem["status"];
   plan: PlanStepRaw[];
@@ -121,6 +124,7 @@ export function App() {
   const [works, setWorks] = useState<WorkItem[]>([]);
   const [activeWorkId, setActiveWorkId] = useState<string | null>(null);
   const [workDetail, setWorkDetail] = useState<LoadedWorkDetail | null>(null);
+  const [draftWorkspaceRoot, setDraftWorkspaceRoot] = useState<string | null>(null);
   const [daemonStatus, setDaemonStatus] = useState<any>(null);
 
   const [input, setInput] = useState("");
@@ -143,7 +147,104 @@ export function App() {
     }
   });
 
+  const [sidebarWidth, setSidebarWidth] = useState(264);
+  const [inspectorWidth, setInspectorWidth] = useState(340);
+  const isDraggingSidebar = useRef(false);
+  const isDraggingInspector = useRef(false);
+  const lastSidebarX = useRef(264);
+  const lastSidebarTime = useRef(Date.now());
+  const sidebarVelocity = useRef(0);
+  const lastInspectorX = useRef(340);
+  const lastInspectorTime = useRef(Date.now());
+  const inspectorVelocity = useRef(0);
+
   const [inspectorOpen, setInspectorOpen] = useState(false);
+
+  // Apple Design §6 Momentum Projection function
+  const projectMomentum = (initialVelocity: number, decelerationRate = 0.998) => {
+    return ((initialVelocity / 1000) * decelerationRate) / (1 - decelerationRate);
+  };
+
+  const handleSidebarPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    isDraggingSidebar.current = true;
+    lastSidebarX.current = e.clientX;
+    lastSidebarTime.current = Date.now();
+    sidebarVelocity.current = 0;
+  };
+
+  const handleSidebarPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingSidebar.current) return;
+    const now = Date.now();
+    const dt = now - lastSidebarTime.current;
+    if (dt > 0) {
+      sidebarVelocity.current = (e.clientX - lastSidebarX.current) / (dt / 1000);
+    }
+    lastSidebarX.current = e.clientX;
+    lastSidebarTime.current = now;
+
+    const newW = Math.max(180, Math.min(420, e.clientX));
+    setSidebarWidth(newW);
+  };
+
+  const handleSidebarPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingSidebar.current) return;
+    isDraggingSidebar.current = false;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+
+    const projectedW = sidebarWidth + projectMomentum(sidebarVelocity.current);
+    if (projectedW < 140) {
+      setSidebarCollapsed(true);
+      setSidebarWidth(264);
+    } else {
+      setSidebarCollapsed(false);
+      setSidebarWidth(Math.max(200, Math.min(400, Math.round(projectedW / 20) * 20)));
+    }
+  };
+
+  const handleInspectorPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    isDraggingInspector.current = true;
+    lastInspectorX.current = e.clientX;
+    lastInspectorTime.current = Date.now();
+    inspectorVelocity.current = 0;
+  };
+
+  const handleInspectorPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingInspector.current) return;
+    const now = Date.now();
+    const dt = now - lastInspectorTime.current;
+    if (dt > 0) {
+      inspectorVelocity.current = (e.clientX - lastInspectorX.current) / (dt / 1000);
+    }
+    lastInspectorX.current = e.clientX;
+    lastInspectorTime.current = now;
+
+    const newW = Math.max(260, Math.min(520, window.innerWidth - e.clientX));
+    setInspectorWidth(newW);
+  };
+
+  const handleInspectorPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingInspector.current) return;
+    isDraggingInspector.current = false;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+
+    const projectedW = inspectorWidth - projectMomentum(inspectorVelocity.current);
+    if (projectedW < 200) {
+      setInspectorOpen(false);
+      setInspectorWidth(340);
+    } else {
+      setInspectorWidth(Math.max(280, Math.min(480, Math.round(projectedW / 20) * 20)));
+    }
+  };
 
   // Settings-managed state — synced with daemon config
   const [modelOptions, setModelOptions] = useState<SettingsModelOption[]>(FALLBACK_MODEL_OPTIONS);
@@ -344,6 +445,8 @@ export function App() {
       return {
         id: workId,
         title: work?.title ?? sess?.title ?? `Work ${workId.slice(0, 8)}`,
+        uiKind: work?.uiKind,
+        workspaceRoot: work?.workspaceRoot,
         goal: typeof work?.goal === "string" ? work.goal : undefined,
         status: work?.status ?? "active",
         plan,
@@ -399,6 +502,28 @@ export function App() {
     setWorkDetail(null);
   };
 
+  const handleSetWorkspaceRoot = async (newPath: string | null) => {
+    const cleanPath = newPath?.trim() || undefined;
+    if (activeWorkId) {
+      setWorkDetail((prev) =>
+        prev
+          ? {
+              ...prev,
+              workspaceRoot: cleanPath,
+              uiKind: cleanPath ? "project" : prev.uiKind,
+            }
+          : prev
+      );
+      await updateWork(activeWorkId, {
+        workspaceRoot: cleanPath || "",
+        uiKind: cleanPath ? "project" : "conversation",
+      });
+      await refreshWorksList();
+    } else {
+      setDraftWorkspaceRoot(cleanPath || null);
+    }
+  };
+
   const handleRenameWork = async (id: string, newTitle: string) => {
     await updateWork(id, { title: newTitle });
     await refreshWorksList();
@@ -452,11 +577,15 @@ export function App() {
 
     let workIdToUse = activeWorkId;
     if (!workIdToUse) {
-      const newWork = await createWork(intentText.trim());
+      const newWork = await createWork(intentText.trim(), {
+        uiKind: draftWorkspaceRoot ? "project" : "conversation",
+        workspaceRoot: draftWorkspaceRoot || undefined,
+      });
       if (newWork) {
         workIdToUse = newWork.id;
         setActiveWorkId(newWork.id);
       }
+      setDraftWorkspaceRoot(null);
     }
 
     await refreshWorksList();
@@ -648,10 +777,12 @@ export function App() {
       )}
 
       {/* Left Work List Rail */}
-      <div
-        className={`fixed inset-y-0 left-0 z-40 transition-[width,transform] duration-200 ease-out lg:static lg:z-auto lg:translate-x-0 ${
-          sidebarCollapsed ? "w-0 min-w-0 overflow-hidden" : "w-[264px]"
-        } ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+      <motion.div
+        animate={{ width: sidebarCollapsed ? 0 : sidebarWidth }}
+        transition={{ type: "spring", bounce: 0, duration: 0.35 }}
+        className={`fixed inset-y-0 left-0 z-40 lg:static lg:z-auto lg:translate-x-0 overflow-hidden ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        }`}
       >
         <WorkList
           works={works}
@@ -665,7 +796,21 @@ export function App() {
           onOpenPalette={() => setPaletteOpen(true)}
           onOpenSettings={() => setSettingsOpen(true)}
         />
-      </div>
+      </motion.div>
+
+      {/* Sidebar Resizable Drag Handle */}
+      {!sidebarCollapsed && (
+        <div
+          onPointerDown={handleSidebarPointerDown}
+          onPointerMove={handleSidebarPointerMove}
+          onPointerUp={handleSidebarPointerUp}
+          aria-label="Resize sidebar"
+          className="group relative z-40 hidden w-1.5 cursor-col-resize select-none items-center justify-center transition-colors hover:bg-primary/40 lg:flex active:bg-primary"
+          title="拖拽调整侧边栏宽度"
+        >
+          <div className="h-8 w-1 rounded-full bg-border/80 transition-colors group-hover:bg-primary" />
+        </div>
+      )}
 
       {/* Center: Goal/Plan/Activity Work view */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
@@ -673,7 +818,13 @@ export function App() {
         {activeWorkId && (
           <SessionHeader
             title={workDetail?.title ?? `Work ${activeWorkId.slice(0, 8)}…`}
-            subtitle={workDetail?.status ? workStatusLabel(workDetail.status) : undefined}
+            subtitle={
+              workDetail?.workspaceRoot
+                ? `根路径: ${workDetail.workspaceRoot}`
+                : workDetail?.status
+                  ? workStatusLabel(workDetail.status)
+                  : undefined
+            }
             model={selectedModelId}
             running={running}
             theme={theme}
@@ -703,28 +854,35 @@ export function App() {
             />
           ) : (
             <div className="mx-auto w-full max-w-[52rem] px-4 py-6 sm:px-6 sm:py-8">
-              {/* 1. Goal */}
-              <div className="mb-5">
-                <GoalPanel
-                  goal={workDetail?.goal ?? ""}
-                  onSave={handleSaveGoal}
-                  disabled={running || !workDetail}
-                  status={workDetail?.status ?? "active"}
-                />
-              </div>
+              {/* Render Goal & Plan for tasks/projects or when explicit goal/plan exists */}
+              {(workDetail?.uiKind !== "conversation" ||
+                Boolean(workDetail?.goal) ||
+                (workDetail?.plan && workDetail.plan.length > 0)) && (
+                <>
+                  {/* 1. Goal */}
+                  <div className="mb-5">
+                    <GoalPanel
+                      goal={workDetail?.goal ?? ""}
+                      onSave={handleSaveGoal}
+                      disabled={running || !workDetail}
+                      status={workDetail?.status ?? "active"}
+                    />
+                  </div>
 
-              {/* 2. Plan Tracker */}
-              <div className="mb-5">
-                <PlanTracker
-                  steps={workDetail?.plan ?? []}
-                  onChange={handlePlanChange}
-                  editable={
-                    !running &&
-                    workDetail?.status !== "completed" &&
-                    workDetail?.status !== "failed"
-                  }
-                />
-              </div>
+                  {/* 2. Plan Tracker */}
+                  <div className="mb-5">
+                    <PlanTracker
+                      steps={workDetail?.plan ?? []}
+                      onChange={handlePlanChange}
+                      editable={
+                        !running &&
+                        workDetail?.status !== "completed" &&
+                        workDetail?.status !== "failed"
+                      }
+                    />
+                  </div>
+                </>
+              )}
 
               {/* 3. Activity Timeline */}
               <div>
@@ -765,24 +923,52 @@ export function App() {
             running={running}
             mode="chat"
             workTitle={activeWorkId ? (workDetail?.title ?? null) : null}
+            workspaceRoot={activeWorkId ? (workDetail?.workspaceRoot ?? null) : draftWorkspaceRoot}
+            onSelectWorkspace={handleSetWorkspaceRoot}
+            selectedModel={selectedModelId}
+            modelOptions={modelOptions}
+            onSelectModel={setSelectedModelId}
           />
         </div>
       </div>
 
       {/* Right Inspector */}
-      {inspectorOpen && (
-        <>
-          <button
-            type="button"
-            aria-label="Close Inspector"
-            onClick={() => setInspectorOpen(false)}
-            className="fixed inset-0 z-30 bg-foreground/20 xl:hidden"
-          />
-          <div className="fixed inset-y-0 right-0 z-40 w-[320px] xl:static xl:z-auto xl:w-[340px]">
-            <ContextPanel data={inspectorData} />
-          </div>
-        </>
-      )}
+      <AnimatePresence>
+        {inspectorOpen && (
+          <>
+            <motion.button
+              type="button"
+              aria-label="Close Inspector"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setInspectorOpen(false)}
+              className="fixed inset-0 z-30 bg-foreground/20 xl:hidden"
+            />
+            {/* Inspector Resizable Drag Handle */}
+            <div
+              onPointerDown={handleInspectorPointerDown}
+              onPointerMove={handleInspectorPointerMove}
+              onPointerUp={handleInspectorPointerUp}
+              aria-label="Resize inspector"
+              className="group relative z-40 hidden w-1.5 cursor-col-resize select-none items-center justify-center transition-colors hover:bg-primary/40 xl:flex active:bg-primary"
+              title="拖拽调整 Inspector 宽度"
+            >
+              <div className="h-8 w-1 rounded-full bg-border/80 transition-colors group-hover:bg-primary" />
+            </div>
+            <motion.div
+              initial={{ x: inspectorWidth, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: inspectorWidth, opacity: 0 }}
+              transition={{ type: "spring", bounce: 0, duration: 0.35 }}
+              style={{ width: inspectorWidth }}
+              className="fixed inset-y-0 right-0 z-40 xl:static xl:z-auto"
+            >
+              <ContextPanel data={inspectorData} />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Command Palette */}
       <CommandPalette

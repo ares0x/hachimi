@@ -180,6 +180,40 @@
   animation: hachimi-pulse 2.4s ease-in-out infinite;
 }
 
+/* Apple Design §1 Active Pointer Press Feedback */
+.btn-press,
+button:not(:disabled),
+a,
+[role="button"] {
+  transition:
+    transform 100ms ease-out,
+    opacity 100ms ease-out,
+    background-color 150ms ease;
+}
+
+.btn-press:active,
+button:not(:disabled):active,
+[role="button"]:active {
+  transform: scale(0.97);
+  opacity: 0.92;
+}
+
+/* Apple Design §12 Media Fallbacks */
+@media (prefers-reduced-transparency: reduce) {
+  .backdrop-blur-xl,
+  .backdrop-blur-md,
+  .backdrop-blur-sm {
+    backdrop-filter: none !important;
+    background-color: var(--surface-elevated) !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  * {
+    border-color: var(--border-strong) !important;
+  }
+}
+
 @keyframes hachimi-rise {
   from {
     opacity: 0;
@@ -210,7 +244,7 @@
 }
 
 .wordmark {
-  letter-spacing: 0.06em;
+  letter-spacing: -0.01em;
 }
 
 .scroll-quiet {

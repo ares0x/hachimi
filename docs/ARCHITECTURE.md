@@ -161,7 +161,7 @@ strategy/swap point, not a many-registered-capabilities list.
 │      │                                                                  │
 │      ▼                                                                  │
 │  Hierarchical Memory + Consolidation Loop (Tier 1, done)                │
-│  Working → Session → Long-term → Archival · embedding retrieval         │
+│  Working → Session → Long-term → Archival · n-gram lexical similarity   │
 │      │                                                                  │
 │      ▼                                                                  │
 │  Session Manager        LLM ProviderTransport (multi-vendor, done)      │

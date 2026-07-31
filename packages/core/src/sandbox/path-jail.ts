@@ -39,9 +39,14 @@ export class PathJail {
   }
 
   /**
-   * 校验并安全解析路径
+   * 校验并安全解析路径，支持针对 Work / Request 的 scopedWorkspaceRoot
    */
-  assertPathInJail(targetPath: string, actionName = "访问文件", isReadOnly = false): string {
+  assertPathInJail(
+    targetPath: string,
+    actionName = "访问文件",
+    isReadOnly = false,
+    scopedWorkspaceRoot?: string
+  ): string {
     if (!targetPath) {
       throw new ToolRejectedError("targetPath", "路径不能为空");
     }
@@ -51,8 +56,10 @@ export class PathJail {
       p = p.replace(/^~/, homedir());
     }
 
-    const resolved = resolve(this.workspaceRoot, p);
-    const normalizedWorkspace = normalize(this.workspaceRoot);
+    const currentRoot = scopedWorkspaceRoot ? resolve(scopedWorkspaceRoot) : this.workspaceRoot;
+
+    const resolved = resolve(currentRoot, p);
+    const normalizedWorkspace = normalize(currentRoot);
     const normalizedTarget = normalize(resolved);
 
     // 1. 物理硬化：系统敏感路径一律无条件硬拦截
@@ -90,8 +97,17 @@ export class PathJail {
 
     throw new ToolRejectedError(
       actionName,
-      `[沙箱拦截: 路径越界保护] 尝试对工作区以外路径 '${targetPath}' (解析为 '${normalizedTarget}') 执行修改/写入操作被拒绝。工作区根目录: '${normalizedWorkspace}'`
+      `[沙箱拦截: 路径越界保护] 企图写操作或越界访问 '${targetPath}' (不在工作区 '${currentRoot}' 内部) 被拒绝。`
     );
+  }
+
+  isPathInJail(targetPath: string, isReadOnly = false, scopedWorkspaceRoot?: string): boolean {
+    try {
+      this.assertPathInJail(targetPath, "检查", isReadOnly, scopedWorkspaceRoot);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   getWorkspaceRoot(): string {

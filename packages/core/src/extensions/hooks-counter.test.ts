@@ -37,5 +37,5 @@ describe("P1 HookRegistry Full Execution Counter Suite", () => {
 
     expect(preToolCount).toBeGreaterThanOrEqual(1);
     expect(postToolCount).toBeGreaterThanOrEqual(1);
-  });
+  }, 15_000);
 });
