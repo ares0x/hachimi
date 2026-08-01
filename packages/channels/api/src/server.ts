@@ -11,7 +11,7 @@ async function openNativeFolderPicker(): Promise<string | null> {
   const platform = process.platform;
   try {
     if (platform === "darwin") {
-      const cmd = `osascript -e 'POSIX path of (choose folder with prompt "选择目录")'`;
+      const cmd = `osascript -e 'tell application "System Events" to activate' -e 'POSIX path of (choose folder with prompt "选择目录")'`;
       const { stdout } = await execAsync(cmd);
       const chosen = stdout.trim();
       return chosen ? chosen.replace(/\/$/, "") : null;
@@ -34,7 +34,7 @@ async function openNativeFilePicker(): Promise<string | null> {
   const platform = process.platform;
   try {
     if (platform === "darwin") {
-      const cmd = `osascript -e 'POSIX path of (choose file with prompt "选择文件")'`;
+      const cmd = `osascript -e 'tell application "System Events" to activate' -e 'POSIX path of (choose file with prompt "选择文件")'`;
       const { stdout } = await execAsync(cmd);
       const chosen = stdout.trim();
       return chosen || null;

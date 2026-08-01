@@ -479,6 +479,7 @@ function PersonalContextConfigView() {
   const [saved, setSaved] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
   const activeSetterRef = useRef<((p: string) => void) | null>(null);
 
   // Load existing config on mount
@@ -515,11 +516,18 @@ function PersonalContextConfigView() {
       /* ignore */
     }
 
-    // Fallback to HTML5 file picker if native picker returns null or fails
+    // Fallback to HTML5 file/folder picker if native picker returns null or fails
     activeSetterRef.current = setter;
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-      fileInputRef.current.click();
+    if (pickerType === "folder") {
+      if (folderInputRef.current) {
+        folderInputRef.current.value = "";
+        folderInputRef.current.click();
+      }
+    } else {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+        fileInputRef.current.click();
+      }
     }
   };
 
@@ -527,9 +535,28 @@ function PersonalContextConfigView() {
     const files = e.target.files;
     if (files && files.length > 0 && activeSetterRef.current) {
       const pickedFile = files[0];
-      // Extract file path or webkitRelativePath
       const path = (pickedFile as any).path || pickedFile.name;
       activeSetterRef.current(path);
+    }
+  };
+
+  const handleFolderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0 && activeSetterRef.current) {
+      const firstFile = files[0];
+      const relPath = firstFile.webkitRelativePath;
+      const folderName = relPath ? relPath.split("/")[0] : "";
+      const fullPath = (firstFile as any).path;
+      if (fullPath && folderName) {
+        const idx = fullPath.indexOf(folderName);
+        if (idx !== -1) {
+          activeSetterRef.current(fullPath.slice(0, idx + folderName.length));
+          return;
+        }
+      }
+      if (folderName) {
+        activeSetterRef.current(`~/Documents/${folderName}/`);
+      }
     }
   };
 
@@ -549,8 +576,18 @@ function PersonalContextConfigView() {
 
   return (
     <div className="flex-1 space-y-5 overflow-y-auto pr-8 scroll-quiet">
-      {/* Hidden Fallback Input */}
+      {/* Hidden Fallback File Input */}
       <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
+      {/* Hidden Fallback Folder Input */}
+      <input
+        ref={folderInputRef}
+        type="file"
+        // @ts-ignore
+        webkitdirectory=""
+        directory=""
+        className="hidden"
+        onChange={handleFolderChange}
+      />
 
       <div>
         <h3 className="text-base font-semibold text-foreground">
