@@ -5,6 +5,7 @@ import {
   KeyRound,
   Moon,
   Palette,
+  Save,
   Server,
   Settings,
   Sparkles,
@@ -73,7 +74,7 @@ const ACCENT_PRESETS = [
   { hex: "#10b981", label: "Emerald" },
 ];
 
-type SettingsTab = "general" | "models" | "mcp" | "skills";
+type SettingsTab = "general" | "models" | "mcp" | "skills" | "context";
 
 export function SettingsPanel({
   open,
@@ -189,6 +190,20 @@ export function SettingsPanel({
             >
               <Sparkles className="size-4" />
               技能 (Skills)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("context")}
+              className={cn(
+                "flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium transition-all active:scale-[0.97]",
+                activeTab === "context"
+                  ? "bg-surface-elevated text-foreground shadow-xs"
+                  : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+              )}
+            >
+              <Zap className="size-4 text-amber-500" />
+              个人上下文 (Context)
             </button>
           </nav>
 
@@ -447,7 +462,169 @@ export function SettingsPanel({
 
           {/* Tab 4: 技能 (SkillsManager) */}
           {activeTab === "skills" && <SkillsManager />}
+
+          {/* Tab 5: 个人上下文 (Personal Context Config) */}
+          {activeTab === "context" && <PersonalContextConfigView />}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function PersonalContextConfigView() {
+  const [soulPath, setSoulPath] = useState("~/.hachimi/SOUL.md");
+  const [telosRoot, setTelosRoot] = useState("~/.hachimi/telos/");
+  const [knowledgeRoot, setKnowledgeRoot] = useState("~/Documents/ObsidianVault/");
+  const [knowledgeWriteRoot, setKnowledgeWriteRoot] = useState("~/Documents/ObsidianVault/_inbox");
+  const [saved, setSaved] = useState(false);
+
+  const handlePickFolder = async (setter: (p: string) => void) => {
+    try {
+      const res = await fetch("/api/workspace/pick", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.path) setter(data.path);
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleSaveConfig = async () => {
+    try {
+      await fetch("/api/personal-context/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ soulPath, telosRoot, knowledgeRoot, knowledgeWriteRoot }),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  return (
+    <div className="flex-1 space-y-5 overflow-y-auto pr-8 scroll-quiet">
+      <div>
+        <h3 className="text-base font-semibold text-foreground">
+          个人上下文路径设置 (Personal Context)
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          配置 SOUL 语气边界、TELOS 对齐与 Second Brain (Obsidian Vault) 目录路径
+        </p>
+      </div>
+
+      {/* 1. SOUL.md */}
+      <div className="rounded-2xl border border-border/40 bg-surface-elevated/70 p-4 shadow-xs">
+        <SectionLabel icon={<Sparkles className="size-4 text-amber-500" />}>
+          SOUL 身份偏好文件路径
+        </SectionLabel>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          定义 Agent 语气偏好与全局行为边界，稳定插入 Context 前缀
+        </p>
+        <div className="mt-2.5 flex items-center gap-2">
+          <input
+            type="text"
+            value={soulPath}
+            onChange={(e) => setSoulPath(e.target.value)}
+            className="h-8.5 flex-1 rounded-xl border border-border/50 bg-surface px-3 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => handlePickFolder(setSoulPath)}
+            className="rounded-xl border border-border/50 bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-all active:scale-[0.97] hover:bg-surface-hover shadow-xs whitespace-nowrap"
+          >
+            📁 选择文件
+          </button>
+        </div>
+      </div>
+
+      {/* 2. TELOS */}
+      <div className="rounded-2xl border border-border/40 bg-surface-elevated/70 p-4 shadow-xs">
+        <SectionLabel icon={<Zap className="size-4 text-amber-500" />}>
+          TELOS 个人使命/目标对齐目录
+        </SectionLabel>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          包含 MISSION.md, GOALS.md, PROJECTS.md 稳定上下文
+        </p>
+        <div className="mt-2.5 flex items-center gap-2">
+          <input
+            type="text"
+            value={telosRoot}
+            onChange={(e) => setTelosRoot(e.target.value)}
+            className="h-8.5 flex-1 rounded-xl border border-border/50 bg-surface px-3 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => handlePickFolder(setTelosRoot)}
+            className="rounded-xl border border-border/50 bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-all active:scale-[0.97] hover:bg-surface-hover shadow-xs whitespace-nowrap"
+          >
+            📁 选择目录
+          </button>
+        </div>
+      </div>
+
+      {/* 3. Second Brain Knowledge Root */}
+      <div className="rounded-2xl border border-border/40 bg-surface-elevated/70 p-4 shadow-xs">
+        <SectionLabel icon={<Server className="size-4 text-emerald-500" />}>
+          Second Brain 知识库根目录 (Obsidian Vault)
+        </SectionLabel>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          第二大脑只读知识库挂载点，按需通过工具调取，受 PathJail 只读保护
+        </p>
+        <div className="mt-2.5 flex items-center gap-2">
+          <input
+            type="text"
+            value={knowledgeRoot}
+            onChange={(e) => setKnowledgeRoot(e.target.value)}
+            className="h-8.5 flex-1 rounded-xl border border-border/50 bg-surface px-3 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => handlePickFolder(setKnowledgeRoot)}
+            className="rounded-xl border border-border/50 bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-all active:scale-[0.97] hover:bg-surface-hover shadow-xs whitespace-nowrap"
+          >
+            📁 选择目录
+          </button>
+        </div>
+      </div>
+
+      {/* 4. Knowledge Write Inbox */}
+      <div className="rounded-2xl border border-border/40 bg-surface-elevated/70 p-4 shadow-xs">
+        <SectionLabel icon={<Settings className="size-4 text-primary" />}>
+          Second Brain 草稿 Inbox 写目录
+        </SectionLabel>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          知识库唯一允许写入的收件箱子目录（默认 knowledgeRoot/_inbox）
+        </p>
+        <div className="mt-2.5 flex items-center gap-2">
+          <input
+            type="text"
+            value={knowledgeWriteRoot}
+            onChange={(e) => setKnowledgeWriteRoot(e.target.value)}
+            className="h-8.5 flex-1 rounded-xl border border-border/50 bg-surface px-3 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => handlePickFolder(setKnowledgeWriteRoot)}
+            className="rounded-xl border border-border/50 bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-all active:scale-[0.97] hover:bg-surface-hover shadow-xs whitespace-nowrap"
+          >
+            📁 选择目录
+          </button>
+        </div>
+      </div>
+
+      {/* Save Action */}
+      <div className="flex justify-end pt-2">
+        <button
+          type="button"
+          onClick={handleSaveConfig}
+          className="flex items-center gap-1.5 rounded-xl bg-primary px-5 py-2 text-xs font-medium text-primary-foreground shadow-xs transition-transform active:scale-[0.97] hover:opacity-90"
+        >
+          {saved ? <Check className="size-4 text-emerald-300" /> : <Save className="size-4" />}
+          {saved ? "路径配置已保存并重新装载" : "保存上下文路径配置"}
+        </button>
       </div>
     </div>
   );

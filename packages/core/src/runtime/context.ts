@@ -1,5 +1,7 @@
 // packages/core/src/runtime/context.ts
-import { resolve } from "node:path";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import {
   getActiveProviderConfig,
   type HachimiConfig,

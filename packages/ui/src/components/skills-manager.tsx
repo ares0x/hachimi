@@ -230,21 +230,24 @@ export function SkillsManager() {
                 </div>
 
                 {/* Path & Preview Header */}
-                <div className="mt-3 flex items-center justify-between border-t border-border/20 pt-2.5">
+                <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/20 pt-2.5">
                   <button
                     type="button"
                     onClick={() => setExpandedSkillId(isExpanded ? null : skill.id)}
-                    className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground active:scale-[0.97]"
+                    className="flex items-center gap-1 whitespace-nowrap shrink-0 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground active:scale-[0.97]"
                   >
                     {isExpanded ? (
-                      <ChevronUp className="size-3" />
+                      <ChevronUp className="size-3 shrink-0" />
                     ) : (
-                      <ChevronDown className="size-3" />
+                      <ChevronDown className="size-3 shrink-0" />
                     )}
                     {isExpanded ? "收起内容" : "查看内容"}
                   </button>
 
-                  <span className="rounded-lg bg-surface-hover/80 px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                  <span
+                    title={skill.path}
+                    className="truncate max-w-[260px] sm:max-w-[340px] rounded-lg bg-surface-hover/80 px-2 py-0.5 font-mono text-[10px] text-muted-foreground"
+                  >
                     {skill.path}
                   </span>
                 </div>

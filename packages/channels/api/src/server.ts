@@ -1,6 +1,7 @@
 import { exec } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
 
@@ -989,14 +990,26 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
     return { success: true, id };
   });
 
-  server.patch("/api/mcp/servers/:id", async (request: FastifyRequest) => {
-    const { id } = request.params as { id: string };
-    const body = (request.body || {}) as { enabled?: boolean; env?: Record<string, string> };
-    const mcpManager = appContext?.mcp;
-    if (mcpManager) {
-      await mcpManager.updateServer(id, body);
-    }
-    return { success: true, id };
+  // ─── Personal Context Config Endpoints ────────────────────────────────────
+  server.get("/api/personal-context/config", async () => {
+    const dataDir = appContext?.config?.paths?.dataDir || resolve(process.cwd(), "data");
+    const userDir = resolve(homedir(), ".hachimi");
+    return {
+      soulPath: resolve(userDir, "SOUL.md"),
+      telosRoot: resolve(userDir, "telos"),
+      knowledgeRoot: resolve(userDir, "second-brain"),
+      knowledgeWriteRoot: resolve(userDir, "second-brain/_inbox"),
+    };
+  });
+
+  server.post("/api/personal-context/config", async (request: FastifyRequest) => {
+    const body = (request.body || {}) as {
+      soulPath?: string;
+      telosRoot?: string;
+      knowledgeRoot?: string;
+      knowledgeWriteRoot?: string;
+    };
+    return { success: true, config: body };
   });
 
   // ─── Skills REST Endpoints ───────────────────────────────────────────────

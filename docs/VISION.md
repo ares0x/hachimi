@@ -65,6 +65,10 @@ The system may extract skill **candidates** from trajectories. Learned skills st
 
 **Memory note:** lightweight **conversation** lines should be **conservative** about writing long-term memory; durable facts prefer explicit save, clear preference extraction, or user-visible control — not silent archival of every casual turn.
 
+### VI. Determinism before probability
+
+When a problem has a deterministic solution, prefer it over an LLM call — deterministic code is 100% predictable; a model call is not. This has been the practice throughout the project (`PathJail` boundary checks and `shell-ast-guard`'s command parsing are deterministic code, not "ask the model whether this path/command is safe") without ever being stated as a rule. Stating it now: when building a new skill or capability, default to the order **Code → CLI tool → structured prompt → full agent loop**, reaching for a more probabilistic layer only once the deterministic ones genuinely can't solve it.
+
 ---
 
 ## 3. Explicit non-goals

@@ -1,5 +1,5 @@
-// packages/config/src/index.ts
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { resolve } from "node:path";
 import {
   DAEMON_DEFAULT_PORT,
@@ -115,15 +115,74 @@ export const DEFAULT_CONFIG: HachimiConfig = {
   },
 };
 
+export function ensureUserHachimiDir(): string {
+  const userDir = resolve(homedir(), ".hachimi");
+  try {
+    const dirs = [
+      userDir,
+      resolve(userDir, "skills"),
+      resolve(userDir, "proposals"),
+      resolve(userDir, "telos"),
+      resolve(userDir, "second-brain", "_inbox"),
+    ];
+
+    for (const d of dirs) {
+      if (!existsSync(d)) {
+        mkdirSync(d, { recursive: true });
+      }
+    }
+
+    const soulPath = resolve(userDir, "SOUL.md");
+    if (!existsSync(soulPath)) {
+      writeFileSync(
+        soulPath,
+        `# SOUL.md - Hachimi Personal Agent Persona & Boundaries\n- 保持专业、简洁、客观\n- 遵循本地优先原则，避免无授权执行危险写操作\n`,
+        "utf-8"
+      );
+    }
+
+    const missionPath = resolve(userDir, "telos", "MISSION.md");
+    if (!existsSync(missionPath)) {
+      writeFileSync(missionPath, `# Mission\n构建最强 local-first 个人 Agent Runtime。\n`, "utf-8");
+    }
+
+    const goalsPath = resolve(userDir, "telos", "GOALS.md");
+    if (!existsSync(goalsPath)) {
+      writeFileSync(goalsPath, `# Goals\n1. 极简高效交互\n2. 确定性沙箱隔离\n`, "utf-8");
+    }
+
+    const projectsPath = resolve(userDir, "telos", "PROJECTS.md");
+    if (!existsSync(projectsPath)) {
+      writeFileSync(projectsPath, `# Projects\n- Hachimi Harness Runtime\n`, "utf-8");
+    }
+
+    const userHomeConfig = resolve(userDir, "config.json");
+    if (!existsSync(userHomeConfig) && !existsSync("config.json")) {
+      writeFileSync(userHomeConfig, JSON.stringify(DEFAULT_CONFIG, null, 2), "utf-8");
+    }
+  } catch (err) {
+    /* ignore initialization error */
+  }
+  return userDir;
+}
+
 /**
  * 加载配置（支持 config.json、环境变量及向后兼容补全）
  */
 export function loadConfig(configPath = "config.json"): HachimiConfig {
+  ensureUserHachimiDir();
   let loaded: Partial<HachimiConfig> = {};
 
-  if (existsSync(configPath)) {
+  const userHomeConfig = resolve(homedir(), ".hachimi", "config.json");
+  const targetPath = existsSync(configPath)
+    ? configPath
+    : existsSync(userHomeConfig)
+      ? userHomeConfig
+      : configPath;
+
+  if (existsSync(targetPath)) {
     try {
-      const raw = readFileSync(configPath, "utf-8");
+      const raw = readFileSync(targetPath, "utf-8");
       loaded = JSON.parse(raw);
     } catch {
       /* ignore read errors */

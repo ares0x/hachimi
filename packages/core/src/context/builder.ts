@@ -36,6 +36,7 @@ export interface ContextBuildInput {
   tools?: ToolRegistry;
   activeSkill?: string; // 按需加载的技能名
   identityOverride?: string;
+  personalContext?: { soul?: string; telos?: string };
   history?: Message[];
   options?: ContextOptions;
   tokenEstimator?: (text: string) => number; // 可注入的 Token 估算器
@@ -112,11 +113,18 @@ export class ContextBuilder {
     const opts = { ...DEFAULT_OPTIONS, ...input.options };
 
     // --- 1. 静态缓存前缀 (Static Stable Prefix) ---
-    // 必须保持绝不动摇的顺序以命中 LLM Prompt Cache：Identity -> Skills 概览 -> Tools 概览
+    // 必须保持绝不动摇的顺序以命中 LLM Prompt Cache：Identity -> SOUL/TELOS -> Skills 概览 -> Tools 概览
     const staticBlocks: string[] = [];
 
     const identity = input.identityOverride ?? this.identity;
     staticBlocks.push(identity);
+
+    if (input.personalContext?.soul) {
+      staticBlocks.push(input.personalContext.soul);
+    }
+    if (input.personalContext?.telos) {
+      staticBlocks.push(input.personalContext.telos);
+    }
 
     // Slim skill list — same principle as tools: function-calling schema carries descriptions.
     let skillsBlock = "【可用技能】\n（无）";

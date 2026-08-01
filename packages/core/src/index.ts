@@ -13,11 +13,13 @@ export type { SubAgentResult, SubAgentRunOptions, SubAgentTaskState } from "./ag
 export { SubAgentDelegator } from "./agent/sub-agent.js";
 export type { BuiltContext, ContextBuildInput } from "./context/builder.js";
 export { ContextBuilder } from "./context/builder.js";
+export { PersonalContextLoader } from "./context/personal-context.js";
 // W0: RuntimeEvent 事件存储
 export type { EventListOptions, EventListResult, IEventStore } from "./events/event-store.js";
 export { FileEventStore } from "./events/file-event-store.js";
 export * from "./extensions/index.js";
 export * from "./extensions/contributor.js";
+export * from "./extensions/connector.js";
 export * from "./extensions/mcp-builtin/index.js";
 export * from "./memory/index.js";
 export * from "./portable/index.js";
