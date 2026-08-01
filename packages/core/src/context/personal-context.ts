@@ -16,6 +16,8 @@ export interface PersonalContextOptions {
 export interface PersonalContextContent {
   soul?: string;
   telos?: string;
+  knowledgeRoot?: string;
+  knowledgeWriteRoot?: string;
   hasSoul: boolean;
   hasTelos: boolean;
 }
@@ -29,6 +31,8 @@ export interface PersonalContextContent {
 export class PersonalContextLoader {
   private soulPath: string;
   private telosRoot: string;
+  private knowledgeRoot?: string;
+  private knowledgeWriteRoot?: string;
   private soulMaxChars: number;
   private telosMaxChars: number;
 
@@ -39,6 +43,8 @@ export class PersonalContextLoader {
     const defaultUserDir = join(homedir(), ".hachimi");
     this.soulPath = resolve(options.soulPath || join(defaultUserDir, "SOUL.md"));
     this.telosRoot = resolve(options.telosRoot || join(defaultUserDir, "telos"));
+    if (options.knowledgeRoot) this.knowledgeRoot = resolve(options.knowledgeRoot);
+    if (options.knowledgeWriteRoot) this.knowledgeWriteRoot = resolve(options.knowledgeWriteRoot);
     this.soulMaxChars = options.soulMaxChars || 1000;
     this.telosMaxChars = options.telosMaxChars || 3000;
   }
@@ -93,6 +99,8 @@ export class PersonalContextLoader {
     return {
       soul: hasSoul ? `【个人 SOUL 指引】\n${soulText}` : undefined,
       telos: hasTelos ? `【TELOS 个人对齐】\n${telosText}` : undefined,
+      knowledgeRoot: this.knowledgeRoot,
+      knowledgeWriteRoot: this.knowledgeWriteRoot,
       hasSoul,
       hasTelos,
     };

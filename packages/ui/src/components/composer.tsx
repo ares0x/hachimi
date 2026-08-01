@@ -15,13 +15,6 @@ import type { Mode } from "../lib/agent-demo";
 import { cn } from "../lib/utils";
 import type { ModelOption } from "./settings-panel";
 
-const DEFAULT_MODELS: ModelOption[] = [
-  { id: "deepseek-v4-pro", name: "deepseek-v4-pro" },
-  { id: "deepseek-v4-flash", name: "deepseek-v4-flash" },
-  { id: "claude-3-7-sonnet", name: "claude-3-7-sonnet" },
-  { id: "gpt-4o", name: "gpt-4o" },
-];
-
 export function Composer({
   value,
   onChange,
@@ -35,7 +28,7 @@ export function Composer({
   workspaceRoot,
   onSelectWorkspace,
   selectedModel = "deepseek-v4-pro",
-  modelOptions = DEFAULT_MODELS,
+  modelOptions = [],
   onSelectModel,
 }: {
   value: string;
@@ -277,27 +270,33 @@ export function Composer({
                       <div className="px-2.5 py-1 font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">
                         选择模型
                       </div>
-                      {modelOptions.map((m) => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => {
-                            if (onSelectModel) onSelectModel(m.id);
-                            setModelDropdownOpen(false);
-                          }}
-                          className={cn(
-                            "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 font-mono text-[12px] transition-colors text-left",
-                            selectedModel === m.id
-                              ? "bg-primary/10 font-semibold text-primary"
-                              : "text-foreground hover:bg-surface-hover"
-                          )}
-                        >
-                          <span>{m.name}</span>
-                          {selectedModel === m.id && (
-                            <span className="size-1.5 rounded-full bg-primary" />
-                          )}
-                        </button>
-                      ))}
+                      {modelOptions.length === 0 ? (
+                        <div className="px-2.5 py-2 font-mono text-[11px] text-amber-500">
+                          未检测到已就绪连接 (需在设置中配置 Key)
+                        </div>
+                      ) : (
+                        modelOptions.map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              if (onSelectModel) onSelectModel(m.id);
+                              setModelDropdownOpen(false);
+                            }}
+                            className={cn(
+                              "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 font-mono text-[12px] transition-colors text-left",
+                              selectedModel === m.id
+                                ? "bg-primary/10 font-semibold text-primary"
+                                : "text-foreground hover:bg-surface-hover"
+                            )}
+                          >
+                            <span>{m.name}</span>
+                            {selectedModel === m.id && (
+                              <span className="size-1.5 rounded-full bg-primary" />
+                            )}
+                          </button>
+                        ))
+                      )}
                     </div>
                   </>
                 )}

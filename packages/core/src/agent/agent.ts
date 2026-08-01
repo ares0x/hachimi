@@ -383,7 +383,12 @@ export class Agent {
       tools: this.tools,
       activeSkill: this.activeSkill,
       personalContext: personalCtx
-        ? { soul: personalCtx.soul, telos: personalCtx.telos }
+        ? {
+            soul: personalCtx.soul,
+            telos: personalCtx.telos,
+            knowledgeRoot: personalCtx.knowledgeRoot,
+            knowledgeWriteRoot: personalCtx.knowledgeWriteRoot,
+          }
         : undefined,
       history,
       options: {

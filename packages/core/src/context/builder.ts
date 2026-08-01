@@ -36,10 +36,15 @@ export interface ContextBuildInput {
   tools?: ToolRegistry;
   activeSkill?: string; // 按需加载的技能名
   identityOverride?: string;
-  personalContext?: { soul?: string; telos?: string };
+  personalContext?: {
+    soul?: string;
+    telos?: string;
+    knowledgeRoot?: string;
+    knowledgeWriteRoot?: string;
+  };
   history?: Message[];
   options?: ContextOptions;
-  tokenEstimator?: (text: string) => number; // 可注入的 Token 估算器
+  tokenEstimator?: (text: string) => number;
 }
 
 export interface BuiltContext {
@@ -56,11 +61,6 @@ export interface BuiltContext {
 
 const DEFAULT_IDENTITY = MASTER_AGENT_SYSTEM_PROMPT;
 
-/**
- * P2: Explicit boundary marker separating the cacheable static prefix
- * from the per-turn dynamic suffix. Matches Claude Code's pattern of
- * using a distinct, searchable constant for prompt cache breakpoints.
- */
 export const PROMPT_CACHE_BOUNDARY =
   "\n\n--- CONTEXT (dynamic, below this line is per-turn) ---\n\n";
 
@@ -77,12 +77,6 @@ const DEFAULT_OPTIONS: Required<ContextOptions> = {
 export class ContextBuilder {
   constructor(private identity: string = DEFAULT_IDENTITY) {}
 
-  /**
-   * P3: Compute a SHA-256 hash of the current static context prefix.
-   * This hash changes when skills, tools, or identity change — enabling
-   * cache invalidation in the LLM provider layer. Matching Maka's
-   * RequestShapeComponents pattern.
-   */
   hash(cacheHint?: { skills?: SkillRegistry; tools?: ToolRegistry }): string {
     const parts: string[] = [this.identity];
 
@@ -112,8 +106,6 @@ export class ContextBuilder {
   async build(input: ContextBuildInput = {}): Promise<BuiltContext> {
     const opts = { ...DEFAULT_OPTIONS, ...input.options };
 
-    // --- 1. 静态缓存前缀 (Static Stable Prefix) ---
-    // 必须保持绝不动摇的顺序以命中 LLM Prompt Cache：Identity -> SOUL/TELOS -> Skills 概览 -> Tools 概览
     const staticBlocks: string[] = [];
 
     const identity = input.identityOverride ?? this.identity;
@@ -124,6 +116,11 @@ export class ContextBuilder {
     }
     if (input.personalContext?.telos) {
       staticBlocks.push(input.personalContext.telos);
+    }
+    if (input.personalContext?.knowledgeRoot) {
+      staticBlocks.push(
+        `【Second Brain 知识库】\n- 知识库根路径: \`${input.personalContext.knowledgeRoot}\`\n- 写入/草稿收件箱: \`${input.personalContext.knowledgeWriteRoot || `${input.personalContext.knowledgeRoot}/_inbox`}\`\n- 极重要指引: 当用户提到“整理我的 second brain / 查看 Obsidian 笔记”时，你已挂载了上述知识库路径！请直接通过工具读取或整理该路径下的笔记内容，切勿扫描或混淆为当前项目的代码工作区。`
+      );
     }
 
     // Slim skill list — same principle as tools: function-calling schema carries descriptions.
@@ -208,6 +205,13 @@ export class ContextBuilder {
         "list_dir/read_file 等数据收集工具最多使用 4-5 轮。" +
         "之后必须停止收集新数据，基于已获取的信息直接输出结构化分析结论。" +
         "禁止递归遍历每一个子目录。相信你已经收集了足够的信息。"
+    );
+
+    // URL handling: when the user shares a link, proactively fetch it
+    dynamicBlocks.push(
+      "【链接处理】当用户发送一个 URL（网页、GitHub、gist 等）时：" +
+        "使用 mcp_fetch_url 工具主动获取内容，不要拒绝访问网页。" +
+        "获取后基于内容回答用户；若工具返回错误，如实说明并尝试替代方式。"
     );
 
     // H4.2: RAG 动态语义记忆检索装配
