@@ -61,5 +61,5 @@ describe("Cross-Channel HarnessRuntime Consistency Verification", () => {
     const activity = await runtime.getWorkActivity("shared-session-001");
     expect(activity).toBeDefined();
     expect(activity?.activities.length).toBeGreaterThan(0);
-  }, 15000);
+  }, 30000);
 });

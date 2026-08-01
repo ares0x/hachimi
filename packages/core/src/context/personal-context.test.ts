@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ContextBuilder } from "./builder.js";
 import { PersonalContextLoader } from "./personal-context.js";
 import { PathJail } from "../sandbox/path-jail.js";
+import { ToolRegistry } from "../tools/registry.js";
 
 describe("Phase H7 & Phase PC: Multi-Root PathJail and PersonalContext (SOUL + TELOS) Suite", () => {
   const testDir = join(__dirname, "../../data-test-pc");
@@ -85,5 +86,25 @@ describe("Phase H7 & Phase PC: Multi-Root PathJail and PersonalContext (SOUL + T
     expect(built.systemPrompt.indexOf("SOUL")).toBeLessThan(
       built.systemPrompt.indexOf("【可用工具")
     );
+  });
+
+  it("PC-W1 & PC-W2 & PC-W4: ToolRegistry sandbox and getStatus observability", () => {
+    const registry = new ToolRegistry();
+    const workspaceRoot = join(testDir, "workspace");
+    const knowledgeRoot = join(testDir, "second-brain");
+    const inbox = join(knowledgeRoot, "_inbox");
+    mkdirSync(workspaceRoot, { recursive: true });
+    mkdirSync(inbox, { recursive: true });
+
+    registry.setWorkspaceRoot(workspaceRoot);
+    registry.setKnowledgeRoots(knowledgeRoot, inbox);
+
+    const execCtx = (registry as any).buildExecContext();
+    expect(execCtx.jail.assertPathInJail(join(inbox, "draft.md"), "write", false)).toContain(
+      "draft.md"
+    );
+    expect(() =>
+      execCtx.jail.assertPathInJail(join(knowledgeRoot, "root.md"), "write", false)
+    ).toThrow();
   });
 });

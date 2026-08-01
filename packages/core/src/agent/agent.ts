@@ -6,6 +6,7 @@ import {
   generateId,
 } from "@hachimi/shared";
 import { ContextBuilder } from "../context/builder.js";
+import type { PersonalContextLoader } from "../context/personal-context.js";
 import type { HookRegistry } from "../extensions/hooks.js";
 import type { MemoryManager } from "../memory/manager.js";
 import type { SkillRegistry } from "../skills/registry.js";
@@ -99,6 +100,7 @@ export interface AgentOptions {
   memory: MemoryManager;
   skills?: SkillRegistry;
   contextBuilder?: ContextBuilder;
+  personalContextLoader?: PersonalContextLoader;
   hooks?: HookRegistry;
   maxToolRounds?: number;
   /** Context budget — fed from config.context */
@@ -123,6 +125,7 @@ export class Agent {
   private memory: MemoryManager;
   private skills?: SkillRegistry;
   private contextBuilder: ContextBuilder;
+  private personalContextLoader?: PersonalContextLoader;
   private hooks?: HookRegistry;
   private maxToolRounds: number;
   private contextMaxTokens: number;
@@ -153,6 +156,7 @@ export class Agent {
     this.memory = options.memory;
     this.skills = options.skills;
     this.contextBuilder = options.contextBuilder ?? new ContextBuilder();
+    this.personalContextLoader = options.personalContextLoader;
     this.hooks = options.hooks;
     this.maxToolRounds = options.maxToolRounds ?? DEFAULT_MAX_TOOL_ROUNDS;
     this.contextMaxTokens = options.maxTokens ?? 12000;
@@ -369,13 +373,18 @@ export class Agent {
       minImportance: 0.3,
     });
 
-    // 3. 组装上下文（包含 B4 显式激活的技能）
+    const personalCtx = this.personalContextLoader ? this.personalContextLoader.load() : undefined;
+
+    // 3. 组装上下文（包含 B4 显式激活的技能与 PC 个人上下文）
     const built = await this.contextBuilder.build({
       userInput: input,
       memories: relevantMemories,
       skills: this.skills,
       tools: this.tools,
       activeSkill: this.activeSkill,
+      personalContext: personalCtx
+        ? { soul: personalCtx.soul, telos: personalCtx.telos }
+        : undefined,
       history,
       options: {
         maxTokens: this.contextMaxTokens,

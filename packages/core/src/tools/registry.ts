@@ -32,6 +32,8 @@ export interface ToolExecuteOptions {
   channel?: ChannelType | SurfaceType | string;
   /** 覆盖本次工作区根 */
   workspaceRoot?: string;
+  knowledgeRoot?: string;
+  knowledgeWriteRoot?: string;
   /** 覆盖本次策略实例；默认用 Registry 持有的 policy */
   permissionPolicy?: PermissionPolicy;
   onToolApproval?: (
@@ -61,13 +63,19 @@ export class ToolRegistry {
   private readonly LOOP_GATE_THRESHOLD = 3;
   private maxConsecutiveFailures: number;
   private workspaceRoot: string;
+  private knowledgeRoot?: string;
+  private knowledgeWriteRoot?: string;
   private allowOutsideWorkspace: boolean;
   private permissionPolicy: PermissionPolicy;
 
-  constructor(options: ToolRegistryOptions = {}) {
+  constructor(
+    options: ToolRegistryOptions & { knowledgeRoot?: string; knowledgeWriteRoot?: string } = {}
+  ) {
     this.sandbox = options.sandbox ?? new ToolSandbox();
     this.maxConsecutiveFailures = options.maxConsecutiveFailures ?? CIRCUIT_BREAKER_MAX_FAILURES;
     this.workspaceRoot = options.workspaceRoot ?? process.cwd();
+    this.knowledgeRoot = options.knowledgeRoot;
+    this.knowledgeWriteRoot = options.knowledgeWriteRoot;
     this.allowOutsideWorkspace = options.allowOutsideWorkspace ?? false;
     this.permissionPolicy = options.permissionPolicy ?? defaultPermissionPolicy;
   }
@@ -75,6 +83,11 @@ export class ToolRegistry {
   setWorkspaceRoot(root: string, allowOutsideWorkspace = false): void {
     this.workspaceRoot = root;
     this.allowOutsideWorkspace = allowOutsideWorkspace;
+  }
+
+  setKnowledgeRoots(knowledgeRoot?: string, knowledgeWriteRoot?: string): void {
+    this.knowledgeRoot = knowledgeRoot;
+    this.knowledgeWriteRoot = knowledgeWriteRoot;
   }
 
   setPermissionPolicy(policy: PermissionPolicy): void {
@@ -125,8 +138,13 @@ export class ToolRegistry {
 
   private buildExecContext(options?: ToolExecuteOptions): ToolExecContext {
     const workspaceRoot = options?.workspaceRoot ?? this.workspaceRoot;
+    const knowledgeRoot = options?.knowledgeRoot ?? this.knowledgeRoot;
+    const knowledgeWriteRoot = options?.knowledgeWriteRoot ?? this.knowledgeWriteRoot;
+
     const jail = new PathJail({
       workspaceRoot,
+      knowledgeRoot,
+      knowledgeWriteRoot,
       allowOutsideWorkspace: this.allowOutsideWorkspace,
     });
 

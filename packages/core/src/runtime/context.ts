@@ -14,6 +14,7 @@ import { FileDirStore, FileJsonStore, SQLiteStore } from "@hachimi/storage";
 import { Agent } from "../agent/agent.js";
 import { createLLMFromConfig } from "../agent/llm-factory.js";
 import { ContextBuilder } from "../context/builder.js";
+import { PersonalContextLoader } from "../context/personal-context.js";
 import type { IEventStore } from "../events/event-store.js";
 import { FileEventStore } from "../events/file-event-store.js";
 import { HookRegistry } from "../extensions/hooks.js";
@@ -21,7 +22,7 @@ import { McpClientManager } from "../extensions/mcp-client.js";
 import { SkillPackageLoader } from "../extensions/skill-package.js";
 import { MemoryManager } from "../memory/manager.js";
 import { SessionManager } from "../session/manager.js";
-import { summarySkill, writingSkill } from "../skills/builtin/index.js";
+import { contentFromBrainSkill, summarySkill, writingSkill } from "../skills/builtin/index.js";
 import { SkillRegistry } from "../skills/registry.js";
 import { registerBuiltinTools } from "../tools/builtin/index.js";
 import { registerBuiltinMcpServers } from "../extensions/mcp-builtin/index.js";
@@ -41,6 +42,7 @@ export interface AppContext {
   skills: SkillRegistry;
   agent: Agent;
   contextBuilder: ContextBuilder;
+  personalContextLoader: PersonalContextLoader;
   hooks: HookRegistry;
   mcp: McpClientManager;
   skillLoader: SkillPackageLoader;
@@ -95,10 +97,15 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
   const memory = new MemoryManager(config.paths.memoryFile, sqliteStore);
   const sessions = new SessionManager(config.paths.sessionsDir, sqliteStore);
   const tools = new ToolRegistry();
+  tools.setKnowledgeRoots(
+    config.personalContext?.knowledgeRoot,
+    config.personalContext?.knowledgeWriteRoot
+  );
   const skills = new SkillRegistry();
   const hooks = new HookRegistry();
   const mcp = new McpClientManager();
   const skillLoader = new SkillPackageLoader();
+  const personalContextLoader = new PersonalContextLoader(config.personalContext);
   const permissionPolicy = options.permissionPolicy || defaultPermissionPolicy;
 
   // W0: 初始化 append-only 事件存储
@@ -109,6 +116,7 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
 
   skills.register(writingSkill);
   skills.register(summarySkill);
+  skills.register(contentFromBrainSkill);
 
   registerBuiltinTools(tools);
   registerBuiltinMcpServers(tools);
@@ -148,6 +156,7 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
     memory,
     skills,
     contextBuilder,
+    personalContextLoader,
     hooks,
     maxToolRounds: config.agent.maxToolRounds,
     maxTokens: config.context.maxTokens,
@@ -172,6 +181,7 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
     skills,
     agent,
     contextBuilder,
+    personalContextLoader,
     hooks,
     mcp,
     skillLoader,
@@ -200,6 +210,7 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
         memory,
         skills,
         contextBuilder,
+        personalContextLoader,
         hooks,
         maxToolRounds: config.agent.maxToolRounds,
         onToolApproval: effectiveToolApproval,
@@ -216,6 +227,7 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
       const approxTokens = Math.ceil(estimatedHistoryLength / 3.5);
 
       const active = getActiveProviderConfig(config);
+      const loadedPC = personalContextLoader.load();
 
       return {
         title: config.tui.title,
@@ -229,6 +241,14 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
           mode: config.context.defaultMode,
           estimatedTokens: approxTokens,
           ratio: ((approxTokens / config.context.maxTokens) * 100).toFixed(1) + "%",
+        },
+        personalContext: {
+          hasSoul: loadedPC.hasSoul,
+          hasTelos: loadedPC.hasTelos,
+          soulPath: config.personalContext?.soulPath,
+          telosRoot: config.personalContext?.telosRoot,
+          knowledgeRoot: config.personalContext?.knowledgeRoot,
+          knowledgeWriteRoot: config.personalContext?.knowledgeWriteRoot,
         },
         memory: {
           longTermCount: longTerm.length,
