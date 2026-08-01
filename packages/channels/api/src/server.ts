@@ -55,6 +55,7 @@ async function openNativeFilePicker(): Promise<string | null> {
 import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
+import { saveConfig } from "@hachimi/config";
 import {
   type AppContext,
   getOrCreateHarnessRuntime,
@@ -1023,13 +1024,14 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
 
   // ─── Personal Context Config Endpoints ────────────────────────────────────
   server.get("/api/personal-context/config", async () => {
-    const dataDir = appContext?.config?.paths?.dataDir || resolve(process.cwd(), "data");
+    const pConfig =
+      appContext?.config?.personalContext || runtime.context.config.personalContext || {};
     const userDir = resolve(homedir(), ".hachimi");
     return {
-      soulPath: resolve(userDir, "SOUL.md"),
-      telosRoot: resolve(userDir, "telos"),
-      knowledgeRoot: resolve(userDir, "second-brain"),
-      knowledgeWriteRoot: resolve(userDir, "second-brain/_inbox"),
+      soulPath: pConfig.soulPath || resolve(userDir, "SOUL.md"),
+      telosRoot: pConfig.telosRoot || resolve(userDir, "telos"),
+      knowledgeRoot: pConfig.knowledgeRoot || resolve(userDir, "second-brain"),
+      knowledgeWriteRoot: pConfig.knowledgeWriteRoot || resolve(userDir, "second-brain/_inbox"),
     };
   });
 
@@ -1040,6 +1042,21 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
       knowledgeRoot?: string;
       knowledgeWriteRoot?: string;
     };
+
+    const targetConfig = appContext?.config || runtime.context.config;
+    if (targetConfig) {
+      targetConfig.personalContext = {
+        ...targetConfig.personalContext,
+        ...body,
+      };
+      try {
+        saveConfig(targetConfig);
+        log("info", "Personal context configuration updated and persisted", body);
+      } catch (err) {
+        log("warn", `Failed to persist personal context config: ${err}`);
+      }
+    }
+
     return { success: true, config: body };
   });
 

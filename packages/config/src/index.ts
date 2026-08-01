@@ -47,6 +47,13 @@ export interface ChannelsConfig {
   [key: string]: unknown;
 }
 
+export interface PersonalContextConfig {
+  soulPath?: string;
+  telosRoot?: string;
+  knowledgeRoot?: string;
+  knowledgeWriteRoot?: string;
+}
+
 export interface HachimiConfig {
   llm: {
     activeProvider: LLMProviderName;
@@ -57,6 +64,7 @@ export interface HachimiConfig {
     memoryFile: string;
     sessionsDir: string;
   };
+  personalContext?: PersonalContextConfig;
   agent: {
     maxToolRounds: number;
   };
@@ -94,6 +102,12 @@ export const DEFAULT_CONFIG: HachimiConfig = {
     dataDir: resolve("data"),
     memoryFile: resolve("data", "memory.json"),
     sessionsDir: resolve("data", "sessions"),
+  },
+  personalContext: {
+    soulPath: resolve(homedir(), ".hachimi", "SOUL.md"),
+    telosRoot: resolve(homedir(), ".hachimi", "telos"),
+    knowledgeRoot: resolve(homedir(), ".hachimi", "second-brain"),
+    knowledgeWriteRoot: resolve(homedir(), ".hachimi", "second-brain", "_inbox"),
   },
   agent: {
     maxToolRounds: DEFAULT_MAX_TOOL_ROUNDS,
