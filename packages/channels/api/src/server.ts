@@ -11,7 +11,7 @@ async function openNativeFolderPicker(): Promise<string | null> {
   const platform = process.platform;
   try {
     if (platform === "darwin") {
-      const cmd = `osascript -e 'POSIX path of (choose folder with prompt "选择项目工作区目录")'`;
+      const cmd = `osascript -e 'POSIX path of (choose folder with prompt "选择目录")'`;
       const { stdout } = await execAsync(cmd);
       const chosen = stdout.trim();
       return chosen ? chosen.replace(/\/$/, "") : null;
@@ -22,6 +22,29 @@ async function openNativeFolderPicker(): Promise<string | null> {
       return chosen || null;
     } else {
       const { stdout } = await execAsync(`zenity --file-selection --directory`);
+      const chosen = stdout.trim();
+      return chosen || null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+async function openNativeFilePicker(): Promise<string | null> {
+  const platform = process.platform;
+  try {
+    if (platform === "darwin") {
+      const cmd = `osascript -e 'POSIX path of (choose file with prompt "选择文件")'`;
+      const { stdout } = await execAsync(cmd);
+      const chosen = stdout.trim();
+      return chosen || null;
+    } else if (platform === "win32") {
+      const psCmd = `powershell -Command "Add-Type -AssemblyName System.windows.forms; $f = New-Object System.Windows.Forms.OpenFileDialog; if ($f.ShowDialog() -eq 'OK') { Write-Output $f.FileName }"`;
+      const { stdout } = await execAsync(psCmd);
+      const chosen = stdout.trim();
+      return chosen || null;
+    } else {
+      const { stdout } = await execAsync(`zenity --file-selection`);
       const chosen = stdout.trim();
       return chosen || null;
     }
@@ -656,6 +679,14 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
 
     const result = await runtime.events.list(id, { limit, cursor, types });
     return result;
+  });
+
+  // POST /api/workspace/pick — 调用宿主 OS 原生文件/目录选择框
+  server.post("/api/workspace/pick", async (request: FastifyRequest) => {
+    const query = request.query as { type?: "file" | "folder" };
+    const type = query.type || "folder";
+    const chosen = type === "file" ? await openNativeFilePicker() : await openNativeFolderPicker();
+    return { path: chosen };
   });
 
   // ─── W1: Works API ───────────────────────────────────────────────────────────

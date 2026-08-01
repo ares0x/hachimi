@@ -14,7 +14,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "../lib/utils";
 import { McpManager } from "./mcp-manager";
 import { Meta, SectionLabel } from "./primitives";
@@ -478,15 +478,58 @@ function PersonalContextConfigView() {
   const [knowledgeWriteRoot, setKnowledgeWriteRoot] = useState("~/Documents/ObsidianVault/_inbox");
   const [saved, setSaved] = useState(false);
 
-  const handlePickFolder = async (setter: (p: string) => void) => {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const activeSetterRef = useRef<((p: string) => void) | null>(null);
+
+  // Load existing config on mount
+  useEffect(() => {
+    fetch("/api/personal-context/config")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) {
+          if (data.soulPath) setSoulPath(data.soulPath);
+          if (data.telosRoot) setTelosRoot(data.telosRoot);
+          if (data.knowledgeRoot) setKnowledgeRoot(data.knowledgeRoot);
+          if (data.knowledgeWriteRoot) setKnowledgeWriteRoot(data.knowledgeWriteRoot);
+        }
+      })
+      .catch(() => {
+        /* ignore */
+      });
+  }, []);
+
+  const handlePickFolder = async (
+    setter: (p: string) => void,
+    pickerType: "file" | "folder" = "folder"
+  ) => {
     try {
-      const res = await fetch("/api/workspace/pick", { method: "POST" });
+      const res = await fetch(`/api/workspace/pick?type=${pickerType}`, { method: "POST" });
       if (res.ok) {
         const data = await res.json();
-        if (data.path) setter(data.path);
+        if (data.path) {
+          setter(data.path);
+          return;
+        }
       }
     } catch {
       /* ignore */
+    }
+
+    // Fallback to HTML5 file picker if native picker returns null or fails
+    activeSetterRef.current = setter;
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0 && activeSetterRef.current) {
+      const pickedFile = files[0];
+      // Extract file path or webkitRelativePath
+      const path = (pickedFile as any).path || pickedFile.name;
+      activeSetterRef.current(path);
     }
   };
 
@@ -506,6 +549,9 @@ function PersonalContextConfigView() {
 
   return (
     <div className="flex-1 space-y-5 overflow-y-auto pr-8 scroll-quiet">
+      {/* Hidden Fallback Input */}
+      <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
+
       <div>
         <h3 className="text-base font-semibold text-foreground">
           个人上下文路径设置 (Personal Context)
@@ -532,7 +578,7 @@ function PersonalContextConfigView() {
           />
           <button
             type="button"
-            onClick={() => handlePickFolder(setSoulPath)}
+            onClick={() => handlePickFolder(setSoulPath, "file")}
             className="rounded-xl border border-border/50 bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-all active:scale-[0.97] hover:bg-surface-hover shadow-xs whitespace-nowrap"
           >
             📁 选择文件
@@ -557,7 +603,7 @@ function PersonalContextConfigView() {
           />
           <button
             type="button"
-            onClick={() => handlePickFolder(setTelosRoot)}
+            onClick={() => handlePickFolder(setTelosRoot, "folder")}
             className="rounded-xl border border-border/50 bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-all active:scale-[0.97] hover:bg-surface-hover shadow-xs whitespace-nowrap"
           >
             📁 选择目录
@@ -582,7 +628,7 @@ function PersonalContextConfigView() {
           />
           <button
             type="button"
-            onClick={() => handlePickFolder(setKnowledgeRoot)}
+            onClick={() => handlePickFolder(setKnowledgeRoot, "folder")}
             className="rounded-xl border border-border/50 bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-all active:scale-[0.97] hover:bg-surface-hover shadow-xs whitespace-nowrap"
           >
             📁 选择目录
@@ -607,7 +653,7 @@ function PersonalContextConfigView() {
           />
           <button
             type="button"
-            onClick={() => handlePickFolder(setKnowledgeWriteRoot)}
+            onClick={() => handlePickFolder(setKnowledgeWriteRoot, "folder")}
             className="rounded-xl border border-border/50 bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-all active:scale-[0.97] hover:bg-surface-hover shadow-xs whitespace-nowrap"
           >
             📁 选择目录
