@@ -1043,12 +1043,22 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
       knowledgeWriteRoot?: string;
     };
 
-    const targetConfig = appContext?.config || runtime.context.config;
-    if (targetConfig) {
-      targetConfig.personalContext = {
-        ...targetConfig.personalContext,
+    if (appContext?.config) {
+      appContext.config.personalContext = {
+        ...appContext.config.personalContext,
         ...body,
       };
+    }
+
+    if (runtime?.context?.config) {
+      runtime.context.config.personalContext = {
+        ...runtime.context.config.personalContext,
+        ...body,
+      };
+    }
+
+    const targetConfig = appContext?.config || runtime?.context?.config;
+    if (targetConfig) {
       try {
         saveConfig(targetConfig);
         log("info", "Personal context configuration updated and persisted", body);

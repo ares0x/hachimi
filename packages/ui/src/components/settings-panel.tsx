@@ -562,13 +562,23 @@ function PersonalContextConfigView() {
 
   const handleSaveConfig = async () => {
     try {
-      await fetch("/api/personal-context/config", {
+      const res = await fetch("/api/personal-context/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ soulPath, telosRoot, knowledgeRoot, knowledgeWriteRoot }),
       });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      if (res.ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+        const reFetch = await fetch("/api/personal-context/config");
+        if (reFetch.ok) {
+          const data = await reFetch.json();
+          if (data.soulPath) setSoulPath(data.soulPath);
+          if (data.telosRoot) setTelosRoot(data.telosRoot);
+          if (data.knowledgeRoot) setKnowledgeRoot(data.knowledgeRoot);
+          if (data.knowledgeWriteRoot) setKnowledgeWriteRoot(data.knowledgeWriteRoot);
+        }
+      }
     } catch {
       /* ignore */
     }

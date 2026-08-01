@@ -249,6 +249,10 @@ export function loadConfig(configPath = "config.json"): HachimiConfig {
       ...DEFAULT_CONFIG.channels,
       ...(loaded.channels || {}),
     },
+    personalContext: {
+      ...DEFAULT_CONFIG.personalContext,
+      ...(loaded.personalContext || {}),
+    },
   };
 
   // 保证旧版平铺配置参数兼容落入 providers
@@ -289,6 +293,12 @@ export function saveConfig(cfg: HachimiConfig, configPath = "config.json"): void
       }
     }
 
+    const userHomeConfig = resolve(homedir(), ".hachimi", "config.json");
+    const targetPath =
+      configPath === "config.json" && !existsSync("config.json") && existsSync(userHomeConfig)
+        ? userHomeConfig
+        : configPath;
+
     const toSave = {
       llm: {
         activeProvider: cfg.llm.activeProvider,
@@ -297,12 +307,13 @@ export function saveConfig(cfg: HachimiConfig, configPath = "config.json"): void
       paths: {
         dataDir: cfg.paths.dataDir === resolve("data") ? "data" : cfg.paths.dataDir,
       },
+      personalContext: cfg.personalContext,
       agent: cfg.agent,
       context: cfg.context,
       tui: cfg.tui,
       channels: cfg.channels,
     };
-    writeFileSync(configPath, JSON.stringify(toSave, null, 2), "utf-8");
+    writeFileSync(targetPath, JSON.stringify(toSave, null, 2), "utf-8");
   } catch (err) {
     console.error("[config] 保存 config.json 失败", err);
   }
