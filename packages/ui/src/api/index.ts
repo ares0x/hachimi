@@ -495,8 +495,22 @@ export interface DaemonProviderInfo {
   baseURL?: string;
 }
 
+export interface DaemonConnectionInfo {
+  id: string;
+  name: string;
+  providerType: string;
+  enabled: boolean;
+  model: string;
+  models: string[];
+  enabledModels: string[];
+  baseURL?: string;
+  hasKey: boolean;
+}
+
 export interface DaemonConfig {
   activeProvider: string;
+  activeConnectionId?: string;
+  connections?: DaemonConnectionInfo[];
   providers: DaemonProviderInfo[];
 }
 

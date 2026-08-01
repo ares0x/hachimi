@@ -74,7 +74,7 @@ export async function handleSlashCommand(
       if (!providerName) {
         return { action: "selector_provider" };
       }
-      ctx.setActiveProvider(providerName);
+      ctx.setActiveConnection(providerName);
       return {
         action: "message",
         content: `✨ 提供商已成功切换为: [${providerName}]`,
@@ -86,8 +86,8 @@ export async function handleSlashCommand(
       if (!modelName) {
         return { action: "selector_model" };
       }
-      const activeProvider = ctx.config.llm.activeProvider;
-      ctx.setActiveProvider(activeProvider, { model: modelName });
+      const activeProvider = ctx.config.llm.activeProvider || ctx.config.llm.activeConnectionId || "mock";
+      ctx.setActiveConnection(activeProvider, { defaultModelId: modelName });
       return {
         action: "message",
         content: `✨ 当前提供商 [${activeProvider}] 的模型已更新为: [${modelName}]`,

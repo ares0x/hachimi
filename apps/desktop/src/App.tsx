@@ -93,15 +93,49 @@ interface LoadedWorkDetail {
 
 function buildModelOptions(cfg: {
   activeProvider: string;
-  providers: Array<{ id: string; model: string; hasKey: boolean; baseURL?: string }>;
+  activeConnectionId?: string;
+  connections?: Array<{
+    id: string;
+    name: string;
+    model: string;
+    models?: string[];
+    enabled?: boolean;
+    hasKey: boolean;
+  }>;
+  providers: Array<{
+    id: string;
+    model: string;
+    models?: string[];
+    hasKey: boolean;
+    baseURL?: string;
+  }>;
 }): SettingsModelOption[] {
-  return cfg.providers.map((p) => ({
-    id: p.model,
-    name: `${p.id} · ${p.model}`,
-    description: p.hasKey ? undefined : "未配置 API Key",
-    speed: p.id === "mock" ? "fast" : undefined,
-    providerId: p.id,
-  }));
+  const options: SettingsModelOption[] = [];
+  const connList = cfg.connections?.length ? cfg.connections : null;
+  const source = connList
+    ? connList
+        .filter((c) => c.enabled !== false)
+        .map((c) => ({ id: c.id, model: c.model, models: c.models, hasKey: c.hasKey }))
+    : cfg.providers;
+  for (const p of source) {
+    const list = p.models && p.models.length > 0 ? p.models : [p.model];
+    for (const m of list) {
+      options.push({
+        id: `${p.id}:${m}`,
+        name: `${p.id} · ${m}`,
+        description:
+          p.hasKey || p.id === "mock" || p.id === "ollama" ? undefined : "未配置 API Key",
+        speed:
+          m.includes("flash") || p.id === "mock"
+            ? "fast"
+            : m.includes("pro") || m.includes("reasoner") || m.includes("opus")
+              ? "thorough"
+              : "balanced",
+        providerId: p.id,
+      });
+    }
+  }
+  return options;
 }
 
 function secretPreview(s: string): string {
@@ -253,22 +287,32 @@ export function App() {
       } catch {
         /* ignore */
       }
-      const result = await updateDaemonConfig({ model: id });
-      if (result) {
-        const provider = modelOptions.find((m) => m.id === id);
-        if (provider && provider.providerId && provider.providerId !== result.activeProvider) {
-          const switchResult = await updateDaemonConfig({
-            activeProvider: provider.providerId,
-            model: id,
-          });
-          if (switchResult) {
-            const cfg = await fetchDaemonConfig();
-            if (cfg) setModelOptions(buildModelOptions(cfg));
-          }
-        }
+
+      let providerId: string | undefined;
+      let modelName = id;
+
+      if (id.includes(":")) {
+        const [p, m] = id.split(":");
+        providerId = p;
+        modelName = m;
+      }
+
+      try {
+        await fetch("/api/llm/active", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ providerId, model: modelName }),
+        });
+      } catch {
+        /* ignore */
+      }
+
+      const cfg = await fetchDaemonConfig();
+      if (cfg) {
+        setModelOptions(buildModelOptions(cfg));
       }
     },
-    [modelOptions]
+    [fetchDaemonConfig]
   );
 
   const [accentHex, setAccentHex] = useState<string | undefined>(() => {
@@ -452,11 +496,13 @@ export function App() {
       const cfg = await fetchDaemonConfig();
       if (cfg) {
         setModelOptions(buildModelOptions(cfg));
-        const activeProvider = cfg.providers.find((p) => p.id === cfg.activeProvider);
-        if (activeProvider) {
-          setSelectedModelId(activeProvider.model);
+        const activeConnId = cfg.activeConnectionId || cfg.activeProvider;
+        const activeConn = cfg.connections?.find((c) => c.id === activeConnId);
+        const activeModel = activeConn?.model || cfg.providers.find((p) => p.id === cfg.activeProvider)?.model;
+        if (activeModel) {
+          setSelectedModelId(activeModel);
           try {
-            localStorage.setItem("hachimi_model", activeProvider.model);
+            localStorage.setItem("hachimi_model", activeModel);
           } catch {
             /* ignore */
           }

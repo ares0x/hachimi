@@ -3,10 +3,11 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import {
-  getActiveProviderConfig,
+  getDefaultCredentialStore,
   type HachimiConfig,
+  type LlmConnection,
   loadConfig,
-  type ProviderConfig,
+  resolveLlmSelection,
   saveConfig,
 } from "@hachimi/config";
 import { log } from "@hachimi/shared";
@@ -53,7 +54,7 @@ export interface AppContext {
   /** W2.1: 权限策略表 */
   permissionPolicy: PermissionPolicy;
   getConfig(): HachimiConfig;
-  setActiveProvider(provider: string, pConfig?: Partial<ProviderConfig>): void;
+  setActiveConnection(connectionId: string, config?: Partial<LlmConnection>): void;
   getStatus(): Record<string, any>;
 }
 
@@ -79,14 +80,17 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
   const config = loadConfig(options.configPath || "config.json");
 
   if (options.providerOverride) {
-    config.llm.activeProvider = options.providerOverride;
+    config.llm.activeConnectionId = options.providerOverride;
   }
   if (options.configOverride) {
     Object.assign(config, options.configOverride);
   }
 
+  const selection = resolveLlmSelection(config);
   log("info", "hachimi starting", {
-    provider: config.llm.activeProvider,
+    connectionId: selection.connectionId,
+    providerType: selection.providerType,
+    modelId: selection.modelId,
     dataDir: config.paths.dataDir,
     storage: "sqlite",
   });
@@ -191,14 +195,13 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
     getConfig() {
       return config;
     },
-    setActiveProvider(providerName: string, pConfig?: Partial<ProviderConfig>) {
-      const lowerName = providerName.toLowerCase();
-      config.llm.activeProvider = lowerName;
+    setActiveConnection(connectionId: string, connConfig?: Partial<LlmConnection>) {
+      config.llm.activeConnectionId = connectionId;
 
-      if (pConfig) {
-        config.llm.providers[lowerName] = {
-          ...(config.llm.providers[lowerName] || {}),
-          ...pConfig,
+      if (connConfig && config.llm.connections) {
+        config.llm.connections[connectionId] = {
+          ...(config.llm.connections[connectionId] || { id: connectionId, name: connectionId, providerType: "openai", enabled: true, defaultModelId: "default", models: [], enabledModels: [] }),
+          ...connConfig,
         };
       }
 
@@ -213,6 +216,9 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
         personalContextLoader,
         hooks,
         maxToolRounds: config.agent.maxToolRounds,
+        maxTokens: config.context.maxTokens,
+        mode: config.context.defaultMode,
+        summaryThreshold: config.context.summaryThreshold,
         onToolApproval: effectiveToolApproval,
       });
       context.agent = agent;
@@ -226,15 +232,17 @@ export function createAppContext(options: CreateAppContextOptions = {}): AppCont
       const estimatedHistoryLength = JSON.stringify(messages).length;
       const approxTokens = Math.ceil(estimatedHistoryLength / 3.5);
 
-      const active = getActiveProviderConfig(config);
+      const sel = resolveLlmSelection(config);
+      const credStore = getDefaultCredentialStore();
       const loadedPC = personalContextLoader.load();
 
       return {
         title: config.tui.title,
         llm: {
-          provider: active.provider,
-          model: active.config.model || "default",
-          hasKey: Boolean(active.config.apiKey),
+          connectionId: sel.connectionId,
+          provider: sel.providerType,
+          model: sel.modelId || "default",
+          hasKey: credStore.has(sel.connectionId) || Boolean(sel.connection?.apiKey),
         },
         context: {
           maxTokens: config.context.maxTokens,

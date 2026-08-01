@@ -1,37 +1,46 @@
 // packages/core/src/agent/llm-factory.ts
-import { getActiveProviderConfig, type HachimiConfig } from "@hachimi/config";
+import {
+  resolveLlmSelection,
+  getDefaultCredentialStore,
+  type HachimiConfig,
+} from "@hachimi/config";
 import { log } from "@hachimi/shared";
 import type { LLMProvider } from "../types/index.js";
 import { MockLLMProvider } from "./llm.js";
 import { ProviderRegistry } from "./providers/transport.js";
 
 /**
- * 根据 HachimiConfig 配置工厂化创建 LLMProvider / ProviderTransport 实例
+ * Create an LLMProvider from HachimiConfig.
+ * Uses the new connection-based path: resolveLlmSelection → CredentialStore → ProviderRegistry.
  */
 export function createLLMFromConfig(config: HachimiConfig): LLMProvider {
-  const { provider, config: pConfig } = getActiveProviderConfig(config);
+  const selection = resolveLlmSelection(config);
+  const credStore = getDefaultCredentialStore();
 
-  if (provider === "mock") {
-    log("info", "使用 MockLLMProvider");
+  if (selection.providerType === "mock") {
+    log("info", "Using MockLLMProvider");
     return new MockLLMProvider();
   }
 
-  const apiKey = pConfig.apiKey;
+  // API key: credential store first, then connection field, then env
+  const apiKey =
+    credStore.get(selection.connectionId) ||
+    selection.connection?.apiKey;
+
   if (!apiKey) {
-    log("warn", `未找到 ${provider} 的 API_KEY，回退到 MockLLMProvider`);
+    log("warn", `No API key for connection '${selection.connectionId}', falling back to MockLLMProvider`);
     return new MockLLMProvider();
   }
 
-  log("info", `通过 ProviderRegistry 初始化模型传输层: [${provider}]`, {
-    model: pConfig.model,
-    baseURL: pConfig.baseURL,
+  log("info", `Initializing LLM transport via ProviderRegistry: [${selection.providerType}]`, {
+    model: selection.modelId,
+    baseURL: selection.connection?.baseUrl,
+    connectionId: selection.connectionId,
   });
 
-  return ProviderRegistry.create(provider, {
+  return ProviderRegistry.create(selection.providerType, {
     apiKey,
-    model: pConfig.model,
-    baseURL: pConfig.baseURL,
-    customHeaders: pConfig.customHeaders,
-    extraParams: pConfig.extraParams,
+    model: selection.modelId,
+    baseURL: selection.connection?.baseUrl,
   });
 }

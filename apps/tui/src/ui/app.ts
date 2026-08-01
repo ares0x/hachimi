@@ -279,7 +279,7 @@ export class HachimiTUIApp {
               }
             }
 
-            const currentP = this.ctx.config.llm.providers[providerId];
+            const currentP = this.ctx.config.llm.providers?.[providerId];
             let inputKey: string | undefined;
 
             if (!currentP?.apiKey && providerId !== "mock") {
@@ -290,7 +290,7 @@ export class HachimiTUIApp {
               inputKey = (await askInteractivePrompt(keyPrompt)).trim();
             }
 
-            this.ctx.setActiveProvider(providerId, {
+            this.ctx.setActiveConnection(providerId, {
               ...(selectedModel ? { model: selectedModel } : {}),
               ...(inputKey ? { apiKey: inputKey } : {}),
             });
@@ -306,7 +306,7 @@ export class HachimiTUIApp {
         }
 
         if (res.action === "selector_model") {
-          const activeProvider = this.ctx.config.llm.activeProvider;
+          const activeProvider = this.ctx.config.llm.activeProvider || this.ctx.config.llm.activeConnectionId || "mock";
           const presetModels = PROVIDER_PRESET_MODELS[activeProvider] || [
             {
               id: "__custom__",
@@ -329,8 +329,8 @@ export class HachimiTUIApp {
               chosenModel = (await askInteractivePrompt(modelPrompt)).trim();
             }
             if (chosenModel) {
-              this.ctx.setActiveProvider(activeProvider, {
-                model: chosenModel,
+              this.ctx.setActiveConnection(activeProvider, {
+                defaultModelId: chosenModel,
               });
               console.log(
                 colorize(

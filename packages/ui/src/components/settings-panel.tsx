@@ -358,103 +358,17 @@ export function SettingsPanel({
             </div>
           )}
 
-          {/* Tab 2: AI 模型与 Key (Models) */}
+          {/* Tab 2: AI 模型与 Provider (Models) */}
           {activeTab === "models" && (
-            <div className="flex-1 space-y-6 overflow-y-auto pr-2 scroll-quiet">
-              <div>
-                <h3 className="text-base font-semibold text-foreground">AI 模型与 Provider</h3>
-                <p className="text-xs text-muted-foreground">选择活跃的 LLM 模型或配置 API 密钥</p>
-              </div>
-
-              {/* Models List */}
-              <div className="rounded-2xl border border-border/40 bg-surface-elevated/70 p-4 shadow-xs">
-                <SectionLabel icon={<Cpu className="size-4" />}>已配置模型</SectionLabel>
-                <div className="mt-3 space-y-2">
-                  {models.map((m) => {
-                    const active = m.id === selectedModelId;
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => onModelChange(m.id)}
-                        className={cn(
-                          "flex w-full items-center justify-between rounded-xl border p-3 text-left transition-all active:scale-[0.97]",
-                          active
-                            ? "border-primary bg-primary/5 text-foreground shadow-xs"
-                            : "border-border/40 bg-surface hover:border-border"
-                        )}
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium font-mono">{m.name}</span>
-                            {m.speed && (
-                              <span
-                                className={cn(
-                                  "rounded-md border px-1.5 py-0.5 text-[10px] font-mono",
-                                  SPEED_BADGE[m.speed]
-                                )}
-                              >
-                                {m.speed.toUpperCase()}
-                              </span>
-                            )}
-                          </div>
-                          {m.description && (
-                            <p className="mt-0.5 text-[11px] text-muted-foreground">
-                              {m.description}
-                            </p>
-                          )}
-                        </div>
-                        {active && <Check className="size-4 text-primary" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* API Secret Input */}
-              <div className="rounded-2xl border border-border/40 bg-surface-elevated/70 p-4 shadow-xs">
-                <SectionLabel icon={<KeyRound className="size-4" />}>
-                  Daemon / API Secret
-                </SectionLabel>
-                <div className="mt-2.5 flex items-center gap-3">
-                  <span
-                    className={cn(
-                      "size-2 rounded-full",
-                      secretConfigured
-                        ? "bg-emerald-500 ring-2 ring-emerald-500/20"
-                        : "bg-amber-500"
-                    )}
-                  />
-                  <span className="text-xs font-mono text-foreground">
-                    {secretConfigured ? secretPreview || "已配置 Secret" : "尚未配置 Secret"}
-                  </span>
-                </div>
-
-                <div className="mt-3 flex gap-2">
-                  <input
-                    ref={secretPasteRef}
-                    type="password"
-                    placeholder="粘贴新的 API Secret..."
-                    className="h-8.5 flex-1 rounded-xl border border-border/50 bg-surface px-3 text-xs font-mono text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && onSecretPaste && secretPasteRef.current) {
-                        onSecretPaste(secretPasteRef.current.value);
-                        secretPasteRef.current.value = "";
-                      }
-                    }}
-                  />
-                  {onSecretClear && secretConfigured && (
-                    <button
-                      type="button"
-                      onClick={onSecretClear}
-                      className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive transition-all active:scale-[0.97]"
-                    >
-                      清除
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
+            <ProviderManagerView
+              models={models}
+              selectedModelId={selectedModelId}
+              onModelChange={onModelChange}
+              secretConfigured={secretConfigured}
+              secretPreview={secretPreview}
+              onSecretClear={onSecretClear}
+              onSecretPaste={onSecretPaste}
+            />
           )}
 
           {/* Tab 3: MCP 服务器 (McpManager) */}
@@ -465,6 +379,499 @@ export function SettingsPanel({
 
           {/* Tab 5: 个人上下文 (Personal Context Config) */}
           {activeTab === "context" && <PersonalContextConfigView />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface ProviderItem {
+  id: string;
+  name: string;
+  enabled: boolean;
+  model: string;
+  models: string[];
+  enabledModels: string[];
+  baseURL: string;
+  hasKey: boolean;
+}
+
+function ProviderManagerView({
+  models,
+  selectedModelId,
+  onModelChange,
+  secretConfigured,
+  secretPreview,
+  onSecretClear,
+  onSecretPaste,
+}: {
+  models: ModelOption[];
+  selectedModelId: string;
+  onModelChange: (id: string) => void;
+  secretConfigured?: boolean;
+  secretPreview?: string;
+  onSecretClear?: () => void;
+  onSecretPaste?: (raw: string) => void;
+}) {
+  const [providers, setProviders] = useState<ProviderItem[]>([]);
+  const [editingProvider, setEditingProvider] = useState<string | null>(null);
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [baseUrlInput, setBaseUrlInput] = useState("");
+  const [modelsInput, setModelsInput] = useState("");
+  const [savedProvider, setSavedProvider] = useState<string | null>(null);
+  const secretPasteRef = useRef<HTMLInputElement>(null);
+
+  // New Custom Provider Form
+  const [newId, setNewId] = useState("");
+  const [newApiKey, setNewApiKey] = useState("");
+  const [newBaseUrl, setNewBaseUrl] = useState("");
+  const [newModel, setNewModel] = useState("");
+  const [showAddCustom, setShowAddCustom] = useState(false);
+
+  const fetchProviders = async () => {
+    try {
+      const res = await fetch("/api/llm/connections");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.connections) {
+          setProviders(
+            data.connections.map((c: any) => ({
+              id: c.id,
+              name: c.name,
+              enabled: c.enabled !== false,
+              model: c.defaultModelId || c.model || "default",
+              models: c.models || [],
+              enabledModels: c.enabledModels || [],
+              baseURL: c.baseUrl || "",
+              hasKey: c.hasKey || Boolean(c.apiKeyPreview),
+            }))
+          );
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
+  useEffect(() => {
+    fetchProviders();
+  }, []);
+
+  const handleToggleProvider = async (id: string, currentEnabled: boolean) => {
+    try {
+      const res = await fetch("/api/llm/connections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, enabled: !currentEnabled }),
+      });
+      if (res.ok) {
+        fetchProviders();
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleToggleModel = async (p: ProviderItem, modelName: string) => {
+    const currentEnabled = p.enabledModels || p.models;
+    let nextEnabled: string[];
+    if (currentEnabled.includes(modelName)) {
+      if (currentEnabled.length <= 1) return;
+      nextEnabled = currentEnabled.filter((m) => m !== modelName);
+    } else {
+      nextEnabled = [...currentEnabled, modelName];
+    }
+    try {
+      const res = await fetch("/api/llm/connections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: p.id, enabledModels: nextEnabled }),
+      });
+      if (res.ok) {
+        fetchProviders();
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleSaveProvider = async (id: string) => {
+    try {
+      const modelsList = modelsInput
+        .split(",")
+        .map((m) => m.trim())
+        .filter(Boolean);
+
+      const payload: Record<string, any> = { id };
+      if (apiKeyInput) payload.apiKey = apiKeyInput;
+      if (baseUrlInput) payload.baseUrl = baseUrlInput;
+      if (modelsList.length > 0) {
+        payload.models = modelsList;
+        payload.defaultModelId = modelsList[0];
+        payload.enabledModels = modelsList;
+      }
+
+      const res = await fetch("/api/llm/connections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        setSavedProvider(id);
+        setTimeout(() => setSavedProvider(null), 2000);
+        setEditingProvider(null);
+        fetchProviders();
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleAddCustomProvider = async () => {
+    if (!newId.trim()) return;
+    try {
+      const payload = {
+        id: newId.trim().toLowerCase(),
+        name: newId.trim().toLowerCase(),
+        providerType: "openai-compatible",
+        enabled: true,
+        apiKey: newApiKey.trim() || "local",
+        baseUrl: newBaseUrl.trim() || "http://localhost:8000/v1",
+        defaultModelId: newModel.trim() || "default",
+        models: [newModel.trim() || "default"],
+        enabledModels: [newModel.trim() || "default"],
+      };
+
+      const res = await fetch("/api/llm/connections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        setNewId("");
+        setNewApiKey("");
+        setNewBaseUrl("");
+        setNewModel("");
+        setShowAddCustom(false);
+        fetchProviders();
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
+  return (
+    <div className="flex-1 space-y-6 overflow-y-auto pr-8 scroll-quiet">
+      <div>
+        <h3 className="text-base font-semibold text-foreground">AI 模型与 LLMConnection 管理</h3>
+        <p className="text-xs text-muted-foreground">
+          连接一等公民架构：在设置中管理 API 连接与鉴权，在中途与聊天窗口中自由选择已就绪模型
+        </p>
+      </div>
+
+      {/* 1. Model Selector Dropdown List */}
+      <div className="rounded-2xl border border-border/40 bg-surface-elevated/70 p-4 shadow-xs">
+        <SectionLabel icon={<Cpu className="size-4 text-primary" />}>选择当前活跃模型</SectionLabel>
+        <div className="mt-3 space-y-2">
+          {models.map((m) => {
+            const active = m.id === selectedModelId;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => onModelChange(m.id)}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-xl border p-3 text-left transition-all active:scale-[0.97]",
+                  active
+                    ? "border-primary bg-primary/5 text-foreground shadow-xs"
+                    : "border-border/40 bg-surface hover:border-border"
+                )}
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium font-mono">{m.name}</span>
+                    {m.speed && (
+                      <span
+                        className={cn(
+                          "rounded-md border px-1.5 py-0.5 text-[10px] font-mono",
+                          SPEED_BADGE[m.speed]
+                        )}
+                      >
+                        {m.speed.toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  {m.description && (
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{m.description}</p>
+                  )}
+                </div>
+                {active && <Check className="size-4 text-primary" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 2. Configured Providers List */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+            已挂载的 LLM 提供商 ({providers.length})
+          </h4>
+          <button
+            type="button"
+            onClick={() => setShowAddCustom(!showAddCustom)}
+            className="rounded-xl border border-border/50 bg-surface px-3 py-1 text-xs font-medium text-foreground transition-all active:scale-[0.97] hover:bg-surface-hover shadow-xs"
+          >
+            + 添加自定义 Provider (Ollama / Local)
+          </button>
+        </div>
+
+        {/* Add Custom Provider Modal Inline */}
+        {showAddCustom && (
+          <div className="rounded-2xl border border-primary/40 bg-primary/5 p-4 space-y-3">
+            <h5 className="text-xs font-semibold text-foreground">添加自定义 OpenAI 兼容 API</h5>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                placeholder="Provider ID (如 groq / vllm)"
+                value={newId}
+                onChange={(e) => setNewId(e.target.value)}
+                className="h-8.5 rounded-xl border border-border/50 bg-surface px-3 text-xs font-mono"
+              />
+              <input
+                type="text"
+                placeholder="默认模型 (如 qwen2.5-coder)"
+                value={newModel}
+                onChange={(e) => setNewModel(e.target.value)}
+                className="h-8.5 rounded-xl border border-border/50 bg-surface px-3 text-xs font-mono"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                placeholder="Base URL (http://localhost:11434/v1)"
+                value={newBaseUrl}
+                onChange={(e) => setNewBaseUrl(e.target.value)}
+                className="h-8.5 rounded-xl border border-border/50 bg-surface px-3 text-xs font-mono"
+              />
+              <input
+                type="password"
+                placeholder="API Key (可选)"
+                value={newApiKey}
+                onChange={(e) => setNewApiKey(e.target.value)}
+                className="h-8.5 rounded-xl border border-border/50 bg-surface px-3 text-xs font-mono"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowAddCustom(false)}
+                className="rounded-xl border border-border/50 px-3 py-1 text-xs"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleAddCustomProvider}
+                className="rounded-xl bg-primary px-4 py-1 text-xs font-medium text-primary-foreground"
+              >
+                保存 Provider
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Provider Cards */}
+        {providers.map((p) => {
+          const isEditing = editingProvider === p.id;
+          const enabledModelsList = p.enabledModels || p.models;
+
+          return (
+            <div
+              key={p.id}
+              className={cn(
+                "rounded-2xl border p-4 shadow-xs space-y-3 transition-all",
+                p.enabled
+                  ? "border-border/50 bg-surface-elevated/70"
+                  : "border-border/30 bg-surface/40 opacity-75"
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {/* Enable Switch Toggle */}
+                  <input
+                    type="checkbox"
+                    checked={p.enabled}
+                    onChange={() => handleToggleProvider(p.id, p.enabled)}
+                    className="size-4 rounded accent-primary cursor-pointer"
+                  />
+
+                  <span className="text-xs font-bold font-mono text-foreground uppercase">
+                    {p.name}
+                  </span>
+                  <span
+                    className={cn(
+                      "rounded-md border px-2 py-0.5 text-[10px] font-mono",
+                      p.hasKey || p.id === "mock" || p.id === "ollama"
+                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                        : "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                    )}
+                  >
+                    {p.hasKey || p.id === "mock" || p.id === "ollama"
+                      ? "已配置 Key"
+                      : "未配置 API Key"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isEditing) {
+                      setEditingProvider(null);
+                    } else {
+                      setEditingProvider(p.id);
+                      setBaseUrlInput(p.baseURL || "");
+                      setModelsInput(p.models.join(", "));
+                      setApiKeyInput("");
+                    }
+                  }}
+                  className="text-xs text-primary hover:underline font-medium"
+                >
+                  {isEditing ? "收起编辑" : "配置 Key / BaseURL"}
+                </button>
+              </div>
+
+              {/* Models Chips for Chat Window Selection */}
+              {p.enabled && (
+                <div className="pt-1">
+                  <div className="text-[11px] text-muted-foreground mb-1.5">
+                    在聊天窗口中可供选择的模型：
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {p.models.map((mName) => {
+                      const isModelEnabled = enabledModelsList.includes(mName);
+                      return (
+                        <button
+                          key={mName}
+                          type="button"
+                          onClick={() => handleToggleModel(p, mName)}
+                          className={cn(
+                            "flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-mono transition-all active:scale-[0.97]",
+                            isModelEnabled
+                              ? "border-primary/50 bg-primary/10 text-foreground font-medium shadow-2xs"
+                              : "border-border/40 bg-surface text-muted-foreground hover:border-border"
+                          )}
+                        >
+                          {isModelEnabled && <Check className="size-3 text-primary" />}
+                          {mName}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Collapsible Edit Form */}
+              {isEditing && (
+                <div className="pt-2 border-t border-border/30 space-y-3">
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground">API Key</label>
+                    <input
+                      type="password"
+                      placeholder={
+                        p.hasKey ? "•••••••••••• (已配置，留空保持不变)" : "输入 API Key..."
+                      }
+                      value={apiKeyInput}
+                      onChange={(e) => setApiKeyInput(e.target.value)}
+                      className="mt-1 h-8.5 w-full rounded-xl border border-border/50 bg-surface px-3 text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground">
+                      Base URL
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={p.baseURL || "默认 URL"}
+                      value={baseUrlInput}
+                      onChange={(e) => setBaseUrlInput(e.target.value)}
+                      className="mt-1 h-8.5 w-full rounded-xl border border-border/50 bg-surface px-3 text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground">
+                      包含模型 (逗号分割，可增删模型)
+                    </label>
+                    <input
+                      type="text"
+                      value={modelsInput}
+                      onChange={(e) => setModelsInput(e.target.value)}
+                      className="mt-1 h-8.5 w-full rounded-xl border border-border/50 bg-surface px-3 text-xs font-mono"
+                    />
+                  </div>
+
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSaveProvider(p.id)}
+                      className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground shadow-xs"
+                    >
+                      {savedProvider === p.id ? (
+                        <Check className="size-3.5" />
+                      ) : (
+                        <Save className="size-3.5" />
+                      )}
+                      {savedProvider === p.id ? "已保存" : "保存 Provider 配置"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 3. Daemon Secret Section */}
+      <div className="rounded-2xl border border-border/40 bg-surface-elevated/70 p-4 shadow-xs">
+        <SectionLabel icon={<KeyRound className="size-4" />}>Daemon / API Secret</SectionLabel>
+        <div className="mt-2.5 flex items-center gap-3">
+          <span
+            className={cn(
+              "size-2 rounded-full",
+              secretConfigured ? "bg-emerald-500 ring-2 ring-emerald-500/20" : "bg-amber-500"
+            )}
+          />
+          <span className="text-xs font-mono text-foreground">
+            {secretConfigured ? secretPreview || "已配置 Secret" : "尚未配置 Secret"}
+          </span>
+        </div>
+
+        <div className="mt-3 flex gap-2">
+          <input
+            ref={secretPasteRef}
+            type="password"
+            placeholder="粘贴新的 API Secret..."
+            className="h-8.5 flex-1 rounded-xl border border-border/50 bg-surface px-3 text-xs font-mono text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && onSecretPaste && secretPasteRef.current) {
+                onSecretPaste(secretPasteRef.current.value);
+                secretPasteRef.current.value = "";
+              }
+            }}
+          />
+          {onSecretClear && secretConfigured && (
+            <button
+              type="button"
+              onClick={onSecretClear}
+              className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive transition-all active:scale-[0.97]"
+            >
+              清除
+            </button>
+          )}
         </div>
       </div>
     </div>

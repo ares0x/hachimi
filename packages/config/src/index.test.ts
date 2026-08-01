@@ -5,11 +5,12 @@ describe("Provider-isolated HachimiConfig", () => {
   it("isolates provider configurations per provider ID", () => {
     const config = loadConfig("non-existent-config.json");
     config.llm.activeProvider = "deepseek";
-    config.llm.providers.deepseek = {
+    config.llm.providers = {};
+    config.llm.providers!.deepseek = {
       apiKey: "sk-deepseek-test",
       model: "deepseek-chat",
     };
-    config.llm.providers.openai = {
+    config.llm.providers!.openai = {
       apiKey: "sk-openai-test",
       model: "gpt-4o",
     };

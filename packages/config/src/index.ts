@@ -26,11 +26,33 @@ export interface ContextConfig {
 }
 
 export interface ProviderConfig {
+  enabled?: boolean;
   apiKey?: string;
   model?: string;
   baseURL?: string;
   customHeaders?: Record<string, string>;
   extraParams?: Record<string, unknown>;
+  models?: string[];
+  enabledModels?: string[];
+}
+
+export interface LlmConnection {
+  id: string;
+  name: string;
+  providerType:
+    | "openai"
+    | "deepseek"
+    | "anthropic"
+    | "ollama"
+    | "openai-compatible"
+    | "mock"
+    | string;
+  baseUrl?: string;
+  apiKey?: string;
+  enabled: boolean;
+  defaultModelId: string;
+  models: string[];
+  enabledModels: string[];
 }
 
 export interface TelegramChannelConfig {
@@ -56,8 +78,12 @@ export interface PersonalContextConfig {
 
 export interface HachimiConfig {
   llm: {
-    activeProvider: LLMProviderName;
-    providers: Record<string, ProviderConfig>;
+    activeConnectionId?: string;
+    /** @deprecated — use activeConnectionId */
+    activeProvider?: LLMProviderName;
+    connections?: Record<string, LlmConnection>;
+    /** @deprecated — use connections instead */
+    providers?: Record<string, ProviderConfig>;
   };
   paths: {
     dataDir: string;
@@ -76,25 +102,125 @@ export interface HachimiConfig {
   channels?: ChannelsConfig;
 }
 
+export interface LlmSelection {
+  connectionId: string;
+  providerType: string;
+  modelId: string;
+  connection?: LlmConnection;
+}
+
+export function resolveLlmSelection(
+  cfg: HachimiConfig,
+  overrides?: { connectionId?: string; modelId?: string; provider?: string; model?: string }
+): LlmSelection {
+  const connections = cfg.llm.connections || {};
+  const connectionList = Object.values(connections);
+
+  if (overrides?.connectionId && connections[overrides.connectionId]) {
+    const conn = connections[overrides.connectionId];
+    return {
+      connectionId: conn.id,
+      providerType: conn.providerType,
+      modelId: overrides.modelId || conn.defaultModelId,
+      connection: conn,
+    };
+  }
+
+  const activeConnId = cfg.llm.activeConnectionId;
+  if (activeConnId && connections[activeConnId]) {
+    const conn = connections[activeConnId];
+    return {
+      connectionId: conn.id,
+      providerType: conn.providerType,
+      modelId: overrides?.modelId || conn.defaultModelId,
+      connection: conn,
+    };
+  }
+
+  const readyConn = connectionList.find(
+    (c) =>
+      c.enabled && (Boolean(c.apiKey) || c.providerType === "mock" || c.providerType === "ollama")
+  );
+  if (readyConn) {
+    return {
+      connectionId: readyConn.id,
+      providerType: readyConn.providerType,
+      modelId: overrides?.modelId || readyConn.defaultModelId,
+      connection: readyConn,
+    };
+  }
+
+  const activeP = cfg.llm.activeProvider || "mock";
+  const pCfg = cfg.llm.providers?.[activeP] || { model: "default" };
+  return {
+    connectionId: activeP,
+    providerType: activeP,
+    modelId: overrides?.modelId || pCfg.model || "default",
+  };
+}
+
 export const DEFAULT_CONFIG: HachimiConfig = {
   llm: {
-    activeProvider: "mock",
-    providers: {
-      mock: { apiKey: "mock-key", model: "mock-model" },
+    activeConnectionId: "mock",
+    connections: {
+      mock: {
+        id: "mock",
+        name: "Mock LLM",
+        providerType: "mock",
+        enabled: true,
+        apiKey: "mock-key",
+        defaultModelId: "mock-model",
+        models: ["mock-model"],
+        enabledModels: ["mock-model"],
+      },
       deepseek: {
+        id: "deepseek",
+        name: "DeepSeek Official",
+        providerType: "deepseek",
+        enabled: true,
+        baseUrl: "https://api.deepseek.com",
         apiKey: process.env.DEEPSEEK_API_KEY || "",
-        model: "deepseek-v4-flash",
-        baseURL: "https://api.deepseek.com",
+        defaultModelId: "deepseek-v4-flash",
+        models: ["deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner"],
+        enabledModels: [
+          "deepseek-v4-flash",
+          "deepseek-v4-pro",
+          "deepseek-chat",
+          "deepseek-reasoner",
+        ],
       },
       openai: {
+        id: "openai",
+        name: "OpenAI Official",
+        providerType: "openai",
+        enabled: true,
+        baseUrl: "https://api.openai.com/v1",
         apiKey: process.env.OPENAI_API_KEY || "",
-        model: "gpt-5.6-luna",
-        baseURL: "https://api.openai.com/v1",
+        defaultModelId: "gpt-4o",
+        models: ["gpt-4o", "gpt-4o-mini", "o1-mini", "o3-mini", "gpt-4-turbo"],
+        enabledModels: ["gpt-4o", "gpt-4o-mini"],
       },
       anthropic: {
+        id: "anthropic",
+        name: "Anthropic Claude",
+        providerType: "anthropic",
+        enabled: true,
+        baseUrl: "https://api.anthropic.com",
         apiKey: process.env.ANTHROPIC_API_KEY || "",
-        model: "claude-opus-4-8",
-        baseURL: "https://api.anthropic.com",
+        defaultModelId: "claude-3-7-sonnet",
+        models: ["claude-3-7-sonnet", "claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"],
+        enabledModels: ["claude-3-7-sonnet", "claude-3-5-sonnet"],
+      },
+      ollama: {
+        id: "ollama",
+        name: "Ollama (Local)",
+        providerType: "ollama",
+        enabled: false,
+        baseUrl: "http://localhost:11434/v1",
+        apiKey: "ollama",
+        defaultModelId: "qwen2.5-coder",
+        models: ["qwen2.5-coder", "llama3.3", "deepseek-r1:8b", "mistral"],
+        enabledModels: ["qwen2.5-coder", "llama3.3"],
       },
     },
   },
@@ -207,8 +333,10 @@ export function loadConfig(configPath = "config.json"): HachimiConfig {
     process.env.HACHIMI_PROVIDER_OVERRIDE ||
     process.env.LLM_PROVIDER ||
     loaded.llm?.activeProvider ||
+    loaded.llm?.activeConnectionId ||
     (loaded.llm as any)?.provider ||
-    DEFAULT_CONFIG.llm.activeProvider
+    DEFAULT_CONFIG.llm.activeConnectionId ||
+    "mock"
   ).toLowerCase();
 
   const effectiveDataDir =
@@ -223,6 +351,11 @@ export function loadConfig(configPath = "config.json"): HachimiConfig {
       ...DEFAULT_CONFIG.llm,
       ...loaded.llm,
       activeProvider,
+      activeConnectionId: loaded.llm?.activeConnectionId || activeProvider,
+      connections: {
+        ...(DEFAULT_CONFIG.llm.connections || {}),
+        ...(loaded.llm?.connections || {}),
+      },
       providers: {
         ...DEFAULT_CONFIG.llm.providers,
         ...(loaded.llm?.providers || {}),
@@ -255,24 +388,8 @@ export function loadConfig(configPath = "config.json"): HachimiConfig {
     },
   };
 
-  // 保证旧版平铺配置参数兼容落入 providers
-  const rawLlm = (loaded.llm || {}) as Record<string, any>;
-  if (rawLlm.deepseekApiKey) {
-    cfg.llm.providers.deepseek = {
-      ...cfg.llm.providers.deepseek,
-      apiKey: rawLlm.deepseekApiKey,
-      model: rawLlm.deepseekModel || cfg.llm.providers.deepseek?.model,
-      baseURL: rawLlm.deepseekBaseURL || cfg.llm.providers.deepseek?.baseURL,
-    };
-  }
-  if (rawLlm.openaiApiKey) {
-    cfg.llm.providers.openai = {
-      ...cfg.llm.providers.openai,
-      apiKey: rawLlm.openaiApiKey,
-      model: rawLlm.openaiModel || cfg.llm.providers.openai?.model,
-      baseURL: rawLlm.openaiBaseURL || cfg.llm.providers.openai?.baseURL,
-    };
-  }
+  // Ensure connections is initialized
+  if (!cfg.llm.connections) cfg.llm.connections = {};
 
   return cfg;
 }
@@ -282,14 +399,20 @@ export function loadConfig(configPath = "config.json"): HachimiConfig {
  */
 export function saveConfig(cfg: HachimiConfig, configPath = "config.json"): void {
   try {
-    const cleanProviders: Record<string, ProviderConfig> = {};
-    for (const [pKey, pVal] of Object.entries(cfg.llm.providers)) {
-      if (pKey === cfg.llm.activeProvider || pVal.apiKey) {
-        const cleanP: ProviderConfig = {};
-        if (pVal.apiKey) cleanP.apiKey = pVal.apiKey;
-        if (pVal.model) cleanP.model = pVal.model;
-        if (pVal.baseURL) cleanP.baseURL = pVal.baseURL;
-        cleanProviders[pKey] = cleanP;
+    const cleanConnections: Record<string, LlmConnection> = {};
+    if (cfg.llm.connections) {
+      for (const [cKey, cVal] of Object.entries(cfg.llm.connections)) {
+        cleanConnections[cKey] = {
+          id: cVal.id,
+          name: cVal.name,
+          providerType: cVal.providerType,
+          enabled: cVal.enabled,
+          baseUrl: cVal.baseUrl,
+          apiKey: "", // never persist API keys in config — use credential store
+          defaultModelId: cVal.defaultModelId,
+          models: cVal.models,
+          enabledModels: cVal.enabledModels,
+        };
       }
     }
 
@@ -301,8 +424,8 @@ export function saveConfig(cfg: HachimiConfig, configPath = "config.json"): void
 
     const toSave = {
       llm: {
-        activeProvider: cfg.llm.activeProvider,
-        providers: cleanProviders,
+        activeConnectionId: cfg.llm.activeConnectionId,
+        connections: cleanConnections,
       },
       paths: {
         dataDir: cfg.paths.dataDir === resolve("data") ? "data" : cfg.paths.dataDir,
@@ -319,15 +442,19 @@ export function saveConfig(cfg: HachimiConfig, configPath = "config.json"): void
   }
 }
 
-/** 获取当前激活的 Provider 专属配置 */
+/**
+ * @deprecated — use resolveLlmSelection instead.
+ * Kept for backward compat with existing callers during migration.
+ */
 export function getActiveProviderConfig(cfg: HachimiConfig): {
   provider: string;
   config: ProviderConfig;
 } {
-  const provider = cfg.llm.activeProvider || "mock";
-  const pConfig = cfg.llm.providers[provider] || {
+  const provider = cfg.llm.activeProvider || cfg.llm.activeConnectionId || "mock";
+  const pConfig = cfg.llm.providers?.[provider] || {
     apiKey: "",
     model: "default",
   };
   return { provider, config: pConfig };
 }
+export { CredentialStore, getDefaultCredentialStore, resetDefaultCredentialStore, maskApiKey } from "./credential-store.js";

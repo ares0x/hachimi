@@ -55,7 +55,7 @@ async function openNativeFilePicker(): Promise<string | null> {
 import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
-import { saveConfig } from "@hachimi/config";
+import { getDefaultCredentialStore, maskApiKey, saveConfig } from "@hachimi/config";
 import {
   type AppContext,
   getOrCreateHarnessRuntime,
@@ -221,14 +221,29 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
   // W3.7: GET /api/config — 读取 Daemon 配置（不暴露 apiKey）
   server.get("/api/config", async () => {
     const cfg = appContext.getConfig();
-    const providers = Object.entries(cfg.llm.providers).map(([id, p]) => ({
+    const credStore = getDefaultCredentialStore();
+    const connections = Object.entries(cfg.llm.connections || {}).map(([id, c]) => ({
+      id,
+      name: c.name,
+      providerType: c.providerType,
+      enabled: c.enabled,
+      model: c.defaultModelId || "default",
+      models: c.models || [],
+      enabledModels: c.enabledModels || [],
+      baseURL: c.baseUrl || undefined,
+      hasKey: credStore.has(id) || Boolean(c.apiKey),
+    }));
+    // Backward compat: legacy providers shape
+    const providers = Object.entries(cfg.llm.providers || {}).map(([id, p]) => ({
       id,
       model: p.model || "default",
       hasKey: Boolean(p.apiKey),
       baseURL: p.baseURL || undefined,
     }));
     return {
-      activeProvider: cfg.llm.activeProvider,
+      activeConnectionId: cfg.llm.activeConnectionId || "mock",
+      connections,
+      activeProvider: cfg.llm.activeProvider || cfg.llm.activeConnectionId || 'mock',
       providers,
     };
   });
@@ -244,28 +259,28 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
 
     if (body.activeProvider) {
       const providerName = body.activeProvider.toLowerCase();
-      if (!cfg.llm.providers[providerName]) {
+      if (!cfg.llm.providers?.[providerName]) {
         reply.code(400).send({
           error: `Unknown provider: ${providerName}`,
         });
         return;
       }
 
-      const pConfig = body.model ? { model: body.model } : undefined;
+      const pConfig = body.model ? { defaultModelId: body.model } : undefined;
 
-      appContext.setActiveProvider(providerName, pConfig);
+      appContext.setActiveConnection(providerName, pConfig);
 
       return {
         success: true,
         activeProvider: providerName,
-        model: cfg.llm.providers[providerName]?.model || body.model || "default",
+        model: cfg.llm.providers?.[providerName]?.model || body.model || "default",
       };
     }
 
     if (body.model) {
       // 仅更新当前 provider 的 model
-      const activeName = cfg.llm.activeProvider;
-      appContext.setActiveProvider(activeName, { model: body.model });
+      const activeName = cfg.llm.activeProvider || cfg.llm.activeConnectionId || 'mock';
+      appContext.setActiveConnection(activeName, { defaultModelId: body.model });
 
       return {
         success: true,
@@ -277,6 +292,136 @@ export function createHachimiApiServer(options: HachimiApiServerOptions = {}): H
     reply.code(400).send({
       error: "Missing activeProvider or model in request body",
     });
+  });
+
+  // ── Connection CRUD (single source of truth) ────────────────────────────
+  // GET /api/llm/connections — list connections (keys masked)
+  server.get("/api/llm/connections", async () => {
+    const cfg = appContext.getConfig();
+    const credStore = getDefaultCredentialStore();
+    const connections = Object.entries(cfg.llm.connections || {}).map(([id, c]) => ({
+      id,
+      name: c.name,
+      providerType: c.providerType,
+      enabled: c.enabled,
+      baseUrl: c.baseUrl,
+      defaultModelId: c.defaultModelId,
+      models: c.models || [],
+      enabledModels: c.enabledModels || [],
+      apiKeyPreview: maskApiKey(credStore.get(id) || c.apiKey),
+      hasKey: credStore.has(id) || Boolean(c.apiKey),
+    }));
+    return { connections };
+  });
+
+  // POST /api/llm/connections — create or update a connection
+  server.post("/api/llm/connections", async (request, reply) => {
+    const body = (request.body || {}) as {
+      id?: string;
+      name?: string;
+      providerType?: string;
+      baseUrl?: string;
+      apiKey?: string;
+      defaultModelId?: string;
+      models?: string[];
+      enabledModels?: string[];
+      enabled?: boolean;
+    };
+    const id = body.id || body.providerType;
+    if (!id) {
+      reply.code(400).send({ error: "Missing connection id" });
+      return;
+    }
+    const cfg = appContext.getConfig();
+    if (!cfg.llm.connections) cfg.llm.connections = {};
+
+    const existing = cfg.llm.connections[id] || {
+      id,
+      name: body.name || id.toUpperCase(),
+      providerType: body.providerType || "openai-compatible",
+      enabled: true,
+      defaultModelId: "default",
+      models: [],
+      enabledModels: [],
+    };
+
+    cfg.llm.connections[id] = {
+      ...existing,
+      ...(body.name ? { name: body.name } : {}),
+      ...(body.providerType ? { providerType: body.providerType } : {}),
+      ...(body.baseUrl ? { baseUrl: body.baseUrl } : {}),
+      ...(body.defaultModelId ? { defaultModelId: body.defaultModelId } : {}),
+      ...(body.models ? { models: body.models } : {}),
+      ...(body.enabledModels ? { enabledModels: body.enabledModels } : {}),
+      ...(body.enabled !== undefined ? { enabled: body.enabled } : {}),
+    };
+
+    // API key goes to credential store, never config.json
+    if (body.apiKey) {
+      getDefaultCredentialStore().set(id, body.apiKey);
+      cfg.llm.connections[id].apiKey = undefined;
+    }
+
+    saveConfig(cfg);
+    return { success: true, connection: cfg.llm.connections[id] };
+  });
+
+  // DELETE /api/llm/connections/:id
+  server.delete("/api/llm/connections/:id", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const cfg = appContext.getConfig();
+    if (!cfg.llm.connections?.[id]) {
+      reply.code(404).send({ error: `Connection not found: ${id}` });
+      return;
+    }
+    delete cfg.llm.connections[id];
+    getDefaultCredentialStore().delete(id);
+    saveConfig(cfg);
+    return { success: true };
+  });
+
+  // POST /api/llm/connections/:id/test — verify connection with real API call
+  server.post("/api/llm/connections/:id/test", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const cfg = appContext.getConfig();
+    const conn = cfg.llm.connections?.[id];
+    if (!conn) {
+      reply.code(404).send({ error: `Connection not found: ${id}` });
+      return;
+    }
+    const apiKey = getDefaultCredentialStore().get(id) || conn.apiKey;
+    if (!apiKey) {
+      reply.code(400).send({ error: "No API key configured for this connection" });
+      return;
+    }
+
+    // Minimal completion call to verify auth + connectivity
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 45000);
+      const res = await fetch(`${conn.baseUrl || "https://api.deepseek.com"}/models`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (res.ok) {
+        return { success: true, latencyMs: 0 };
+      }
+      const body = await res.json().catch(() => ({}));
+      const err = (body as { error?: { message?: string; type?: string } }).error;
+      return {
+        success: false,
+        errorClass: res.status === 401 ? "auth" : res.status === 429 ? "rate_limit" : res.status >= 500 ? "provider_unavailable" : "error",
+        message: err?.message || `HTTP ${res.status}`,
+      };
+    } catch (err: any) {
+      const isTimeout = err?.name === "AbortError";
+      return {
+        success: false,
+        errorClass: isTimeout ? "timeout" : "network",
+        message: isTimeout ? "连接超时 (45s)" : `网络错误: ${err?.message || String(err)}`,
+      };
+    }
   });
 
   // 3. POST /api/chat (全部委派给 HarnessRuntime.execute，带 Request ID 追踪)
