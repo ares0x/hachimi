@@ -11,7 +11,7 @@
   "dependencies": {
     "@hachimi/ui": "workspace:*",
     "motion": "^12.4.7",
-    "@hookform/resolvers": "^5.2.2",
+    "@hookform/resolvers": "^5.6.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.11",
