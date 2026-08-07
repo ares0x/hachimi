@@ -1,0 +1,14 @@
+packages:
+  - "packages/*"
+  - "packages/channels/*"
+  - "apps/*"
+
+# pnpm v11: explicit build-script policy. These packages intentionally skip
+# their postinstall scripts (better-sqlite3 ships prebuilds; esbuild binary is
+# already present in the store). Electron MUST run its postinstall so the
+# runtime binary is downloaded/extracted into node_modules/electron/dist —
+# otherwise `require('electron')` throws "Electron failed to install correctly".
+allowBuilds:
+  better-sqlite3: false
+  electron: true
+  esbuild: false

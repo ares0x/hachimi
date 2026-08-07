@@ -1,0 +1,66 @@
+{
+  "name": "hachimi",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first personal AI assistant harness — TypeScript monorepo with TUI, CLI, Web, Desktop, Telegram, and API channels",
+  "type": "module",
+  "author": "Jace <jacejacejia@gmail.com>",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/hachimi-agent/hachimi#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hachimi-agent/hachimi.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hachimi-agent/hachimi/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "ai-agent",
+    "harness",
+    "personal-assistant",
+    "llm",
+    "multi-channel",
+    "typescript"
+  ],
+  "workspaces": [
+    "packages/*",
+    "packages/channels/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev:tui": "tsx apps/tui/src/main.ts",
+    "dev:cli": "tsx packages/channels/cli/src/cli.ts",
+    "dev:server": "tsx apps/server/src/main.ts",
+    "dev:acp": "tsx packages/channels/acp/src/server.ts",
+    "dev:web": "pnpm --filter @hachimi/web dev",
+    "dev:desktop": "pnpm --filter @hachimi/desktop dev",
+    "dev:telegram": "tsx packages/channels/telegram/src/bot.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:tui": "bash scripts/tui-e2e.sh",
+    "smoke:mock": "vitest run tests/smoke/smoke.test.ts",
+    "eval": "vitest run packages/evals/src/evals.test.ts",
+    "clear:sessions": "tsx scripts/clear-sessions.ts",
+    "clear:memories": "tsx scripts/clear-memories.ts"
+  },
+  "pnpm": {
+    "verifyDepsBeforeRun": false
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.5",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.13.10",
+    "tsx": "^4.23.1",
+    "typescript": "^5.8.2",
+    "vitest": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.10"
+  }
+}

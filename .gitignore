@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+**/dist/
+dist-electron/
+**/dist-electron/
+out/
+**/out/
+.vite/
+**/.vite/
+.output/
+
+# Logs & Temp files
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Environment & Config secrets
+.env
+.env.*
+!.env.example
+config.json
+
+# System & OS
+.DS_Store
+Thumbs.db
+_analysis/
+
+# IDE & Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# TypeScript & Test
+*.tsbuildinfo
+coverage/
+
+# Hachimi Data & SQLite Databases
+data/
+data-test*
+data-test*.json
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+.alma-snapshots
+
+Dockerfile

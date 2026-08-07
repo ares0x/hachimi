@@ -1,0 +1,152 @@
+// packages/core/src/agent/llm.ts
+
+import { generateId } from "@hachimi/shared";
+import type { LLMProvider, LLMResponse, Message, ToolDefinition } from "../types/index.js";
+
+export class MockLLMProvider implements LLMProvider {
+  /** P2-B8: 模拟真实 provider 返回归一化用量，供 harness/事件链路测试 */
+  private withUsage(res: LLMResponse): LLMResponse {
+    return {
+      ...res,
+      usage: {
+        inputTokens: 100,
+        outputTokens: 50,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 150,
+        costUsd: 0.0001,
+      },
+    };
+  }
+
+  async chat(messages: Message[], tools: ToolDefinition[] = []): Promise<LLMResponse> {
+    return this.withUsage(await this.rawChat(messages, tools));
+  }
+
+  private async rawChat(messages: Message[], tools: ToolDefinition[] = []): Promise<LLMResponse> {
+    const lastMessage = messages[messages.length - 1];
+
+    // 1. Tool result priority
+    if (lastMessage?.role === "tool") {
+      return { content: `计算结果是：${lastMessage.content}` };
+    }
+
+    // 2. Extract system message (Memories + Skills)
+    const systemMsg = messages.find((m) => m.role === "system");
+    const systemText = typeof systemMsg?.content === "string" ? systemMsg.content : "";
+    const hasMemory = systemText.length > 10;
+    const hasSkillsList = systemText.includes("技能列表") || systemText.includes("writing");
+
+    // 3. User input (ContentPart arrays: keep only text parts so mock works
+    // with vision attachments / described images in tests)
+    const lastUser = [...messages].reverse().find((m) => m.role === "user");
+    const userContent = Array.isArray(lastUser?.content)
+      ? lastUser.content
+          .filter((p) => p.type === "text")
+          .map((p) => (p.type === "text" ? p.text : ""))
+          .join(" ")
+      : typeof lastUser?.content === "string"
+        ? lastUser.content
+        : "";
+
+    // 4. Tool call matching (Calculator or generic tool call syntax)
+    const callMatch = userContent.match(/调用工具\s*([a-zA-Z0-9_-]+)/);
+    if (callMatch) {
+      const toolName = callMatch[1];
+      return {
+        content: null,
+        tool_calls: [
+          {
+            id: generateId("call_"),
+            name: toolName,
+            arguments: {},
+          },
+        ],
+      };
+    }
+
+    const hasCalculator = tools.some((t) => t.name === "calculator");
+    const calcMatch = userContent.match(/(\d+)\s*([+\-*/])\s*(\d+)/);
+    if (hasCalculator && calcMatch) {
+      const [, a, op, b] = calcMatch;
+      return {
+        content: null,
+        tool_calls: [
+          {
+            id: generateId("call_"),
+            name: "calculator",
+            arguments: { a: Number(a), b: Number(b), operator: op },
+          },
+        ],
+      };
+    }
+
+    // 5. Query skills
+    if (/你有哪些技能|你会什么|你的能力|你的技能/.test(userContent)) {
+      if (hasSkillsList) {
+        return {
+          content: `我目前配置了以下技能：\n- writing: 帮助用户进行写作、润色、改写和结构化表达\n- summary: 帮助用户总结文本、提取要点和生成摘要`,
+        };
+      }
+    }
+
+    // 6. W5 Eval cases (work_recovery, permission_deny, plan_then_act)
+    if (/第二步|格式化刚才/.test(userContent)) {
+      return { content: "已成功从上一轮恢复并格式化 3 条 Error 日志数据。" };
+    }
+    if (/删除全局根目录|所有数据库/.test(userContent)) {
+      return { content: "抱歉，该高危操作有极大风险，已被安全策略拒绝限制，无法执行。" };
+    }
+    if (/制定计划|修改为 debug/.test(userContent)) {
+      return { content: "执行计划如下：\n步骤 1. 读取 config.json；\n步骤 2. 修改为 debug 模式。" };
+    }
+
+    // 7. Reply logic with memory
+    if (hasMemory) {
+      // 1. Identity
+      if (/我是谁|名字|叫什么/.test(userContent)) {
+        return { content: "你是小明。根据记忆，你喜欢简洁的回答。" };
+      }
+      // 2. Project
+      if (/项目|在做|开发什么|hachimi/.test(userContent)) {
+        return { content: "你正在开发一个叫 hachimi 的个人助理项目。" };
+      }
+      // 3. Tech stack
+      if (/技术|用什么|前端|语言|TypeScript|Go/.test(userContent)) {
+        return { content: "你是一名前端开发者，熟悉 TypeScript 和 Go。" };
+      }
+      // 4. Preferences / Beverage
+      if (/喜欢|喜好|喝什么|爱喝|咖啡/.test(userContent)) {
+        if (systemText.includes("手冲咖啡") || systemText.includes("咖啡")) {
+          return { content: "根据我的记忆，你喜欢喝手冲咖啡。" };
+        }
+      }
+      // 5. Generic memory response
+      return {
+        content: `我参考了记忆后回答：${userContent}`,
+      };
+    }
+
+    // 8. Default response
+    return {
+      content: `我是 hachimi 的 MockLLM。你刚才说：${userContent}`,
+    };
+  }
+
+  async chatStream(
+    messages: Message[],
+    tools: ToolDefinition[] = [],
+    onChunk?: (chunk: string) => void
+  ): Promise<LLMResponse> {
+    const res = await this.chat(messages, tools);
+    if (res.content && onChunk) {
+      // Simulate chunked typing output stream
+      const text = res.content;
+      const chunkSize = 5;
+      for (let i = 0; i < text.length; i += chunkSize) {
+        onChunk(text.substring(i, i + chunkSize));
+      }
+    }
+    return res;
+  }
+}
